@@ -26,10 +26,20 @@ import scala.collection.mutable.HashMap
 class ShopifyContext {
 
   private val (endpoint,apikey,password) = Configuration.shopify
+  /*
+   * The 'apikey' is used as the 'site' parameter when indexing
+   * Shopify data with Elasticsearch
+   */
   private val conf = new ShopifyConfiguration(endpoint,apikey,password)
   
   private val client = new ShopifyClient(conf)
   
+  /**
+   * This method is responsible for retrieving a set of orders representing
+   * a certain time period; in order to e.g. fill a transaction darabase for
+   * later data mining and predictive analytics, this method may be called
+   * multiple times (e.g. with the help of a scheduler)
+   */
   def getOrders(req:ServiceRequest) {
     
     val params = validateOrderParams(req.data)
@@ -38,7 +48,10 @@ class ShopifyContext {
     // TODO
     
   }
-  
+  /**
+   * This method is used to format a certain timestamp, provided with 
+   * a request to collect data from a certain Shopify store
+   */
   private def formatted(time:Long):String = {
     
     val format = new SimpleDateFormat("yyyy-MM-dd hh:mm" )

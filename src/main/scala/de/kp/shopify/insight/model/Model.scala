@@ -35,6 +35,37 @@ case class ActorStatus(
 
 case class ActorsStatus(items:List[ActorStatus])
 
+/**
+ * OrderItem is used to describe a single order or purchase
+ * related entity that is indexed in an Elasticsearch index 
+ * for later mining and prediction tasks
+ */
+case class OrderItem(
+  /* 
+   * The 'apikey' of the Shopify cloud service is used as a
+   * unique identifier for the respective tenant or website
+   */
+  site:String,
+  /*
+   * Unique identifier that designates a certain Shopify
+   * store customer (see ShopifyCustomer) 
+   */
+  user:String,
+  /*
+   * The timestamp for a certain Shopify order
+   */
+  timestamp:Long,
+  /*
+   * The group identifier is equal to the order identifier
+   * used in Shopify orders
+   */
+  group:String,
+  /*
+   * Unique identifier to determine a Shopify product
+   */
+  item:Int
+)
+
 object ResponseStatus {
   
   val FAILURE:String = "failure"
