@@ -18,23 +18,23 @@ package de.kp.shopify.insight.model
  * If not, see <http://www.gnu.org/licenses/>.
  */
 
-object ShopifyStatus extends Enumeration {
+object FinancialStatus {
+  
+  private val statuses = List("authorized","pending","paid","partially_paid","refunded","voided","partially_refunded","any","unpaid")
+  def isStatus(status:String):Boolean = statuses.contains(status)
 
-  type ShopifyStatus = Value
-  val ANY,
-    AUTHORIZED,
-    CANCELLED,
-    CLOSED,
-    OPEN,
-    PAID,
-    PARTIAL,
-    PARTIALLY_PAID,
-    PARTIALLY_REFUNDED,
-    PENDING,
-    REFUNDED,
-    SHIPPED,
-    UNPAID,
-    UNSHIPPED,
-    VOIDED = Value
+}   
 
+object FulfillmentStatus {
+  
+  private val statuses = List("shipped","partial","unshipped","any")
+  def isStatus(status:String):Boolean = statuses.contains(status)
+  
+}
+
+object Status {
+  
+  private val statuses = List("open","closed","cancelled","any")
+  def isStatus(status:String):Boolean = statuses.contains(status)
+  
 }

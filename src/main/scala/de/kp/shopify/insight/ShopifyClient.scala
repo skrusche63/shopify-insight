@@ -51,8 +51,10 @@ class ShopifyClient(configuration:ShopifyConfiguration) {
   
   def getProductVariant(sku:String):ShopifyProductVariant = {
     
-    val query = new ShopifyQueryBuilder().withFields(List("id", "sku")).build()
-    val response = getResponse("variants.json", query, null, HttpMethod.GET)
+    val params = HashMap.empty[String,String]
+    params += "field" -> "id,sku"
+    
+    val response = getResponse("variants.json", params.toMap, null, HttpMethod.GET)
     
     val variants = response.productVariants
     for (variant <- variants) {
@@ -79,39 +81,25 @@ class ShopifyClient(configuration:ShopifyConfiguration) {
     getResponse("orders/" + orderId + ".json", null, null, HttpMethod.GET).order
   }
 
-  def queryOrders(query:ShopifyQuery):List[ShopifyOrder] = {
-    getResponse("orders.json", query, null, HttpMethod.GET).orders
+  def getOrders(params:Map[String,String]):List[ShopifyOrder] = {
+    getResponse("orders.json", params, null, HttpMethod.GET).orders
   }
 
   def closeOrder(orderId:Long):ShopifyOrder = {
     getResponse("orders/" + orderId + "/close.json", null, null, HttpMethod.POST).order
   }
 
-  private def getResponse(resourcePath:String,query:ShopifyQuery,request:ShopifyRequest,method:String):ShopifyResponse = {
-
-    val parameterMap = HashMap.empty[String,String]
+  private def getResponse(resourcePath:String,params:Map[String,String],request:ShopifyRequest,method:String):ShopifyResponse = {
        
     try {
       
       var queryTarget = webTarget.path(resourcePath)
-      if (query != null) {
-        
-        if (query.fields != null) {
-          parameterMap += "fields" -> query.fields.mkString(",")
-        }
 
-        if (query.sinceId != -1) {
-          parameterMap += "since_id" -> query.sinceId.toString
-        }
-
-        for (entry <- parameterMap) {
-          val (k,v) = entry
-          queryTarget = queryTarget.queryParam(k,v)
-        }
-
+      for (entry <- params) {
+        val (k,v) = entry
+        queryTarget = queryTarget.queryParam(k,v)
       }
 
-      val params = parameterMap.toMap
       val message = String.format("""Request parameters: %s %s""",resourcePath,params)
       
       LOG.info(message)
