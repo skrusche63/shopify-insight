@@ -42,6 +42,17 @@ object ResponseStatus {
     
 }
 
+object Serializer {
+    
+  implicit val formats = Serialization.formats(NoTypeHints)
+
+  def serializeActorsStatus(stati:ActorsStatus):String = write(stati)
+ 
+  def serializeRequest(request:ServiceRequest):String = write(request)
+  def deserializeResponse(response:String):ServiceResponse = read[ServiceResponse](response)
+
+}
+
 object Services {
   /*
    * Shopifyinsight. supports Association Analysis; the respective request

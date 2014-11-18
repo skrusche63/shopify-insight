@@ -21,30 +21,40 @@ package de.kp.shopify.insight.actor
 import akka.actor.{Actor,ActorLogging}
 import de.kp.shopify.insight.model._
 
-abstract class BaseActor extends Actor with ActorLogging {
-  
-  protected def isValid(req:ServiceRequest):Boolean = {
-    
-    val service = req.service
-    if (Services.isService(service) == false)
-      return false
-      
-    true
-    
-  }
+import scala.concurrent.Future
 
-  protected def failure(req:ServiceRequest,message:String):ServiceResponse = {
+abstract class BaseActor extends Actor with ActorLogging {
+
+  implicit val ec = context.dispatcher
+
+  def receive = {
     
-    if (req == null) {
-      val data = Map("message" -> message)
-      new ServiceResponse("","",data,ResponseStatus.FAILURE)	
+    case req:ServiceRequest => {
       
-    } else {
-      val data = Map("uid" -> req.data("uid"), "message" -> message)
-      new ServiceResponse(req.service,req.task,data,ResponseStatus.FAILURE)	
-    
+      val origin = sender
+      
+      val service = req.service
+      val message = Serializer.serializeRequest(req)
+      
+      val response = getResponse(service,message)     
+      response.onSuccess {
+        case result => origin ! Serializer.deserializeResponse(result)
+      }
+      response.onFailure {
+        case result => origin ! failure(req)	 	      
+	  }
+      
     }
     
   }
+  
+  protected def failure(req:ServiceRequest):ServiceResponse = {
+    
+    val uid = req.data("uid")    
+    new ServiceResponse(req.service,req.task,Map("uid" -> uid),ResponseStatus.FAILURE)	
+  
+  }
+
+  protected def getResponse(service:String,message:String):Future[String]
 
 }
