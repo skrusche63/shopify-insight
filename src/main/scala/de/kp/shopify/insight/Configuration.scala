@@ -26,15 +26,23 @@ object Configuration {
   val path = "application.conf"
   val config = ConfigFactory.load(path)
 
-  def actor():(Int,Int,Int) = {
+  def actor():(Int,Int) = {
   
     val cfg = config.getConfig("actor")
-
-    val duration = cfg.getInt("duration")
-    val retries = cfg.getInt("retries")  
+    
+    val heartbeat = cfg.getInt("heartbeat")
     val timeout = cfg.getInt("timeout")
     
-    (duration,retries,timeout)
+    (heartbeat,timeout)
+    
+  }
+
+  def cache():Int = {
+  
+    val cfg = config.getConfig("cache")
+    val size = cfg.getInt("size")
+    
+    size
     
   }
 
@@ -48,6 +56,18 @@ object Configuration {
     (host,port)
     
   }
+
+  def router():(Int,Int,Int) = {
+  
+    val cfg = config.getConfig("router")
+  
+    val time    = cfg.getInt("time")
+    val retries = cfg.getInt("retries")  
+    val workers = cfg.getInt("workers")
+    
+    (time,retries,workers)
+
+  }
   
   def shopify():(String,String,String) = {
   
@@ -60,6 +80,17 @@ object Configuration {
     
     (endpoint,apikey,password)
     
+  }
+  
+  def spark():Map[String,String] = {
+  
+    val cfg = config.getConfig("spark")
+    
+    Map(
+      "spark.executor.memory"          -> cfg.getString("spark.executor.memory"),
+	  "spark.kryoserializer.buffer.mb" -> cfg.getString("spark.kryoserializer.buffer.mb")
+    )
+
   }
   
 }
