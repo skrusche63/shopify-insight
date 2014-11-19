@@ -88,6 +88,20 @@ class MonitoredActor(name:String) extends Actor with ActorLogging {
     new ServiceResponse(req.service,req.task,Map("uid" -> uid),ResponseStatus.FAILURE)	
   
   }
+ 
+  protected def failure(req:ServiceRequest,message:String):ServiceResponse = {
+    
+    if (req == null) {
+      val data = Map("message" -> message)
+      new ServiceResponse("","",data,ResponseStatus.FAILURE)	
+      
+    } else {
+      val data = Map("uid" -> req.data("uid"), "message" -> message)
+      new ServiceResponse(req.service,req.task,data,ResponseStatus.FAILURE)	
+    
+    }
+    
+  }
 
   def register(name:String) {
       

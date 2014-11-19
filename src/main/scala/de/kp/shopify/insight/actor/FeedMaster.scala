@@ -18,73 +18,11 @@ package de.kp.shopify.insight.actor
 * If not, see <http://www.gnu.org/licenses/>.
 */
 
-import akka.actor.{Props}
-
-import akka.pattern.ask
-import akka.util.Timeout
-
+import akka.actor.Props
 import akka.routing.RoundRobinRouter
 
-import de.kp.shopify.insight.ShopifyContext
-import de.kp.shopify.insight.model._
+class FeedMaster(name:String) extends MasterActor(name) {
 
-import scala.concurrent.duration.DurationInt
-
-class FeedMaster(name:String) extends MonitoredActor(name) {
-  /*
-   * The ShopifyMaster has to perform two subsequent tasks; first the
-   * request specific data must be retrieved from a Shopify store, and
-   * second the respective data have to indexed in an Elasticsearch index
-   */ 
-
-  protected val shopifyCtx = new ShopifyContext()
-  protected val collector = context.actorOf(Props(new CollectWorker(shopifyCtx)).withRouter(RoundRobinRouter(workers)))
+  override val router = context.actorOf(Props(new FeedWorker(ctx)).withRouter(RoundRobinRouter(workers)))
   
-  override def receive = {
-    /*
-     * Message sent by the scheduler to track the 'heartbeat' of this actor
-     */
-    case req:AliveMessage => register(name)
-
-    case req:ServiceRequest => {
-      
-      implicit val timeout:Timeout = DurationInt(time).second
-	  	    
-	  val origin = sender
-	  
-	  req.task.split(":")(0) match {
-	  
-        case "collect" => {
-          /*
-           * We send the request to the 
-           */
-          //TODO
-          
-        }
-        
-        case "index" => {
-          /*
-           * This task specifies the second task for the ShopifyMaster and
-           * performs indexing of data collected from a Shopify store
-           */
-          val response = ask(router, req).mapTo[ServiceResponse]
-      
-          response.onSuccess {
-            case result => origin ! result
-          }
-          response.onFailure {
-            case result => origin ! failure(req)      
-	      }
-        
-        }
-        
-        case _ => 
-      
-      }
-    
-    }
-    
-    case _ => {}
-  
-  }
 }

@@ -72,23 +72,26 @@ class ShopifyClient(configuration:ShopifyConfiguration) {
     getResponse("variants/" + productVariantId + ".json", null, null, HttpMethod.GET).productVariant
   }
 
-  def updateProductVariant(productVariant:ShopifyProductVariant):ShopifyProductVariant = {
-    val request = new ShopifyRequest(productVariant)
-    getResponse("variants/" + productVariant.id + ".json", null, request, HttpMethod.PUT).productVariant
-  }
-
   def getOrder(orderId:Long):ShopifyOrder = {
     getResponse("orders/" + orderId + ".json", null, null, HttpMethod.GET).order
   }
 
+  /**
+   * Retrieve all orders that match the provided parameters
+   * from a certain Shopify store
+   */
   def getOrders(params:Map[String,String]):List[ShopifyOrder] = {
     getResponse("orders.json", params, null, HttpMethod.GET).orders
   }
-
-  def closeOrder(orderId:Long):ShopifyOrder = {
-    getResponse("orders/" + orderId + "/close.json", null, null, HttpMethod.POST).order
+  
+  /**
+   * Retrieve all products that match the provided parameters
+   * from a certain Shopify store
+   */
+  def getProducts(params:Map[String,String]):List[ShopifyProduct] = {
+    getResponse("products.json", params, null, HttpMethod.GET).products
   }
-
+  
   private def getResponse(resourcePath:String,params:Map[String,String],request:ShopifyRequest,method:String):ShopifyResponse = {
        
     try {

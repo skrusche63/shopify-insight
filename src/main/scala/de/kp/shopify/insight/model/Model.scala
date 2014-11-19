@@ -109,8 +109,63 @@ object Serializer {
   def serializeActorsStatus(stati:ActorsStatus):String = write(stati)
  
   def serializeRequest(request:ServiceRequest):String = write(request)
+   
+  def serializeResponse(response:ServiceResponse):String = write(response) 
   def deserializeResponse(response:String):ServiceResponse = read[ServiceResponse](response)
 
+}
+
+/**
+ * Elements specify which data descriptions have to be pre-built
+ * in an Elasticsearch index; these indexes are used to persist
+ * trackable data and also mining results
+ */
+object Elements {
+  
+  val AMOUNT:String = "amount"
+  
+  val FEATURE:String = "feature"
+
+  val ITEM:String = "item"
+  
+  val RULE:String = "rule"
+    
+  val SEQUENCE:String = "sequence"
+
+  val elements = List(AMOUNT,FEATURE,ITEM,RULE,SEQUENCE)
+  
+  def isElement(element:String):Boolean = elements.contains(element)
+  
+}
+
+object Messages {
+
+  def TASK_IS_UNKNOWN(uid:String,task:String):String = 
+    String.format("""[UID: %s] The task '%s' is unknown.""", uid, task)
+  
+}
+
+/**
+ * Metadata specifies the information topics that are actually supported
+ * when registering metadata (or field description) for a certain predictive
+ * engine
+ */
+object Metadata {
+  
+  val FEATURE:String = "feature"
+  
+  val FIELD:String = "field"
+
+  val LOYALTY:String = "loyalty"
+    
+  val PURCHASE:String = "purchase"
+    
+  val SEQUENCE:String = "sequence"
+
+  val fields = List(FEATURE,FIELD,LOYALTY,PURCHASE,SEQUENCE)
+  
+  def isMetadata(field:String):Boolean = fields.contains(field)
+  
 }
 
 object Services {

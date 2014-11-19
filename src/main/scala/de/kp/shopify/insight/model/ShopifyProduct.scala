@@ -24,6 +24,33 @@ import com.fasterxml.jackson.annotation.{JsonIgnoreProperties, JsonIgnore}
 @JsonIgnoreProperties(ignoreUnknown = true)
 case class ShopifyProduct (
 
+  @JsonProperty("id")
+  id:Long,
+
+  /*
+   * HTML description of a specific product
+   */
+  @JsonProperty("html_body")
+  html_body:String,
+
+  @JsonProperty("created_at")
+  created_at:String,
+
+  @JsonProperty("product_type")
+  product_type:String,
+
+  @JsonProperty("vendor")
+  vendor:String,
+
+  @JsonProperty("title")
+  title:String,
+
+  /*
+   * A comma-separated list of tags
+   */
+  @JsonProperty("tags")
+  tags:String,
+
   @JsonProperty("variants")
   variants:List[ShopifyProductVariant]
 
