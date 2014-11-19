@@ -54,6 +54,13 @@ abstract class BaseActor extends Actor with ActorLogging {
     new ServiceResponse(req.service,req.task,Map("uid" -> uid),ResponseStatus.FAILURE)	
   
   }
+  
+  protected def failure(req:ServiceRequest,message:String):ServiceResponse = {
+    
+    val uid = req.data("uid")    
+    new ServiceResponse(req.service,req.task,Map("uid" -> uid,"message" -> message),ResponseStatus.FAILURE)	
+  
+  }
 
   protected def getResponse(service:String,message:String):Future[String]
 

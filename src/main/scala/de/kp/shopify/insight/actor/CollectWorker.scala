@@ -19,10 +19,48 @@ package de.kp.shopify.insight.actor
 */
 
 import de.kp.shopify.insight.ShopifyContext
+import de.kp.shopify.insight.model._
+
+import scala.concurrent.Future
 
 class CollectWorker(ctx:ShopifyContext) extends BaseActor {
+  
+  override def receive = {
+    
+    case req:ServiceRequest => {
+      /*
+       * This request is sent by the FeedMaster; after having 
+       * retrieved and transformed the data from a certain store,
+       * the sender is informed to index the respective data
+       */
+      val origin = sender
 
-  // TODO
+      try {
+        /*
+         * Retrieve orders from a certain shopify store and
+         * convert them into an internal format 
+         */
+        val orders = ctx.getOrders(req)
+        /*
+         * Send converted orders to sender and index them
+         * in an Elasticsearch index
+         */
+        
+        // TODO
+        
+        
+      } catch {
+        case e:Exception => origin ! failure(req,e.getMessage)
+
+      }
+      
+    }
+    
+  }
+
+  /**
+   * This method is not used by this actor
+   */
   override def getResponse(service:String,message:String) = null
 
 }

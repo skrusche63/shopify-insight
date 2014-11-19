@@ -43,10 +43,10 @@ case class ShopifyLineItem (
   price:String,
 
   @JsonProperty("product_id")
-  productId:String,
+  product_id:Long,
 
   @JsonProperty("quantity")
-  quantity:String,
+  quantity:Int,
 
   @JsonProperty("requires_shipping")
   requiresShipping:String,
@@ -54,14 +54,14 @@ case class ShopifyLineItem (
   @JsonProperty("sku")
   sku:String,
 
-  @JsonProperty("taxlable")
+  @JsonProperty("taxable")
   taxable:String,
 
   @JsonProperty("title")
   title:String,
 
   @JsonProperty("variant_id")
-  variantId:String,
+  variant_id:Long,
 
   @JsonProperty("variant_title")
   variantTitle:String,

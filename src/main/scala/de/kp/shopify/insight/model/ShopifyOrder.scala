@@ -27,6 +27,37 @@ case class ShopifyOrder(
   @JsonProperty("id")
   id:Long,
 
+  /*
+   * The datetime this order was created; the format used is:
+   * "2014-11-03T13:51:38-05:00"
+   */
+  
+  @JsonProperty("created_at")
+  created_at:String,
+
+  @JsonProperty("currency")
+  currency:String,
+
+  /*
+   * The number of items in an order; it should be equal to
+   * the size of the provided line items
+   */
+
+  @JsonProperty("number")
+  number:Int,
+
+  /*
+   * Price related data
+   */
+  @JsonProperty("total_discounts")
+  total_discounts:String,
+
+  @JsonProperty("total_price")
+  total_price:String,
+
+  @JsonProperty("total_tax")
+  total_tax:String,
+  
   @JsonProperty("customer")
   customer:ShopifyCustomer,
 

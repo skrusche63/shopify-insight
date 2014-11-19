@@ -151,7 +151,20 @@
 	  <artifactId>json4s-native_2.10</artifactId>
 	  <version>3.2.10</version>
     </dependency>
-  
+    
+    <!--  jodatime -->
+    <dependency>
+	  <groupId>joda-time</groupId>
+	  <artifactId>joda-time</artifactId>
+	  <version>2.5</version>
+    </dependency>  
+
+    <dependency>
+	  <groupId>org.joda</groupId>
+	  <artifactId>joda-convert</artifactId>
+	  <version>1.2</version>
+    </dependency>
+      
   </dependencies>
   
   <repositories>

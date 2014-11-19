@@ -18,8 +18,10 @@ package de.kp.shopify.insight
 * If not, see <http://www.gnu.org/licenses/>.
 */
 
-import java.text.SimpleDateFormat
+import org.joda.time.format.DateTimeFormat
+
 import de.kp.shopify.insight.model._
+import de.kp.shopify.insight.io.ItemBuilder
 
 import scala.collection.mutable.HashMap
 
@@ -40,12 +42,17 @@ class ShopifyContext {
    * later data mining and predictive analytics, this method may be called
    * multiple times (e.g. with the help of a scheduler)
    */
-  def getOrders(req:ServiceRequest) {
+  def getOrders(req:ServiceRequest):List[Order] = {
     
     val params = validateOrderParams(req.data)
     val orders = client.getOrders(params)
     
-    // TODO
+    orders.map(order => {
+      
+      val items = ItemBuilder.build(apikey,order)
+      new Order(items)
+      
+    })
     
   }
   /**
@@ -53,13 +60,12 @@ class ShopifyContext {
    * a request to collect data from a certain Shopify store
    */
   private def formatted(time:Long):String = {
+
+    //2008-12-31 03:00
+    val pattern = "yyyy-MM-dd HH:mm"
+    val formatter = DateTimeFormat.forPattern(pattern)
     
-    val format = new SimpleDateFormat("yyyy-MM-dd hh:mm" )
-      
-    val date = new java.util.Date()
-    date.setTime(time)
-      
-    format.format(date)
+    formatter.print(time)
     
   }
   /**

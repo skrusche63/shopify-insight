@@ -63,8 +63,37 @@ case class OrderItem(
   /*
    * Unique identifier to determine a Shopify product
    */
-  item:Int
+  item:Int,
+  /*
+   * The name of a certain product; this information is
+   * to describe the mining & prediction results more 
+   * user friendly; the name is optional
+   */
+  name:String = "",
+  /*
+   * The number of items of a certain product within
+   * an order; the quantity is optional; if not provided,
+   * the item is considered only once in the respective
+   * market basket analysis
+   */
+  quantity:Int = 0,
+  /*
+   * Currency used with the respective order    
+   */     
+  currency:String = "USD",
+  /*
+   * Price of the item 
+   */
+  price:String = "",
+  /*
+   * SKU 
+   */
+  sku:String = ""
+  
 )
+
+case class Order(items:List[OrderItem])
+case class Orders(items:List[Order])
 
 object ResponseStatus {
   
