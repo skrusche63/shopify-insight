@@ -104,10 +104,10 @@ class RestApi(host:String,port:Int,system:ActorSystem,@transient val sc:SparkCon
      * configured shopify store are collected and registered in an
      * Elasticsearch index
      */
-    path("feed" / Segment) {subject => 
+    path("feed" / Segment / Segment) {(service,subject) => 
 	  post {
 	    respondWithStatus(OK) {
-	      ctx => doFeed(ctx,subject)
+	      ctx => doFeed(ctx,service,subject)
 	    }
 	  }
     }  ~ 
@@ -182,10 +182,9 @@ class RestApi(host:String,port:Int,system:ActorSystem,@transient val sc:SparkCon
     }
   
   }
-  private def doFeed[T](ctx:RequestContext,subject:String) = {
+  private def doFeed[T](ctx:RequestContext,engine:String,subject:String) = {
     
-    val engine = "feeder"
-    if (List("order","product").contains(subject)) {
+    if (Services.isService(engine) && List("order","product").contains(subject)) {
       
       val task = "feed:" + subject
       val request = new ServiceRequest(engine,task,getRequest(ctx))

@@ -19,6 +19,8 @@ package de.kp.shopify.insight.actor
 */
 
 import de.kp.shopify.insight.{RemoteContext,ShopifyContext}
+import de.kp.shopify.insight.io.RequestBuilder
+
 import de.kp.shopify.insight.model._
 
 class FeedWorker(ctx:RemoteContext) extends WorkerActor(ctx) {
@@ -42,22 +44,25 @@ class FeedWorker(ctx:RemoteContext) extends WorkerActor(ctx) {
              */
             val orders = stx.getOrders(req)
 
-            /*
-             * Build tracking request to send the collected orders
-             * to the selected service or engine
-             */
-            val request:ServiceRequest = null // TODO           
-            
-            val message = Serializer.serializeRequest(request)
+            val uid = req.data("uid")      
+            val data = Map("uid" -> uid, "message" -> Messages.TRACKING_DATA_RECEIVED(uid))
       
-            val response = getResponse(service,message)     
-            response.onSuccess {
-              case result => origin ! Serializer.deserializeResponse(result)
-            }
-            response.onFailure {
-              case result => origin ! failure(req)	 	      
-	        }
+            val response = new ServiceResponse(req.service,req.task,data,ResponseStatus.SUCCESS)	
+            origin ! Serializer.serializeResponse(response)
+
+            /*
+             * Build tracking requests to send the collected orders
+             * to the respective service or engine; the orders are
+             * sent independently following a fire-and-forget strategy
+             */
+            for (order <- orders) {
             
+              val request = new RequestBuilder().build(req,order)           
+              val message = Serializer.serializeRequest(request)
+      
+              ctx.send(service,message)
+            
+            }            
           }
           
           case "product" => {
@@ -78,5 +83,6 @@ class FeedWorker(ctx:RemoteContext) extends WorkerActor(ctx) {
     }
     
   }
+  override def getResponse(service:String,message:String) = ctx.send(service,message).mapTo[String] 
 
 }

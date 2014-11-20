@@ -11,12 +11,12 @@ MarketBasket Analysis to their orders, compute Product Recommendations and more.
 
 The REST API of Shopifyinsights. actually supports the following requests:
 
-#### POST /feed/order
+#### POST /feed/{engine}/order
 
 Collect orders from a specific Shopify store and index into an Elasticsearch index. Orders of a 
 certain time period form the base of market basket analysis.
 
-#### POST /feed/product
+#### POST /feed/{engine}/product
 
 Collect product data from a specific Shopify store.
 
