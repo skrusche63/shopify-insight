@@ -55,6 +55,9 @@ class ShopifyContext {
     })
     
   }
+  
+  def getProduct(pid:Long) = client.getProduct(pid)
+  
   /**
    * This method is used to format a certain timestamp, provided with 
    * a request to collect data from a certain Shopify store

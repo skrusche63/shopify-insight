@@ -28,11 +28,8 @@ import akka.pattern.ask
 import akka.util.Timeout
 
 import spray.http.StatusCodes._
-import spray.httpx.encoding.Gzip
-import spray.httpx.marshalling.Marshaller
 
 import spray.routing.{Directives,HttpService,RequestContext,Route}
-import spray.routing.directives.EncodingDirectives
 import spray.routing.directives.CachingDirectives
 
 import scala.concurrent.{ExecutionContext}
@@ -41,7 +38,7 @@ import scala.concurrent.duration.DurationInt
 
 import scala.util.parsing.json._
 
-import de.kp.shopify.insight.actor.{MasterActor,FeedMaster}
+import de.kp.shopify.insight.actor.{FeedMaster,FindMaster,MasterActor}
 import de.kp.shopify.insight.Configuration
 
 import de.kp.shopify.insight.model._
@@ -92,7 +89,7 @@ class RestApi(host:String,port:Int,system:ActorSystem,@transient val sc:SparkCon
    * This master actor is responsible for retrieving data mining results and predictions
    * and merging these results with data from shopify stores
    */
-  val finder = system.actorOf(Props(new MasterActor("FindMaster")), name="FindMaster")
+  val finder = system.actorOf(Props(new FindMaster("FindMaster")), name="FindMaster")
  
   def start() {
     RestService.start(routes,system,host,port)
@@ -182,6 +179,14 @@ class RestApi(host:String,port:Int,system:ActorSystem,@transient val sc:SparkCon
     }
   
   }
+  /**
+   * Feeding is an administrative task to collect data from a certain
+   * shopify store and register them in an Elasticsearch index. 
+   * 
+   * The data representation depends on the engine selected, e.g. association
+   * analysis is based on the identifier of a certain line item, while intent
+   * recognition requires the order and so on.
+   */
   private def doFeed[T](ctx:RequestContext,engine:String,subject:String) = {
     
     if (Services.isService(engine) && List("order","product").contains(subject)) {
@@ -200,12 +205,29 @@ class RestApi(host:String,port:Int,system:ActorSystem,@transient val sc:SparkCon
 
   }
   
-  /**
-   * The PredictiveWorks. client determines whether the provided service 
-   * or concept is supported; the REST API is responsible for delegating
-   * the request to the respective master actors as fast as possible
-   */
-  private def doGet[T](ctx:RequestContext,service:String,subject:String) = doRequest(ctx,service,"get:" + subject)
+  private def doGet[T](ctx:RequestContext,engine:String,subject:String) = {
+    /*
+     * It is validated whether the engine specified is available and
+     * whether the subject provided is a valid element specification;
+     * we do not make cross-reference checks and ensure existing business
+     * rules between {engine} and {subject}
+     */    
+    if (Services.isService(engine) && Tasks.isTask(subject)) {
+      
+      val task = "get:" + subject
+      val request = new ServiceRequest(engine,task,getRequest(ctx))
+    
+      implicit val timeout:Timeout = DurationInt(time).second
+      
+      val response = ask(indexer,request) 
+      ctx.complete(response)
+      
+      
+    } else {
+      /* do nothing */      
+    }
+
+  }
   
   /**
    * Indexing is a common administrative task and is provided here to support
@@ -333,16 +355,6 @@ class RestApi(host:String,port:Int,system:ActorSystem,@transient val sc:SparkCon
     } else {      
       /* do nothing */
     }
-    
-  }
-  
-  private def doRequest[T](ctx:RequestContext,service:String,task:String) = {
-     
-    val request = new ServiceRequest(service,task,getRequest(ctx))
-    implicit val timeout:Timeout = DurationInt(time).second
-    
-    val response = ask(master(task),request).mapTo[ServiceResponse] 
-    ctx.complete(response)
     
   }
 

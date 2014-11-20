@@ -72,8 +72,8 @@ class ShopifyClient(configuration:ShopifyConfiguration) {
     getResponse("variants/" + productVariantId + ".json", null, null, HttpMethod.GET).productVariant
   }
 
-  def getOrder(orderId:Long):ShopifyOrder = {
-    getResponse("orders/" + orderId + ".json", null, null, HttpMethod.GET).order
+  def getOrder(oid:Long):ShopifyOrder = {
+    getResponse("orders/" + oid + ".json", null, null, HttpMethod.GET).order
   }
 
   /**
@@ -84,6 +84,9 @@ class ShopifyClient(configuration:ShopifyConfiguration) {
     getResponse("orders.json", params, null, HttpMethod.GET).orders
   }
   
+  def getProduct(pid:Long):ShopifyProduct = {
+    getResponse("products/" + pid + ".json", null, null, HttpMethod.GET).product    
+  }
   /**
    * Retrieve all products that match the provided parameters
    * from a certain Shopify store

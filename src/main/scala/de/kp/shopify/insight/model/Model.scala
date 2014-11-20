@@ -95,6 +95,27 @@ case class OrderItem(
 case class Order(items:List[OrderItem])
 case class Orders(items:List[Order])
 
+case class Recommendation(
+  /* A recommendation is described on a per user basis */
+  site:String,user:String,products:List[ShopifyProduct]
+)
+
+case class Recommendations(uid:String,items:List[Recommendation])
+
+/**
+ * A derived association rule that additionally specifies the matching weight
+ * between the antecent field and the respective field in mined and original
+ * association rules
+ */
+case class WeightedRule (
+  antecedent:List[Int],consequent:List[Int],support:Int,confidence:Double,weight:Double)
+/**
+ * A set of weighted rules assigned to a certain user of a specific site
+ */
+case class UserRules(site:String,user:String,items:List[WeightedRule])
+
+case class MultiUserRules(items:List[UserRules])
+
 object ResponseStatus {
   
   val FAILURE:String = "failure"
@@ -112,6 +133,8 @@ object Serializer {
    
   def serializeResponse(response:ServiceResponse):String = write(response) 
   def deserializeResponse(response:String):ServiceResponse = read[ServiceResponse](response)
+  /* Support for association analysis response */
+  def deserializeMultiUserRules(rules:String):MultiUserRules = read[MultiUserRules](rules)
 
 }
 
@@ -132,8 +155,7 @@ object Elements {
     
   val SEQUENCE:String = "sequence"
 
-  val elements = List(AMOUNT,FEATURE,ITEM,RULE,SEQUENCE)
-  
+  private val elements = List(AMOUNT,FEATURE,ITEM,RULE,SEQUENCE)  
   def isElement(element:String):Boolean = elements.contains(element)
   
 }
@@ -165,10 +187,18 @@ object Metadata {
     
   val SEQUENCE:String = "sequence"
 
-  val fields = List(FEATURE,FIELD,LOYALTY,PURCHASE,SEQUENCE)
-  
+  private val fields = List(FEATURE,FIELD,LOYALTY,PURCHASE,SEQUENCE)  
   def isMetadata(field:String):Boolean = fields.contains(field)
   
+}
+
+object Tasks {
+  
+  val RECOMMENDATION:String = "recommendation"
+  
+  private val tasks = List(RECOMMENDATION)
+  def isTask(task:String):Boolean = tasks.contains(task)
+    
 }
 
 object Services {
