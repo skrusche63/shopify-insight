@@ -35,30 +35,36 @@ class FindWorker(ctx:RemoteContext) extends WorkerActor(ctx) {
     case req:ServiceRequest => {
       
       val origin = sender
+      
       /*
        * STEP #1: Retrieve data from remote predictive engine
        */
       val service = req.service
       val message = Serializer.serializeRequest(req)
       
-      val response = getResponse(service,message)     
-      response.onSuccess {
+      try {
         
-        case result => {
-          /*
-           * STEP #2: Aggregate data from predictive engine with
-           * respective shopify data
-           */
-          val intermediate = Serializer.deserializeResponse(result)
-          origin ! buildResponse(req,intermediate)
+        val response = getResponse(service,message)     
+        response.onSuccess {
         
-        }
+          case result => {
+            /*
+             * STEP #2: Aggregate data from predictive engine with
+             * respective shopify data
+             */
+            val intermediate = Serializer.deserializeResponse(result)
+            origin ! buildResponse(req,intermediate)
+        
+          }
 
+        }
+        response.onFailure {
+          case throwable => origin ! failure(req,throwable.getMessage)	 	      
+	    }
+        
+      } catch {
+        case e:Exception => origin ! failure(req,e.getMessage)
       }
-      response.onFailure {
-        case result => origin ! failure(req)	 	      
-	  }
-      
     }
     
   }

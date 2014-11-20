@@ -32,18 +32,22 @@ abstract class BaseActor extends Actor with ActorLogging {
     case req:ServiceRequest => {
       
       val origin = sender
+      try {
       
-      val service = req.service
-      val message = Serializer.serializeRequest(req)
+        val service = req.service
+        val message = Serializer.serializeRequest(req)
       
-      val response = getResponse(service,message)     
-      response.onSuccess {
-        case result => origin ! Serializer.deserializeResponse(result)
+        val response = getResponse(service,message)     
+        response.onSuccess {
+          case result => origin ! Serializer.deserializeResponse(result)
+        }
+        response.onFailure {
+          case throwable => origin ! failure(req,throwable.getMessage)	 	      
+	    }
+      
+      } catch {
+        case e:Exception => origin ! failure(req,e.getMessage)  
       }
-      response.onFailure {
-        case result => origin ! failure(req)	 	      
-	  }
-      
     }
     
   }

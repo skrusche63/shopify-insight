@@ -51,6 +51,30 @@
       <scope>test</scope>
     </dependency>
 
+    <!-- spark core -->
+    <dependency>
+	  <groupId>org.apache.spark</groupId>
+	  <artifactId>spark-core_2.10</artifactId>
+	  <version>${spark.version}</version>
+	  <exclusions>
+	    <!-- 
+	    Apache Spark uses an elder version of jackson-mapper-asl (1.01), which
+	    is in conflict with other libraries used in this project
+	     -->
+        <exclusion>
+          <groupId>org.codehaus.jackson</groupId>
+          <artifactId>jackson-mapper-asl</artifactId>
+        </exclusion>
+	  </exclusions>
+    </dependency>
+
+    <!-- spark mllib -->
+    <dependency>
+	  <groupId>org.apache.spark</groupId>
+	  <artifactId>spark-mllib_2.10</artifactId>
+	  <version>${spark.version}</version>
+    </dependency>
+
     <dependency>
       <groupId>org.jboss.resteasy</groupId>
       <artifactId>resteasy-jaxb-provider</artifactId>
@@ -79,20 +103,6 @@
       <groupId>ch.qos.logback</groupId>
       <artifactId>logback-classic</artifactId>
       <version>1.1.2</version>
-    </dependency>
-
-    <!-- spark core -->
-    <dependency>
-	  <groupId>org.apache.spark</groupId>
-	  <artifactId>spark-core_2.10</artifactId>
-	  <version>${spark.version}</version>
-    </dependency>
-
-    <!-- spark mllib -->
-    <dependency>
-	  <groupId>org.apache.spark</groupId>
-	  <artifactId>spark-mllib_2.10</artifactId>
-	  <version>${spark.version}</version>
     </dependency>
     
     <dependency>

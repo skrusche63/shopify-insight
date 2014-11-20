@@ -68,16 +68,23 @@ class MonitoredActor(name:String) extends Actor with ActorLogging {
       implicit val timeout:Timeout = DurationInt(time).second
 	  	    
 	  val origin = sender
-      val response = ask(router, req)
-      
-      response.onSuccess {
-        case result => origin ! result
-      }
-      response.onFailure {
-        case result => origin ! failure(req)      
+	  try {
+	    
+        val response = ask(router, req)      
+        response.onSuccess {
+          case result => {
+            origin ! result
+          }
+        }
+        response.onFailure {
+          case throwable => origin ! failure(req,throwable.getMessage)      
+	    }
+        
+	  } catch {
+	    case e:Exception => origin ! failure(req,e.getMessage)
 	  }
-      
     }
+    
     case _ => {}
     
   }
