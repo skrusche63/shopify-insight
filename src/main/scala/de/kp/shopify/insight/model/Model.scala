@@ -23,6 +23,8 @@ import org.json4s._
 import org.json4s.native.Serialization
 import org.json4s.native.Serialization.{read,write}
 
+import de.kp.spark.core.model._
+
 case class ActorInfo(
   name:String,timestamp:Long
 )
@@ -95,12 +97,23 @@ case class OrderItem(
 case class Order(items:List[OrderItem])
 case class Orders(items:List[Order])
 
+/**
+ * A placement is a list of products that refers
+ * to the consequent part of an association rule
+ */
+case class Placement(products:List[ShopifyProduct])
+
 case class Recommendation(
   /* A recommendation is described on a per user basis */
   site:String,user:String,products:List[ShopifyProduct]
 )
 
 case class Recommendations(uid:String,items:List[Recommendation])
+
+case class Rule (
+  antecedent:List[Int],consequent:List[Int],support:Int,confidence:Double)
+
+case class Rules(items:List[Rule])
 
 /**
  * A derived association rule that additionally specifies the matching weight
@@ -116,25 +129,35 @@ case class UserRules(site:String,user:String,items:List[WeightedRule])
 
 case class MultiUserRules(items:List[UserRules])
 
-object ResponseStatus {
+object ResponseStatus extends BaseStatus
+
+object Statuses {
   
-  val FAILURE:String = "failure"
-  val SUCCESS:String = "success"
-    
+  val OPEN:String = "open"
+  val CLOSED:String = "closed"
+  
+  val CANCELLED:String = "cancelled"
+  val ANY:String = "any"
+
+  private val statuses = List(OPEN,CLOSED,CANCELLED,ANY)
+  def isStatus(status:String):Boolean = statuses.contains(status)
+  
 }
+object Serializer extends BaseSerializer {
 
-object Serializer {
-    
-  implicit val formats = Serialization.formats(NoTypeHints)
-
-  def serializeActorsStatus(stati:ActorsStatus):String = write(stati)
- 
-  def serializeRequest(request:ServiceRequest):String = write(request)
-   
-  def serializeResponse(response:ServiceResponse):String = write(response) 
+  def serializeActorsStatus(statuses:ActorsStatus):String = write(statuses) 
   def deserializeResponse(response:String):ServiceResponse = read[ServiceResponse](response)
-  /* Support for association analysis response */
-  def deserializeMultiUserRules(rules:String):MultiUserRules = read[MultiUserRules](rules)
+  
+  /** 
+   * Multi user rules specify the result of association analysis and are used to 
+   * build product recommendations built on top of association rules
+   */
+  def deserializeMultiUserRules(rules:String):MultiUserRules = read[MultiUserRules](rules)  
+  /**
+   * Rules are the result of either association or series analysis; rules e.g. used to
+   * answer questions about product placement
+   */
+  def deserializeRules(rules:String):Rules = read[Rules](rules)
 
 }
 
@@ -194,6 +217,7 @@ object Metadata {
 
 object Tasks {
   
+  val PLACEMENT:String = "placement"
   val RECOMMENDATION:String = "recommendation"
   
   private val tasks = List(RECOMMENDATION)
@@ -228,12 +252,40 @@ object Services {
   def isService(service:String):Boolean = services.contains(service)
   
 }
-/*
- * Request-Response protocol to interaction with Predictiveworks.
+
+/**
+ * The TaskMapper decouples external task descriptions from internal ones
  */
-case class ServiceRequest(
-  service:String,task:String,data:Map[String,String]
-)
-case class ServiceResponse(
-  service:String,task:String,data:Map[String,String],status:String
-)
+object TaskMapper {
+
+  def get(service:String,task:String):String = {
+    
+    service match {
+    
+      case Services.ASSOCIATION => {
+        
+        task match {
+          /*
+           * A product placement task is mapped onto
+           * the internal 'antecedent' task
+           */
+          case Tasks.PLACEMENT => "antecedent"
+          /*
+           * All other task are actually not mapped onto
+           * internal representation
+           */          
+          case _ => task
+        
+        }
+      
+      }
+      /*
+       * All other task are actually not mapped onto
+       * internal representation
+       */
+      case _ => task
+    }
+    
+  }
+
+}

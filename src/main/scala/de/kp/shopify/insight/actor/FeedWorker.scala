@@ -18,6 +18,8 @@ package de.kp.shopify.insight.actor
 * If not, see <http://www.gnu.org/licenses/>.
 */
 
+import de.kp.spark.core.model._
+
 import de.kp.shopify.insight.{RemoteContext,ShopifyContext}
 import de.kp.shopify.insight.io.RequestBuilder
 

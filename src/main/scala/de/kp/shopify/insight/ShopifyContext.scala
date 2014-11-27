@@ -19,6 +19,7 @@ package de.kp.shopify.insight
 */
 
 import org.joda.time.format.DateTimeFormat
+import de.kp.spark.core.model._
 
 import de.kp.shopify.insight.model._
 import de.kp.shopify.insight.io.ItemBuilder
@@ -212,7 +213,7 @@ class ShopifyContext {
        * 
        */
       val status = params("status")
-      if (Status.isStatus(status) == true) {
+      if (Statuses.isStatus(status) == true) {
         requestParams += "status" -> status
       
       } else {

@@ -18,6 +18,8 @@ package de.kp.shopify.insight.actor
 * If not, see <http://www.gnu.org/licenses/>.
 */
 
+import de.kp.spark.core.model._
+
 import de.kp.shopify.insight.{RemoteContext,ShopifyContext}
 import de.kp.shopify.insight.io.RequestBuilder
 
@@ -39,8 +41,14 @@ class FindWorker(ctx:RemoteContext) extends WorkerActor(ctx) {
       /*
        * STEP #1: Retrieve data from remote predictive engine
        */
-      val service = req.service
-      val message = Serializer.serializeRequest(req)
+      val service = req.service      
+      val itask = "get:" + TaskMapper.get(service,req.task.split(":")(1))
+      /*
+       * Hint: a 'placement' task is mapped onto the common 'antecedent' one,
+       * that is recognized by the Analysis Association engine
+       */
+      val intReq = new ServiceRequest(req.service,itask,req.data)
+      val message = Serializer.serializeRequest(intReq)
       
       try {
         
@@ -77,6 +85,24 @@ class FindWorker(ctx:RemoteContext) extends WorkerActor(ctx) {
         
         request.task.split(":")(1) match {
           
+          case Tasks.PLACEMENT => {
+            /* 
+             * The total number of products returned as placement 
+             * recommendation
+             */
+            val total = request.data("total").toInt
+              /*
+             * The rules returned match the antecedent part of the mined
+             * rules and are used to build product placements; note, that
+             * these rules are the result of a certain search query and
+             * usually refer to a single site 
+             */
+            val rules = Serializer.deserializeRules(request.data("rules"))
+            val items = getItems(rules.items,total)
+          
+            new Placement(getProducts(items))
+            
+          }
           case Tasks.RECOMMENDATION => {
             /* 
              * The total number of products returned as recommendations 
@@ -123,6 +149,41 @@ class FindWorker(ctx:RemoteContext) extends WorkerActor(ctx) {
     
   }
 
+  /**
+   * This private method returns items from a list of association rules
+   */
+  private def getItems(rules:List[Rule],total:Int):List[Int] = {
+    
+    val dataset = rules.map(rule => {
+      (rule.confidence,rule.support,rule.consequent)
+    })
+    
+    val sorted = dataset.sortBy(x => (-x._1, -x._2))
+    val len = sorted.length
+    
+    if (len == 0) return List.empty[Int]
+    
+    var items = List.empty[Int]
+    breakable {
+      
+      (0 until len).foreach( i => {
+        
+        items = items ++ sorted(i)._3
+        if (items.length >= total) break
+      
+      })
+      
+    }
+
+    items
+    
+  }
+  
+  /**
+   * This private method returns items from a list of weighted association 
+   * rules; the weight is used to specify the intersection of rule based
+   * antecedent and last customer transaction items
+   */
   private def getItems(rules:List[WeightedRule],total:Int):List[Int] = {
     
     val dataset = rules.map(rule => {

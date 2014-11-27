@@ -20,7 +20,8 @@ package de.kp.shopify.insight.rest
 
 import akka.actor.ActorSystem
 
-import de.kp.shopify.insight.{Configuration,SparkService}
+import de.kp.spark.core.SparkService
+import de.kp.shopify.insight.{Configuration}
 
 object RestServer extends SparkService {
   

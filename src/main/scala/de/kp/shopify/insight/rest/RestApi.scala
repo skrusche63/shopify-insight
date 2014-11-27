@@ -38,6 +38,9 @@ import scala.concurrent.duration.DurationInt
 
 import scala.util.parsing.json._
 
+import de.kp.spark.core.model._
+import de.kp.spark.core.rest.RestService
+
 import de.kp.shopify.insight.actor.{FeedMaster,FindMaster,MasterActor}
 import de.kp.shopify.insight.Configuration
 
@@ -46,7 +49,7 @@ import de.kp.shopify.insight.model._
 class RestApi(host:String,port:Int,system:ActorSystem,@transient val sc:SparkContext) extends HttpService with Directives {
 
   implicit val ec:ExecutionContext = system.dispatcher  
-  import de.kp.shopify.insight.rest.RestJsonSupport._
+  import de.kp.spark.core.rest.RestJsonSupport._
   
   override def actorRefFactory:ActorSystem = system
 
@@ -224,8 +227,20 @@ class RestApi(host:String,port:Int,system:ActorSystem,@transient val sc:SparkCon
         case result => {
           
           /* Different response type have to be distinguished */
-          if (result.isInstanceOf[Recommendations]) {
-            ctx.complete(result.asInstanceOf[Recommendations])
+          if (result.isInstanceOf[Placement]) {
+            /*
+             * A product placement is retrieved from the Association
+             * Analysis engine in combination with a Shopify request
+             */
+            ctx.complete(result.asInstanceOf[Placement])
+            
+          } else if (result.isInstanceOf[Recommendations]) {
+             /*
+             * Product recommendations is retrieved e.g. from the 
+             * Association Analysis engine in combination with a 
+             * Shopify request
+             */
+           ctx.complete(result.asInstanceOf[Recommendations])
             
           } else if (result.isInstanceOf[ServiceResponse]) {
             /*

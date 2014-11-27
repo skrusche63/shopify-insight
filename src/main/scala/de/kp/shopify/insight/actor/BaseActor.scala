@@ -19,6 +19,8 @@ package de.kp.shopify.insight.actor
 */
 
 import akka.actor.{Actor,ActorLogging}
+
+import de.kp.spark.core.model._
 import de.kp.shopify.insight.model._
 
 import scala.concurrent.Future

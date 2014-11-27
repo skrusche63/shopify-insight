@@ -28,6 +28,8 @@ import akka.util.Timeout
 import akka.actor.{OneForOneStrategy, SupervisorStrategy}
 import akka.routing.RoundRobinRouter
 
+import de.kp.spark.core.model._
+
 import de.kp.shopify.insight.{Configuration,RemoteContext}
 import de.kp.shopify.insight.model._
 
