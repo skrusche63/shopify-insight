@@ -96,7 +96,11 @@ case class OrderItem(
 
 case class Order(items:List[OrderItem])
 case class Orders(items:List[Order])
-
+/**
+ * A cross sell is a list of products that refers
+ * to the consequent part of an association rule
+ */
+case class CrossSell(products:List[ShopifyProduct])
 /**
  * A placement is a list of products that refers
  * to the consequent part of an association rule
@@ -146,7 +150,6 @@ object Statuses {
 object Serializer extends BaseSerializer {
 
   def serializeActorsStatus(statuses:ActorsStatus):String = write(statuses) 
-  def deserializeResponse(response:String):ServiceResponse = read[ServiceResponse](response)
   
   /** 
    * Multi user rules specify the result of association analysis and are used to 
@@ -217,7 +220,9 @@ object Metadata {
 
 object Tasks {
   
-  val PLACEMENT:String = "placement"
+  val CROSS_SELL:String = "cross_sell"
+  val PLACEMENT:String  = "placement"
+    
   val RECOMMENDATION:String = "recommendation"
   
   private val tasks = List(RECOMMENDATION)
@@ -265,6 +270,11 @@ object TaskMapper {
       case Services.ASSOCIATION => {
         
         task match {
+          /*
+           * A product placement task is mapped onto
+           * the internal 'antecedent' task
+           */
+          case Tasks.CROSS_SELL => "antecedent"
           /*
            * A product placement task is mapped onto
            * the internal 'antecedent' task

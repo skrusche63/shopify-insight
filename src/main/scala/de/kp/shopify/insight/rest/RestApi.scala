@@ -227,7 +227,14 @@ class RestApi(host:String,port:Int,system:ActorSystem,@transient val sc:SparkCon
         case result => {
           
           /* Different response type have to be distinguished */
-          if (result.isInstanceOf[Placement]) {
+          if (result.isInstanceOf[CrossSell]) {
+            /*
+             * A cross sell is retrieved from the Association Analysis 
+             * engine in combination with a Shopify request
+             */
+            ctx.complete(result.asInstanceOf[Placement])
+            
+          } else if (result.isInstanceOf[Placement]) {
             /*
              * A product placement is retrieved from the Association
              * Analysis engine in combination with a Shopify request

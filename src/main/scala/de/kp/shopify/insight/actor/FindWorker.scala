@@ -83,8 +83,25 @@ class FindWorker(ctx:RemoteContext) extends WorkerActor(ctx) {
       
       case Services.ASSOCIATION => {
         
-        request.task.split(":")(1) match {
+        request.task.split(":")(1) match {           
+          case Tasks.CROSS_SELL => {
+            /* 
+             * The total number of products returned as a cross sell
+             * recommendation
+             */
+            val total = request.data("total").toInt
+              /*
+             * The rules returned match the antecedent part of the mined
+             * rules and are used to build product placements; note, that
+             * these rules are the result of a certain search query and
+             * usually refer to a single site 
+             */
+            val rules = Serializer.deserializeRules(request.data("rules"))
+            val items = getItems(rules.items,total)
           
+            new CrossSell(getProducts(items))
+          
+          }
           case Tasks.PLACEMENT => {
             /* 
              * The total number of products returned as placement 

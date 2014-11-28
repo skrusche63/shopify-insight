@@ -7,7 +7,23 @@ MarketBasket Analysis to their orders, compute Product Recommendations and more.
 
 ![Shopifyinsight.](https://raw.github.com/skrusche63/shopify-insight/master/images/shopify_access_640.png)
 
-### REST API
+---
+
+## Features
+
+### Cross-Sell
+
+### Product Placement
+
+### Product Recommendation
+
+*under construction*
+
+---
+
+## REST API
+
+*under construction*
 
 The REST API of Shopifyinsights. actually supports the following requests:
 
