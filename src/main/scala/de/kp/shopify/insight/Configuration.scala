@@ -19,14 +19,31 @@ package de.kp.shopify.insight
  */
 
 import com.typesafe.config.ConfigFactory
+import org.apache.hadoop.conf.{Configuration => HConf}
 
-object Configuration {
+import de.kp.spark.core.{Configuration => CoreConf}
+
+object Configuration extends CoreConf {
 
     /* Load configuration for router */
   val path = "application.conf"
   val config = ConfigFactory.load(path)
 
-  def actor():(Int,Int) = {
+  override def actor:(Int,Int,Int) = {
+  
+    val cfg = config.getConfig("actor")
+
+    val duration = cfg.getInt("duration")
+    val retries = cfg.getInt("retries")  
+    val timeout = cfg.getInt("timeout")
+    
+    (duration,retries,timeout)
+    
+  }
+
+  override def elastic:HConf = null
+  
+  def heartbeat:(Int,Int) = {
   
     val cfg = config.getConfig("actor")
     
@@ -45,8 +62,23 @@ object Configuration {
     size
     
   }
+  
+  override def file:List[String] = null
 
-  def rest():(String,Int) = {
+  override def mysql:(String,String,String,String) = null
+  
+  override def redis:(String,String) = {
+  
+    val cfg = config.getConfig("redis")
+    
+    val host = cfg.getString("host")
+    val port = cfg.getString("port")
+    
+    (host,port)
+    
+  }
+
+  override def rest():(String,Int) = {
       
     val cfg = config.getConfig("rest")
       
@@ -55,18 +87,6 @@ object Configuration {
 
     (host,port)
     
-  }
-
-  def router():(Int,Int,Int) = {
-  
-    val cfg = config.getConfig("router")
-  
-    val time    = cfg.getInt("time")
-    val retries = cfg.getInt("retries")  
-    val workers = cfg.getInt("workers")
-    
-    (time,retries,workers)
-
   }
   
   def shopify():(String,String,String) = {
@@ -82,7 +102,7 @@ object Configuration {
     
   }
   
-  def spark():Map[String,String] = {
+  override def spark():Map[String,String] = {
   
     val cfg = config.getConfig("spark")
     

@@ -36,32 +36,12 @@ case class ActorStatus(
 )
 
 case class ActorsStatus(items:List[ActorStatus])
-
 /**
  * OrderItem is used to describe a single order or purchase
  * related entity that is indexed in an Elasticsearch index 
  * for later mining and prediction tasks
  */
 case class OrderItem(
-  /* 
-   * The 'apikey' of the Shopify cloud service is used as a
-   * unique identifier for the respective tenant or website
-   */
-  site:String,
-  /*
-   * Unique identifier that designates a certain Shopify
-   * store customer (see ShopifyCustomer) 
-   */
-  user:String,
-  /*
-   * The timestamp for a certain Shopify order
-   */
-  timestamp:Long,
-  /*
-   * The group identifier is equal to the order identifier
-   * used in Shopify orders
-   */
-  group:String,
   /*
    * Unique identifier to determine a Shopify product
    */
@@ -93,8 +73,35 @@ case class OrderItem(
   sku:String = ""
   
 )
-
-case class Order(items:List[OrderItem])
+case class Order(
+  /* 
+   * The 'apikey' of the Shopify cloud service is used as a
+   * unique identifier for the respective tenant or website
+   */
+  site:String,
+  /*
+   * Unique identifier that designates a certain Shopify
+   * store customer (see ShopifyCustomer) 
+   */
+  user:String,
+  /*
+   * The timestamp for a certain Shopify order
+   */
+  timestamp:Long,
+  /*
+   * The group identifier is equal to the order identifier
+   * used in Shopify orders
+   */
+  group:String,
+  /*
+   * The total amount of a certain purchase or transaction
+   */
+  amount:Float,
+  /*
+   * The items in an order
+   */ 
+  items:List[OrderItem]
+)
 case class Orders(items:List[Order])
 /**
  * A cross sell is a list of products that refers
@@ -193,28 +200,6 @@ object Messages {
 
     def TRACKING_DATA_RECEIVED(uid:String):String = 
     String.format("""[UID: %s] Shopify data received and tracking initiated.""", uid)
-  
-}
-
-/**
- * Metadata specifies the information topics that are actually supported
- * when registering metadata (or field description) for a certain predictive
- * engine
- */
-object Metadata {
-  
-  val FEATURE:String = "feature"
-  
-  val FIELD:String = "field"
-
-  val LOYALTY:String = "loyalty"
-    
-  val PURCHASE:String = "purchase"
-    
-  val SEQUENCE:String = "sequence"
-
-  private val fields = List(FEATURE,FIELD,LOYALTY,PURCHASE,SEQUENCE)  
-  def isMetadata(field:String):Boolean = fields.contains(field)
   
 }
 

@@ -28,13 +28,12 @@ import scala.collection.mutable.{ArrayBuffer,HashMap}
  */
 class RequestBuilder {
 
-  def build(req:ServiceRequest,order:Order):ServiceRequest = {
+  def build(order:Order,topic:String):ServiceRequest = {
     
-    req.service match {
+    topic match {
       
-      case Services.ASSOCIATION => buildItemRequest(req,order)
-      
-      case Services.SERIES => buildItemRequest(req,order)
+      case "amount" => buildAmountRequest(order)      
+      case "item"   => buildItemRequest(order)
       
       case _ => null
     
@@ -42,40 +41,37 @@ class RequestBuilder {
     
   }
   
-  /**
-   * Build service request to track items to estanblish a transaction & sequence
-   * database; this method is used by the association & series analysis engine
-   */
-  private def buildItemRequest(req:ServiceRequest,order:Order):ServiceRequest = {
+  private def buildAmountRequest(order:Order):ServiceRequest = {
         
-    val task = "track:item"
     val data = HashMap.empty[String,String]
         
-    /* The unique identifier of this tracking task */
-    data += "uid" -> req.data("uid")
-          
-    /* Specification of the Elasticsearch index */
-    data += "index" -> req.data("index")
-    data += "type"  -> req.data("type")
-          
-    /*Add item specific information */
-    val head = order.items.head
+    data += "site" -> order.site
+    data += "user" -> order.user
         
-    data += "site" -> head.site
-    data += "user" -> head.user
+    data += "timestamp" -> order.timestamp.toString
+    data += "amount" -> order.amount.toString
+
+    new ServiceRequest("","",data.toMap)
+
+  }
+  
+  private def buildItemRequest(order:Order):ServiceRequest = {
         
-    data += "timestamp" -> head.timestamp.toString
-    data += "group" -> head.group
+    val data = HashMap.empty[String,String]
+        
+    data += "site" -> order.site
+    data += "user" -> order.user
+        
+    data += "timestamp" -> order.timestamp.toString
+    data += "group" -> order.group
         
     val items = ArrayBuffer.empty[Int]
-    items += head.item
-        
-    for (record <- order.items.tail) {
+    for (record <- order.items) {
       items += record.item
     }
         
     data += "item" -> items.mkString(",")
-    new ServiceRequest(req.service,task,data.toMap)
+    new ServiceRequest("","",data.toMap)
     
   }
   

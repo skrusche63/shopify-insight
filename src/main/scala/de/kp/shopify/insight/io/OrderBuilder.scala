@@ -21,13 +21,13 @@ package de.kp.shopify.insight.io
 import de.kp.shopify.insight.model._
 import org.joda.time.format.DateTimeFormat
 
-object ItemBuilder {
+class OrderBuilder {
 
   /**
    * A public method to extract those data from a shopify
    * order that is indexed as a purchase item
    */
-  def build(site:String,order:ShopifyOrder):List[OrderItem] = {
+  def build(site:String,order:ShopifyOrder):Order = {
     
     /*
      * The unique identifier of a certain order is used
@@ -48,11 +48,14 @@ object ItemBuilder {
      */
     val user = order.customer.id.toString
     /*
+     * The amount is retrieved from the total price
+     */
+    val amount = order.total_price.toFloat
+    /*
      * Convert all line items of the respective order
      * into 'OrderItem' for indexing
      */
-    order.lineItems.map(lineItem => {
-
+    val items = order.lineItems.map(lineItem => {
       /*
        * A shopify line item holds 3 different identifiers:
        * 
@@ -78,10 +81,12 @@ object ItemBuilder {
       
       val sku = lineItem.sku
       
-      new OrderItem(site,user,timestamp,group,item,name,quantity,currency,price,sku)
+      new OrderItem(item,name,quantity,currency,price,sku)
     
     })
 
+    Order(site,user,timestamp,group,amount,items)
+  
   }
   
   private def toTimestamp(text:String):Long = {

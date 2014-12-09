@@ -39,8 +39,8 @@ import scala.concurrent.duration.DurationInt
 
 class MonitoredActor(name:String) extends Actor with ActorLogging {
 
-  val (heartbeat,time) = Configuration.actor      
-  val (duration,retries,workers) = Configuration.router  
+  val (heartbeat,time) = Configuration.heartbeat      
+  val (duration,retries,workers) = Configuration.actor  
   
   implicit val ec = context.dispatcher
   val scheduledTask = context.system.scheduler.schedule(DurationInt(0).second, DurationInt(1).second,self,new AliveMessage())  

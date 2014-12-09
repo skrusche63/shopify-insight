@@ -21,6 +21,9 @@ package de.kp.shopify.insight.actor
 import akka.actor.{Actor,ActorLogging}
 
 import de.kp.spark.core.model._
+import de.kp.spark.core.redis.RedisCache
+
+import de.kp.shopify.insight.Configuration
 import de.kp.shopify.insight.model._
 
 import scala.concurrent.Future
@@ -28,6 +31,9 @@ import scala.concurrent.Future
 abstract class BaseActor extends Actor with ActorLogging {
 
   implicit val ec = context.dispatcher
+
+  private val (host,port) = Configuration.redis
+  protected val cache = new RedisCache(host,port.toInt)
 
   def receive = {
     

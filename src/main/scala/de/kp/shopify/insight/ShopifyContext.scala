@@ -22,7 +22,7 @@ import org.joda.time.format.DateTimeFormat
 import de.kp.spark.core.model._
 
 import de.kp.shopify.insight.model._
-import de.kp.shopify.insight.io.ItemBuilder
+import de.kp.shopify.insight.io.OrderBuilder
 
 import scala.collection.mutable.HashMap
 
@@ -46,14 +46,9 @@ class ShopifyContext {
   def getOrders(req:ServiceRequest):List[Order] = {
     
     val params = validateOrderParams(req.data)
-    val orders = client.getOrders(params)
-    
-    orders.map(order => {
-      
-      val items = ItemBuilder.build(apikey,order)
-      new Order(items)
-      
-    })
+
+    val orders = client.getOrders(params)    
+    orders.map(order => new OrderBuilder().build(apikey,order))
     
   }
   

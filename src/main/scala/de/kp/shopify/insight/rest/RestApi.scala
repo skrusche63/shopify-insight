@@ -41,7 +41,7 @@ import scala.util.parsing.json._
 import de.kp.spark.core.model._
 import de.kp.spark.core.rest.RestService
 
-import de.kp.shopify.insight.actor.{FeedMaster,FindMaster,MasterActor}
+import de.kp.shopify.insight.actor._
 import de.kp.shopify.insight.Configuration
 
 import de.kp.shopify.insight.model._
@@ -53,7 +53,7 @@ class RestApi(host:String,port:Int,system:ActorSystem,@transient val sc:SparkCon
   
   override def actorRefFactory:ActorSystem = system
 
-  val (heartbeat,time) = Configuration.actor      
+  val (heartbeat,time) = Configuration.heartbeat      
   private val RouteCache = CachingDirectives.routeCache(1000,16,Duration.Inf,Duration("30 min"))
   /*
    * This master actor is responsible for data collection and indexing, i.e. data are first 
@@ -64,25 +64,10 @@ class RestApi(host:String,port:Int,system:ActorSystem,@transient val sc:SparkCon
    */
   val feeder = system.actorOf(Props(new FeedMaster("FeedMaster")), name="FeedMaster")
   /*
-   * This master actor supports the preparation of an Elasticsearch index for tracking
-   * data elements to build a transaction, sequence or othere database
-   */
-  val indexer = system.actorOf(Props(new MasterActor("IndexMaster")), name="IndexMaster")
-  /*
-   * This master actor supports data element tracking to build transaction, sequence or
-   * other databases in an Elasticsearch index
-   */
-  val tracker = system.actorOf(Props(new MasterActor("TrackMaster")), name="TrackMaster")
-  /*
    * This master actor is responsible for retrieving status informations from the different
    * predictive engines that form Predictiveworks.
    */
-  val monitor = system.actorOf(Props(new MasterActor("StatusMaster")), name="StatusMaster")
-  /*
-   * The master is responsible for the registration of metadata specifications that determine
-   * which external data field has to be mapped onto which internal field
-   */
-  val registrar = system.actorOf(Props(new MasterActor("MetaMaster")), name="MetaMaster")
+  val monitor = system.actorOf(Props(new StatusMaster("StatusMaster")), name="StatusMaster")
   /*
    * This master actor is responsible for initiating data mining or predictive analytics
    * tasks with respect to the different predictive engines
@@ -104,67 +89,28 @@ class RestApi(host:String,port:Int,system:ActorSystem,@transient val sc:SparkCon
      * configured shopify store are collected and registered in an
      * Elasticsearch index
      */
-    path("feed" / Segment / Segment) {(service,subject) => 
+    path("feed" / Segment) {subject => 
 	  post {
 	    respondWithStatus(OK) {
-	      ctx => doFeed(ctx,service,subject)
+	      ctx => doFeed(ctx,subject)
 	    }
 	  }
     }  ~ 
-    path("get" / Segment / Segment) {(service,subject) => 
+    path("get" / Segment / Segment) {(engine,subject) => 
 	  post {
 	    respondWithStatus(OK) {
-	      ctx => doGet(ctx,service,subject)
-	    }
-	  }
-    }  ~ 
-    /*
-     * 'index' is part of the administrate interface and prepares 
-     * an Elasticsearch index for tracking data elements
-     */
-    path("index" / Segment / Segment) {(service,subject) => 
-	  post {
-	    respondWithStatus(OK) {
-	      ctx => doIndex(ctx,service,subject)
-	    }
-	  }
-    }  ~ 
-    /*
-     * 'register' is part of the administrative interface and registers field
-     * specifications for a certain predictive engine; these specifications 
-     * determine which (external) field in a data source has to be mapped onto
-     * an internal mining field
-     */
-    path("register" / Segment / Segment) {(service,subject) => 
-	  post {
-	    respondWithStatus(OK) {
-	      ctx => doRegister(ctx,service,subject)
+	      ctx => doGet(ctx,engine,subject)
 	    }
 	  }
     }  ~ 
     /*
      * 'status' is part of the administrative interface and retrieves the
-     * current status of a certain data mining or predictive analytics task;
-     * 
-     * The results is directly retrieved from the invoked predictive engine.
+     * current status of a certain data mining or predictive analytics task
      */
-    path("status" / Segment) {engine => 
+    path("status" / Segment) {subject => 
 	  post {
 	    respondWithStatus(OK) {
-	      ctx => doStatus(ctx,engine)
-	    }
-	  }
-    }  ~ 
-    /*
-     * 'track' provides trackable information either as an event 
-     * or as a feature; an event refers to a certain 'item', e.g. 
-     * an ecommerce product or service , and a feature refers to 
-     * a specific dataset
-     */
-    path("track" / Segment / Segment) {(service,subject) => 
-	  post {
-	    respondWithStatus(OK) {
-	      ctx => doTrack(ctx, service, subject)
+	      ctx => doStatus(ctx,subject)
 	    }
 	  }
     }  ~ 
@@ -185,17 +131,15 @@ class RestApi(host:String,port:Int,system:ActorSystem,@transient val sc:SparkCon
   /**
    * Feeding is an administrative task to collect data from a certain
    * shopify store and register them in an Elasticsearch index. 
-   * 
-   * The data representation depends on the engine selected, e.g. association
-   * analysis is based on the identifier of a certain line item, while intent
-   * recognition requires the order and so on.
    */
-  private def doFeed[T](ctx:RequestContext,engine:String,subject:String) = {
+  private def doFeed[T](ctx:RequestContext,subject:String) = {
     
-    if (Services.isService(engine) && List("order","product").contains(subject)) {
+    if (List("order","product").contains(subject)) {
       
       val task = "feed:" + subject
-      val request = new ServiceRequest(engine,task,getRequest(ctx))
+      val service = ""
+        
+      val request = new ServiceRequest(service,task,getRequest(ctx))
     
       implicit val timeout:Timeout = DurationInt(time).second
 
@@ -271,111 +215,30 @@ class RestApi(host:String,port:Int,system:ActorSystem,@transient val sc:SparkCon
     }
 
   }
+  /**
+   * 'status' is an administration request to determine whether a certain data
+   * mining task has been finished or not.
+   */
+  private def doStatus[T](ctx:RequestContext,subject:String) = {
+    
+    val topics = List("latest","all")
+    if (topics.contains(subject)) {
+      
+      val task = "status" + ":" + subject
+      val service = ""
+        
+      val request = new ServiceRequest("",task,getRequest(ctx))
+    
+      implicit val timeout:Timeout = DurationInt(time).second
+      /*
+       * Invoke monitor actor to retrieve the status information;
+       * the result is returned as JSON data structure
+       */
+      val response = ask(monitor,request).mapTo[ServiceResponse] 
+      ctx.complete(response)
+
+    }
   
-  /**
-   * Indexing is a common administrative task and is provided here to support
-   * shopify customers with a one-stop strategy.
-   */
-  private def doIndex[T](ctx:RequestContext,engine:String,subject:String) = {
-    /*
-     * It is validated whether the engine specified is available and
-     * whether the subject provided is a valid element specification;
-     * we do not make cross-reference checks and ensure existing business
-     * rules between {engine} and {subject}
-     */    
-    if (Services.isService(engine) && Elements.isElement(subject)) {
-      
-      /* Build indexing request */
-      val task = "index:" + subject
-      val request = new ServiceRequest(engine,task,getRequest(ctx))
-    
-      implicit val timeout:Timeout = DurationInt(time).second
-
-      val response = ask(indexer,request).mapTo[ServiceResponse] 
-      ctx.complete(response)
-       
-    } else {      
-      /* do nothing */
-    }
-    
-  }
-  
-  /**
-   * This method registers field spectification for data mining or predictive
-   * analytics task for a certain analytics engine; the request is delegated 
-   * to the respective engine and the result is directly returned   
-   */
-  private def doRegister[T](ctx:RequestContext,engine:String,subject:String) = {
-    /*
-     * It is validated whether the engine specified is available and
-     * whether the subject provided is a valid metadata specification;
-     * we do not make cross-reference checks and ensure existing business
-     * rules between {engine} and {subject}
-     */    
-    if (Services.isService(engine) && Metadata.isMetadata(subject)) {
-      
-      /* Build registration request */
-      val task = "register:" + subject
-      val request = new ServiceRequest(engine,task,getRequest(ctx))
-    
-      implicit val timeout:Timeout = DurationInt(time).second
-
-      val response = ask(registrar,request).mapTo[ServiceResponse] 
-      ctx.complete(response)
-       
-    } else {      
-      /* do nothing */
-    }
-   
-  }
-
-  /**
-   * This method retrieves the status of a certain data mining or predictive
-   * analytics task from a specific predictive analytics engine; the request
-   * is delegated to the respective engine and the result is directly returned
-   */
-  private def doStatus[T](ctx:RequestContext,engine:String) = {
-    
-    /* Build status request */
-    val task = "status"
-    val request = new ServiceRequest(engine,task,getRequest(ctx))
-    
-    implicit val timeout:Timeout = DurationInt(time).second
-    /*
-     * Invoke monitor actor to retrieve the status information;
-     * the result is returned as JSON data structure
-     */
-    val response = ask(monitor,request).mapTo[ServiceResponse] 
-    ctx.complete(response)
-      
-  }
-  /**
-   * This method persists single data elements in an Elasticsearch index;
-   * these elements form a transaction, sequence or other database, that
-   * is used as data source for data mining and predictive analytics tasks
-   */
-  private def doTrack[T](ctx:RequestContext,engine:String,subject:String) = {
-    /*
-     * It is validated whether the engine specified is available and
-     * whether the subject provided is a valid element specification;
-     * we do not make cross-reference checks and ensure existing business
-     * rules between {engine} and {subject}
-     */    
-    if (Services.isService(engine) && Elements.isElement(subject)) {
-      
-      /* Build track request */
-      val task = "track:" + subject
-      val request = new ServiceRequest(engine,task,getRequest(ctx))
-    
-      implicit val timeout:Timeout = DurationInt(time).second
-
-      val response = ask(tracker,request).mapTo[ServiceResponse] 
-      ctx.complete(response)
-       
-    } else {      
-      /* do nothing */
-    }
-    
   }
   /**
    * This request starts a certain data mining or predictive analytics

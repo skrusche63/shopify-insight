@@ -27,7 +27,7 @@ import scala.collection.mutable.ArrayBuffer
 
 object ActorMonitor {
   
-  private val (heartbeat,time) = Configuration.actor
+  private val (heartbeat,time) = Configuration.heartbeat
   
   private val size = Configuration.cache
   private val cache = new LRUCache[String,ArrayBuffer[Long]](size)
