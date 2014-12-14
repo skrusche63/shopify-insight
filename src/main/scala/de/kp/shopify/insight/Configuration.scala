@@ -63,9 +63,11 @@ object Configuration extends CoreConf {
     
   }
   
-  override def file:List[String] = null
+  override def input:List[String] = null
 
   override def mysql:(String,String,String,String) = null
+  
+  override def output:List[String] = null
   
   override def redis:(String,String) = {
   
