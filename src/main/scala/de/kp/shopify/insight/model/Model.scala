@@ -121,11 +121,6 @@ case class Recommendation(
 
 case class Recommendations(uid:String,items:List[Recommendation])
 
-case class Rule (
-  antecedent:List[Int],consequent:List[Int],support:Int,confidence:Double)
-
-case class Rules(items:List[Rule])
-
 /**
  * A derived association rule that additionally specifies the matching weight
  * between the antecent field and the respective field in mined and original
@@ -163,11 +158,6 @@ object Serializer extends BaseSerializer {
    * build product recommendations built on top of association rules
    */
   def deserializeMultiUserRules(rules:String):MultiUserRules = read[MultiUserRules](rules)  
-  /**
-   * Rules are the result of either association or series analysis; rules e.g. used to
-   * answer questions about product placement
-   */
-  def deserializeRules(rules:String):Rules = read[Rules](rules)
 
 }
 
