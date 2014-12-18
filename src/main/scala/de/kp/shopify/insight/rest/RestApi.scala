@@ -55,14 +55,19 @@ class RestApi(host:String,port:Int,system:ActorSystem,@transient val sc:SparkCon
 
   val (heartbeat,time) = Configuration.heartbeat      
   private val RouteCache = CachingDirectives.routeCache(1000,16,Duration.Inf,Duration("30 min"))
+  
   /*
-   * This master actor is responsible for data collection and indexing, i.e. data are first 
-   * gathered from a certain Shopify store and second persistet in an Elasticsearch index;
-   * 
-   * note, that this mechanism does not use the 'tracker' as this actor is responsible for
-   * externally initiated tracking requests
+   * The ErrorActor is an overall listener that retrieves the error and
+   * interim messages from all the other actors
    */
-  val feeder = system.actorOf(Props(new FeedMaster("FeedMaster")), name="FeedMaster")
+  val listener = system.actorOf(Props(new MessageListener()))
+  /*
+   * This master actor is responsible for data collection, i.e. data are gathered 
+   * from a certain Shopify store, transformed into 'amount' and 'item' specific
+   * information elements and then persisted e.g. in an Elasticsearch index, or
+   * sent to Kinesis etc
+   */
+  val feeder = system.actorOf(Props(new Feeder("Feeder",listener)), name="Feeder")
   /*
    * This master actor is responsible for retrieving status informations from the different
    * predictive engines that form Predictiveworks.

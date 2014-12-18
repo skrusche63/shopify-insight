@@ -17,6 +17,7 @@ package de.kp.shopify.insight.actor
 * 
 * If not, see <http://www.gnu.org/licenses/>.
 */
+import akka.actor.ActorRef
 
 import de.kp.spark.core.Names
 import de.kp.spark.core.model._
@@ -26,100 +27,125 @@ import de.kp.spark.core.elastic._
 
 import de.kp.spark.core.spec.FieldBuilder
 
-import de.kp.shopify.insight.{RemoteContext,ShopifyContext}
+import de.kp.shopify.insight.ShopifyContext
 import de.kp.shopify.insight.io.RequestBuilder
 
 import de.kp.shopify.insight.model._
+/**
+ * The ElasticFeeder retrieves orders or products from a Shopify store
+ * and registers them in an Elasticsearch index for subsequent processing
+ */
+class ElasticFeeder(listener:ActorRef) extends BaseActor {
 
-class FeedWorker(ctx:RemoteContext) extends WorkerActor(ctx) {
-  
   private val stx = new ShopifyContext()  
   override def receive = {
     
     case req:ServiceRequest => {
 
-      val origin = sender
-      val service = req.service
-      
+      val uid = req.data(Names.REQ_UID)
       try {
         
         val Array(task,topic) = req.task.split(":")
         topic match {
           /*
            * Retrieve orders from Shopify store via REST interface, prepare index
-           * for 'items' and (after that) track each order as 'item'
+           * for 'items' and (after that) track each order as 'item'; note, that 
+           * this request retrieves all orders that match a certain set of filter
+           * criteria; pagination is done inside this request
            */
           case "order" => {
+            
+            listener ! String.format("""[UID: %s] Request to feed orders received.""",uid)
+            
             /*
-             * STEP #1: Retrieve orders from a certain shopify store
-             */
-            val orders = stx.getOrders(req)
-            /*
-             * STEP #2: Inform requestor about receipt of tracking data
-             */
-            val uid = req.data(Names.REQ_UID)      
-            val res_data = Map(Names.REQ_UID -> uid, Names.REQ_MESSAGE -> Messages.TRACKING_DATA_RECEIVED(uid))
-      
-            origin ! Serializer.serializeResponse(new ServiceResponse(req.service,req.task,res_data,ResponseStatus.SUCCESS))
-            /*
-             * STEP #3: Create search indexes (if not already present)
-             */
-            var success = false
-            /*
+             * STEP #1: Create search indexes (if not already present)
+             *
              * The 'amount' index (mapping) is used by Intent Recognition and
              * supports the Recency-Frequency-Monetary (RFM) model
-             */
-            success = createIndex(req,"orders","amount")
-            if (success == false) throw new Exception("Feed processing has been stopped due to an internal error.")
-            /*
+             * 
              * The 'item' index (mapping) specifies a transaction database and
-             * is used by Association Analysis, Series Analysis and the Recommender
+             * is used by Association Analysis, Series Analysis and othe engines
+             * 
              */
-            success = createIndex(req,"orders","item")
-            if (success == false) throw new Exception("Feed processing has been stopped due to an internal error.")
+            if (createIndex(req,"orders","amount") == false)
+              throw new Exception("Feed processing has been stopped due to an internal error.")
+
+            if (createIndex(req,"orders","item") == false)
+              throw new Exception("Feed processing has been stopped due to an internal error.")
+
+            listener ! String.format("""[UID: %s] Elasticsearch indexes created.""",uid)
 
             /*
-             * STEP #4: Build tracking requests to send the collected orders to
-             * the respective service or engine; the orders are sent independently 
-             * following a fire-and-forget strategy
+             * STEP #2: Retrieve orders count from a certain shopify store;
+             * for further processing, we set the limit of responses to the
+             * maximum number (250) allowed by the Shopify interface
              */
-            val builder = new RequestBuilder()
-            for (order <- orders) {
+            val count = stx.getOrdersCount(req)
+
+            listener ! String.format("""[UID: %s] Total of %s orders to feed into search index.""",uid,count.toString)
+
+            val pages = Math.ceil(count / 250.0)
+            val excludes = List("limit","page")
+
+            var page = 1
+            
+            while (page <= pages) {
               /*
-               * The 'amount' perspective of the order is built and tracked
+               * STEP #3: Retrieve orders via a paginated approach, retrieving a maximum
+               * of 250 orders per request
                */
-              success = trackOrder(builder.build(order, "amount"),"orders","amount")
-              if (success == false) throw new Exception("Feed processing has been stopped due to an internal error.")
+              val data = req.data.filter(kv => excludes.contains(kv._1) == false) ++ Map("limit" -> "250","page" -> page.toString)
+              val orders = stx.getOrders(new ServiceRequest(req.service,req.task,data))
+
+              listener ! String.format("""[UID: %s] Page %s, and %s orders to feed into search index.""",uid,page.toString,orders.size.toString)
+              
               /*
-               * The 'item' perspective of the order is built and tracked
+               * STEP #4: Build tracking requests to send the collected orders to
+               * the respective service or engine; the orders are sent independently 
+               * following a fire-and-forget strategy
                */
-              success = trackOrder(builder.build(order, "item"),"orders","item")
-              if (success == false) throw new Exception("Feed processing has been stopped due to an internal error.")
+              val builder = new RequestBuilder()
+              for (order <- orders) {
+                /*
+                 * The 'amount' perspective of the order is built and tracked
+                 */
+                if (trackOrder(builder.build(order, "amount"),"orders","amount"))
+                  throw new Exception("Feed processing has been stopped due to an internal error.")
                 
+                /*
+                 * The 'item' perspective of the order is built and tracked
+                 */
+                if (trackOrder(builder.build(order, "item"),"orders","item"))
+                  throw new Exception("Feed processing has been stopped due to an internal error.")
+                
+              }
+             
+              page += 1
+              
             }
 
+            listener ! String.format("""[UID: %s] Feed request finished.""",uid)
+           
           }
           
-          case "product" => {
-            
-            /* actually not supported */
-            
-          }
+          case "product" => throw new Exception("Product tracking is not supported yet.")
             
           case _ => {/* do nothing */}
           
         }
-        
-      } catch {
-        case e:Exception => origin ! failure(req,e.getMessage)
 
+      } catch {
+        case e:Exception => listener ! String.format("""[UID: %s] Feed request exception: %s.""",uid,e.getMessage)
+
+      } finally {
+        
+        context.stop(self)
+        
       }
       
     }
-    
-  }
   
-  override def getResponse(service:String,message:String) = null 
+  }
   
   private def createIndex(req:ServiceRequest,index:String,mapping:String):Boolean = {
     
@@ -168,7 +194,7 @@ class FeedWorker(ctx:RemoteContext) extends WorkerActor(ctx) {
         writer.close()
       
         val msg = String.format("""Opening index '%s' and mapping '%s' for write failed.""",index,mapping)
-       throw new Exception(msg)
+        throw new Exception(msg)
       
       } else {
      
@@ -239,5 +265,5 @@ class FeedWorker(ctx:RemoteContext) extends WorkerActor(ctx) {
     }
    
   }
-  
+
 }

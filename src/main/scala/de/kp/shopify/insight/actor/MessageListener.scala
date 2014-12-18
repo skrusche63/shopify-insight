@@ -18,11 +18,13 @@ package de.kp.shopify.insight.actor
 * If not, see <http://www.gnu.org/licenses/>.
 */
 
-import akka.actor.Props
-import akka.routing.RoundRobinRouter
+class MessageListener extends BaseActor {
 
-class FeedMaster(name:String) extends MasterActor(name) {
-
-  override val router = context.actorOf(Props(new FeedWorker(ctx)).withRouter(RoundRobinRouter(workers)))
+  override def receive = {
+    
+    case msg:String => {
+      log.info(msg)
+    }
+  }
   
 }

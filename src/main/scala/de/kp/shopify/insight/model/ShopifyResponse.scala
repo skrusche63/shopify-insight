@@ -25,6 +25,9 @@ import de.kp.shopify.insight.model._
 
 @JsonIgnoreProperties(ignoreUnknown = true)
 case class ShopifyResponse(
+    
+  @JsonProperty("count")
+  count:Int,
 
   @JsonProperty("products")
   products:List[ShopifyProduct],

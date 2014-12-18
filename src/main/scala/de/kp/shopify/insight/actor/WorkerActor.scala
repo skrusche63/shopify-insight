@@ -20,8 +20,8 @@ package de.kp.shopify.insight.actor
 
 import de.kp.shopify.insight.RemoteContext
 
-class WorkerActor(ctx:RemoteContext) extends BaseActor {
+abstract class WorkerActor(ctx:RemoteContext) extends BaseActor {
 
-  override def getResponse(service:String,message:String) = ctx.send(service,message).mapTo[String] 
+  def getResponse(service:String,message:String) = ctx.send(service,message).mapTo[String] 
 
 }

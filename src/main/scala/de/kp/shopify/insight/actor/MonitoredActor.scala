@@ -20,14 +20,14 @@ package de.kp.shopify.insight.actor
 
 import java.util.Date
 
-import akka.actor.{Actor,ActorLogging,ActorRef,Props}
+import akka.actor.ActorRef
 
 import akka.pattern.ask
 import akka.util.Timeout
 
 import akka.actor.{OneForOneStrategy, SupervisorStrategy}
-import akka.routing.RoundRobinRouter
 
+import de.kp.spark.core.Names
 import de.kp.spark.core.model._
 
 import de.kp.shopify.insight.{Configuration,RemoteContext}
@@ -35,22 +35,15 @@ import de.kp.shopify.insight.model._
 
 import de.kp.shopify.insight.cache.ActorMonitor
 
+import scala.concurrent.Future
 import scala.concurrent.duration.DurationInt
 
-class MonitoredActor(name:String) extends Actor with ActorLogging {
-
-  val (heartbeat,time) = Configuration.heartbeat      
-  val (duration,retries,workers) = Configuration.actor  
-  
-  implicit val ec = context.dispatcher
-  val scheduledTask = context.system.scheduler.schedule(DurationInt(0).second, DurationInt(1).second,self,new AliveMessage())  
- 
-  override val supervisorStrategy = OneForOneStrategy(maxNrOfRetries=retries,withinTimeRange = DurationInt(duration).minutes) {
-    case _ : Exception => SupervisorStrategy.Restart
-  }
+class MonitoredActor(name:String) extends BaseActor {
 
   protected val ctx = new RemoteContext()
-  protected val router = context.actorOf(Props(new WorkerActor(ctx)).withRouter(RoundRobinRouter(workers)))
+
+  val (heartbeat,time) = Configuration.heartbeat      
+  val scheduledTask = context.system.scheduler.schedule(DurationInt(0).second, DurationInt(1).second,self,new AliveMessage())  
   
   override def postStop() {
     scheduledTask.cancel()
@@ -72,7 +65,7 @@ class MonitoredActor(name:String) extends Actor with ActorLogging {
 	  val origin = sender
 	  try {
 	    
-        val response = ask(router, req)      
+        val response = execute(req).mapTo[ServiceResponse]      
         response.onSuccess {
           case result => {
             origin ! result
@@ -90,29 +83,10 @@ class MonitoredActor(name:String) extends Actor with ActorLogging {
     case _ => {}
     
   }
-   
-  def failure(req:ServiceRequest):ServiceResponse = {
-    
-    val uid = req.data("uid")    
-    new ServiceResponse(req.service,req.task,Map("uid" -> uid),ResponseStatus.FAILURE)	
   
-  }
- 
-  protected def failure(req:ServiceRequest,message:String):ServiceResponse = {
-    
-    if (req == null) {
-      val data = Map("message" -> message)
-      new ServiceResponse("","",data,ResponseStatus.FAILURE)	
-      
-    } else {
-      val data = Map("uid" -> req.data("uid"), "message" -> message)
-      new ServiceResponse(req.service,req.task,data,ResponseStatus.FAILURE)	
-    
-    }
-    
-  }
-
-  def register(name:String) {
+  protected def execute(req:ServiceRequest):Future[Any] = null
+  
+  protected def register(name:String) {
       
     val now = new Date()
     val ts = now.getTime()

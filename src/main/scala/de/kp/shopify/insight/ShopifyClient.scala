@@ -71,7 +71,10 @@ class ShopifyClient(configuration:ShopifyConfiguration) {
   def getProductVariant(productVariantId:Long):ShopifyProductVariant = {
     getResponse("variants/" + productVariantId + ".json", null, null, HttpMethod.GET).productVariant
   }
-
+  
+  /** Retrieve a single order from a Shopify store; the order must be
+   *  uniquely identified by its order identifier (iod)
+   */
   def getOrder(oid:Long):ShopifyOrder = {
     getResponse("orders/" + oid + ".json", null, null, HttpMethod.GET).order
   }
@@ -82,6 +85,11 @@ class ShopifyClient(configuration:ShopifyConfiguration) {
    */
   def getOrders(params:Map[String,String]):List[ShopifyOrder] = {
     getResponse("orders.json", params, null, HttpMethod.GET).orders
+  }
+  
+  def getOrdersCount(params:Map[String,String]):Int = {
+    getResponse("orders/count.json", params, null, HttpMethod.GET).count
+    
   }
   
   def getProduct(pid:Long):ShopifyProduct = {

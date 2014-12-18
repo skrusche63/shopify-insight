@@ -19,13 +19,28 @@ package de.kp.shopify.insight.actor
 */
 
 import akka.actor.Props
-import akka.routing.RoundRobinRouter
+
+import akka.pattern.ask
+import akka.util.Timeout
 
 import de.kp.spark.core.actor._
+import de.kp.spark.core.model._
+
 import de.kp.shopify.insight.Configuration
 
-class StatusMaster(name:String) extends MasterActor(name) {
+import scala.concurrent.Future
+import scala.concurrent.duration.DurationInt
 
-  override val router = context.actorOf(Props(new StatusQuestor(Configuration)).withRouter(RoundRobinRouter(workers)))
+class StatusMaster(name:String) extends MasterActor(name) {
+  
+  override def execute(req:ServiceRequest):Future[Any] = {
+    
+    val (duration,retries,time) = Configuration.actor      
+    implicit val timeout:Timeout = DurationInt(time).second
+
+    val actor = context.actorOf(Props(new StatusQuestor(Configuration)))
+    ask(actor,req)
+    
+  }
   
 }

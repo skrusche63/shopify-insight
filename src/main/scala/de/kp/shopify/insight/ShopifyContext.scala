@@ -33,16 +33,32 @@ class ShopifyContext {
    * The 'apikey' is used as the 'site' parameter when indexing
    * Shopify data with Elasticsearch
    */
-  private val conf = new ShopifyConfiguration(endpoint,apikey,password)
-  
+  private val conf = new ShopifyConfiguration(endpoint,apikey,password)  
   private val client = new ShopifyClient(conf)
   
   /**
-   * This method is responsible for retrieving a set of orders representing
-   * a certain time period; in order to e.g. fill a transaction darabase for
-   * later data mining and predictive analytics, this method may be called
-   * multiple times (e.g. with the help of a scheduler)
+   * This method is responsible for retrieving orders representing fulfilling 
+   * the following set of parameters:
+   * 
+   * - created_at_min
+   * - created_at_max 
+   * 
+   * - updated_at_min
+   * - created_at_max 
+   * 
+   * - status
+   * - financial_status
+   * - fulfillment_status
+   * 
+   * These parameters are those parameters that the Shopify API documentation
+   * describes for order count requests.
    */
+  def getOrdersCount(req:ServiceRequest):Int = {
+    
+    val params = validateOrderParams(req.data)
+    client.getOrdersCount(params)
+    
+  }
   def getOrders(req:ServiceRequest):List[Order] = {
     
     val params = validateOrderParams(req.data)
@@ -92,13 +108,6 @@ class ShopifyContext {
       
     }
     
-    if (params.contains("fields")) {
-      /* Comma-separated list of fields to include in the response */
-      val fields = params("fields")
-      requestParams += "fields" -> fields
-    
-    }
-    
     if (params.contains("financial_status")) {
       /*
        * authorized - Show only authorized orders
@@ -140,38 +149,6 @@ class ShopifyContext {
     
     }
     
-    if (params.contains("limit")) {
-      /* Amount of results: (default: 50) (maximum: 250) */   
-      val limit = params("limit")
-      requestParams += "page" -> limit
-     
-    }
-    
-    if (params.contains("page")) {
-      /* Page to show: (default: 1) */      
-      val page = params("page")
-      requestParams += "page" -> page
-      
-    }
-
-    if (params.contains("processed_at_min")) {
-      /*
-       * Show orders imported after date (format: 2008-12-31 03:00)
-       */
-      val time = params("processed_at_min").toLong
-      requestParams += "processed_at_min" -> formatted(time)
-      
-    }
-
-    if (params.contains("processed_at_max")) {
-      /*
-       * Show orders imported before date (format: 2008-12-31 03:00)
-       */
-      val time = params("processed_at_max").toLong
-      requestParams += "processed_at_max" -> formatted(time)
-      
-    }
-    
     if (params.contains("updated_at_min")) {
       /*
        * Show orders last updated after date (format: 2008-12-31 03:00)
@@ -187,15 +164,6 @@ class ShopifyContext {
        */
       val time = params("updated_at_max").toLong
       requestParams += "updated_at_max" -> formatted(time)
-      
-    }
-    
-    if (params.contains("since_id")) {
-      /*
-       * Restrict results to after the specified ID
-       */
-      val since_id = params("since_id")
-      requestParams += "since_id" -> since_id
       
     }
 
@@ -221,5 +189,7 @@ class ShopifyContext {
     requestParams.toMap
   
   }
+  
+
 
 }

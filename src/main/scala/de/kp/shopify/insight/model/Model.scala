@@ -137,6 +137,12 @@ case class MultiUserRules(items:List[UserRules])
 
 object ResponseStatus extends BaseStatus
 
+object Sources {
+  
+  val ELASTIC:String = "ELASTIC"
+    
+}
+
 object Statuses {
   
   val OPEN:String = "open"
@@ -188,8 +194,8 @@ object Messages {
   def TASK_IS_UNKNOWN(uid:String,task:String):String = 
     String.format("""[UID: %s] The task '%s' is unknown.""", uid, task)
 
-    def TRACKING_DATA_RECEIVED(uid:String):String = 
-    String.format("""[UID: %s] Shopify data received and tracking initiated.""", uid)
+    def TRACKING_STARTED(uid:String):String = 
+    String.format("""[UID: %s] Tracking of shopify data started.""", uid)
   
 }
 
