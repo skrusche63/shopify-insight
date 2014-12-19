@@ -70,7 +70,7 @@ class ElasticFeeder(listener:ActorRef) extends BaseActor {
             if (createIndex(req,"orders","amount") == false)
               throw new Exception("Feed processing has been stopped due to an internal error.")
 
-            if (createIndex(req,"orders","item") == false)
+            if (createIndex(req,"orders","items") == false)
               throw new Exception("Feed processing has been stopped due to an internal error.")
 
             listener ! String.format("""[UID: %s] Elasticsearch indexes created.""",uid)
@@ -115,7 +115,7 @@ class ElasticFeeder(listener:ActorRef) extends BaseActor {
                 /*
                  * The 'item' perspective of the order is built and tracked
                  */
-                if (trackOrder(builder.build(order, "item"),"orders","item"))
+                if (trackOrder(builder.build(order, "item"),"orders","items"))
                   throw new Exception("Feed processing has been stopped due to an internal error.")
                 
               }

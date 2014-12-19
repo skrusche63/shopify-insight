@@ -56,7 +56,7 @@ class RemoteQuestor(ctx:RemoteContext,listener:ActorRef) extends BaseActor {
             val service = "association"
             val task = "get:antecedent"
 
-            val data = new CrossSellBuilder().build(req.data)
+            val data = new CrossSellBuilder().get(req.data)
             val message = Serializer.serializeRequest(new ServiceRequest(service,task,data))
             
             (service,message)
@@ -71,7 +71,7 @@ class RemoteQuestor(ctx:RemoteContext,listener:ActorRef) extends BaseActor {
             val service = "intent"
             val task = "get:observation"
 
-            val data = new LoyaltyBuilder().build(req.data)
+            val data = new LoyaltyBuilder().get(req.data)
             val message = Serializer.serializeRequest(new ServiceRequest(service,task,data))
             
             (service,message)
@@ -86,7 +86,7 @@ class RemoteQuestor(ctx:RemoteContext,listener:ActorRef) extends BaseActor {
             val service = "association"
             val task = "get:antecedent"
 
-            val data = new PlacementBuilder().build(req.data)
+            val data = new PlacementBuilder().get(req.data)
             val message = Serializer.serializeRequest(new ServiceRequest(service,task,data))
             
             (service,message)
@@ -100,7 +100,7 @@ class RemoteQuestor(ctx:RemoteContext,listener:ActorRef) extends BaseActor {
             val service = "intent"
             val task = "get:state"
 
-            val data = new PurchaseBuilder().build(req.data)
+            val data = new PurchaseBuilder().get(req.data)
             val message = Serializer.serializeRequest(new ServiceRequest(service,task,data))
             
             (service,message)
@@ -115,7 +115,7 @@ class RemoteQuestor(ctx:RemoteContext,listener:ActorRef) extends BaseActor {
             val service = "association"
             val task = "get:transaction"
 
-            val data = new RecommendationBuilder().build(req.data)
+            val data = new RecommendationBuilder().get(req.data)
             val message = Serializer.serializeRequest(new ServiceRequest(service,task,data))
             
             (service,message)

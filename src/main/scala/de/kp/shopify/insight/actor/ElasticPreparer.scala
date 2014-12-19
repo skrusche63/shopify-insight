@@ -13,6 +13,8 @@ import de.kp.spark.core.elastic._
 
 import de.kp.spark.core.spec.FieldBuilder
 
+import de.kp.shopify.insight.io.QueryBuilder
+
 import de.kp.shopify.insight.model._
 import de.kp.shopify.insight.source._
 
@@ -73,7 +75,7 @@ class ElasticPreparer(@transient sc:SparkContext,listener:ActorRef) extends Base
               Names.REQ_SOURCE_INDEX -> "orders",
               Names.REQ_SOURCE_TYPE  -> "amount",
               
-              Names.REQ_QUERY -> createQuery
+              Names.REQ_QUERY -> QueryBuilder.get(Sources.ELASTIC,"amount")
               
             )
 
@@ -128,9 +130,6 @@ class ElasticPreparer(@transient sc:SparkContext,listener:ActorRef) extends Base
     }
     
   }
-  
-  // TODO
-  private def createQuery():String = null
   
   private def createIndex(req:ServiceRequest,index:String,mapping:String):Boolean = {
     
