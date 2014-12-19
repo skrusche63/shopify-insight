@@ -192,6 +192,9 @@ class RestApi(host:String,port:Int,system:ActorSystem,@transient sc:SparkContext
 	    }
 	  }
     }  ~ 
+    /*
+     * TODO: we may have to split this request to product, user, order etc
+     */
     path("product" / Segment) {subject => 
 	  post {
 	    respondWithStatus(OK) {
@@ -300,6 +303,13 @@ class RestApi(host:String,port:Int,system:ActorSystem,@transient sc:SparkContext
              * Analysis engine in combination with a Shopify request
              */
             ctx.complete(result.asInstanceOf[Placement])
+          
+          } else if (result.isInstanceOf[UserForecasts]) {
+            /*
+             * A user forecast is retrieved from the Intent Recognition
+             * engine in combination with a Shopify request
+             */
+            ctx.complete(result.asInstanceOf[UserForecasts])
             
           } else if (result.isInstanceOf[Recommendations]) {
              /*

@@ -128,16 +128,29 @@ class RemoteBuilder(ctx:RemoteContext,listener:ActorRef) extends BaseActor {
  
             val intermediate = Serializer.deserializeResponse(result)
             origin ! buildResponse(req,intermediate)
+            
+            context.stop(self)
         
           }
 
         }
         response.onFailure {
-          case throwable => origin ! failure(req,throwable.getMessage)	 	      
+          case throwable => {
+            
+            origin ! failure(req,throwable.getMessage)	
+            context.stop(self)
+            
+          }
 	    }
       
       } catch {
-        case e:Exception => origin ! failure(req,e.getMessage)
+        
+        case e:Exception => {
+        
+          origin ! failure(req,e.getMessage)
+          context.stop(self)
+        
+        }
         
       }
       
@@ -148,7 +161,14 @@ class RemoteBuilder(ctx:RemoteContext,listener:ActorRef) extends BaseActor {
   private def getResponse(service:String,message:String) = ctx.send(service,message).mapTo[String] 
 
   private def buildResponse(req:ServiceRequest,intermediate:ServiceResponse):Any = {
-    null
+    /*
+     * The response sent by one of the requested predictive engines is represents 
+     * a simple message stating that the respective mining or model building task
+     * as been started.
+     */
+    val Array(task,topic) = req.task.split(":")
+    new ServiceResponse("insight","train:"+topic,intermediate.data,intermediate.status)
+ 
   }
 
 }

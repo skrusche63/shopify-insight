@@ -108,6 +108,21 @@ case class Orders(items:List[Order])
  * to the consequent part of an association rule
  */
 case class CrossSell(products:List[ShopifyProduct])
+
+/**
+ * An forecast claims a certain purchase amount at a specific
+ * timestamp with an assigned score, that describes the likelihood 
+ * that this purchase happens
+ */
+case class Forecast(amount:Float,timestamp:Long,score:Double)
+/**
+ * A user forecast collects a list of forecasts with respect
+ * to a certain user
+ */
+case class UserForecast(user:String,items:List[Forecast])
+
+case class UserForecasts(items:List[UserForecast])
+
 /**
  * A placement is a list of products that refers
  * to the consequent part of an association rule
@@ -119,7 +134,7 @@ case class Recommendation(
   site:String,user:String,products:List[ShopifyProduct]
 )
 
-case class Recommendations(uid:String,items:List[Recommendation])
+case class Recommendations(items:List[Recommendation])
 
 /**
  * A derived association rule that additionally specifies the matching weight

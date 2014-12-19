@@ -28,6 +28,8 @@ import de.kp.shopify.insight.{RemoteContext,ShopifyContext}
 import de.kp.shopify.insight.model._
 import de.kp.shopify.insight.io._
 
+import de.kp.shopify.insight.source._
+
 import scala.util.control.Breaks._
 import scala.collection.mutable.{ArrayBuffer,HashMap}
 
@@ -132,17 +134,25 @@ class RemoteQuestor(ctx:RemoteContext,listener:ActorRef) extends BaseActor {
           case result => {
  
             val intermediate = Serializer.deserializeResponse(result)
+            
             origin ! buildResponse(req,intermediate)
+            context.stop(self)
         
           }
 
         }
         response.onFailure {
-          case throwable => origin ! failure(req,throwable.getMessage)	 	      
+          case throwable => {
+            origin ! failure(req,throwable.getMessage)	 
+            context.stop(self)
+          }
 	    }
       
       } catch {
-        case e:Exception => origin ! failure(req,e.getMessage)
+        case e:Exception => {
+          origin ! failure(req,e.getMessage)
+          context.stop(self)
+        }
         
       }
       
@@ -174,7 +184,9 @@ class RemoteQuestor(ctx:RemoteContext,listener:ActorRef) extends BaseActor {
        
       }
       
-      case "loyalty" => {}
+      case "loyalty" => {
+        // TODO
+      }
       
       case "placement" => {
 
@@ -193,9 +205,71 @@ class RemoteQuestor(ctx:RemoteContext,listener:ActorRef) extends BaseActor {
       
       }
       
-      case "purchase" => {}
+      case "purchase" => {
+        /*
+         * A set of Markovian rules (i.e. a relation between a certain state and a sequence
+         * of most probable subsequent states) is transformed into a list of user specific
+         * purchase forecasts
+         */
+        val rules = Serializer.deserializeMarkovRules(intermediate.data(Names.REQ_RESPONSE))
+        /*
+         * Transform the rules in an appropriate lookup format as the states sent
+         * to the Intent Recognition engine are distinct
+         */
+        val lookup = rules.items.map(rule => (rule.antecedent,rule.consequent)).toMap
+        /*
+         * The questor provides a list of users and assigned lists of last purchase
+         * time, amount and states
+         */
+        val users = req.data(Names.REQ_USERS).split(",").toList
+        
+        val amounts = req.data(Names.REQ_AMOUNTS).split(",").toList
+        val times = req.data(Names.REQ_TIMES).split(",").toList
+        
+        val states = req.data(Names.REQ_STATES).split(",").toList     
+
+        val dataset = users.zip(amounts).zip(times).zip(states).map{case (((a,b),c),d) => (a,b.toFloat,c.toLong,d)}
+        val forecasts = dataset.map(entry => {
+          
+          val (user,amount,time,state) = entry
+          UserForecast(user,forecast(amount,time,lookup(state)))
+          
+        })
+
+        UserForecasts(forecasts)
+        
+      }
       
-      case "recommendation" => {}
+      case "recommendation" => {
+        /*
+         * A recommendation request is dedicated to a certain 'site' and a list of users, 
+         * and the result is a list of rules assigned to this input
+         */
+        val rules = Serializer.deserializeMultiUserRules(intermediate.data(Names.REQ_RESPONSE))
+        /*
+         * Turn retrieved user rules rules into a list of Shopify products, which
+         * then are returned to requestor as a result of this request.
+         * 
+         * 'total' is an external request parameter and specifies how many products
+         * have to be taken into account to build the product list
+         */        
+        val total = req.data(Names.REQ_TOTAL).toInt
+        val recommendations = rules.items.map(entry => {
+              
+          val (site,user) = (entry.site,entry.user)
+          /*
+           * Note, that weighted rules are determined by providing a certain threshold;
+           * to determine the respective items, we first take those items with the heighest 
+           * weight, highest confidence and finally highest support
+           */
+          val items = getWeightedItems(entry.items,total)
+          new Recommendation(site,user,getProducts(items))
+          
+        })
+           
+        new Recommendations(recommendations)
+
+      }
       
       /*
        * In case of all other tasks, response is directly sent 
@@ -204,46 +278,45 @@ class RemoteQuestor(ctx:RemoteContext,listener:ActorRef) extends BaseActor {
       case _ => intermediate
        
     }
+
+  }
+  /*
+   * The Intent Recognition engine returns a list of Markovian states; the ordering
+   * of these states reflects the number of steps looked ahead
+   */
+  private def forecast(amount:Float,time:Long,states:List[MarkovState]):List[Forecast] = {
     
-//    request.service match {
-//      
-//      case Services.ASSOCIATION => {
-//        
-//        request.task.split(":")(1) match {           
-//          case Tasks.RECOMMENDATION => {
-//            /* 
-//             * The total number of products returned as recommendations 
-//             * for each user
-//             */
-//            val total = request.data("total").toInt
-//            /*
-//             * A recommendation request is dedicated to a certain 'site'
-//             * and a list of users, and the result is a list of rules
-//             * assigned to this input
-//             */
-//            val rules = Serializer.deserializeMultiUserRules(request.data(Tasks.RECOMMENDATION)).items
-//            val recomms = rules.map(entry => {
-//              
-//              val (site,user) = (entry.site,entry.user)
-//              /*
-//               * Note, that weighted rules are determined by providing a certain threshold;
-//               * to determine the respective items, we first take those items with the heighest 
-//               * weight, highest confidence and finally highest support
-//               */
-//              val items = getItems(entry.items,total)
-//              new Recommendation(site,user,getProducts(items))
-//              
-//            })
-//            
-//            new Recommendations(request.data("uid"),recomms)
-//          
-//          }
-//       }
-//        
-//      }
+    val result = ArrayBuffer.empty[Forecast]
+    val steps = states.size
+    
+    if (steps == 0) return result.toList
+    
+    val record = states.head
+    
+    val next_time = AmountHandler.nextDate(record.name, time)
+    val next_amount = AmountHandler.nextAmount(record.name, amount)
+    
+    result += Forecast(next_amount,next_time,record.probability)
+
+    var pre_time = next_time
+    var pre_amount = next_amount
+    
+    for (record <- states.tail) {
+
+      val next_time = AmountHandler.nextDate(record.name, pre_time)
+      val next_amount = AmountHandler.nextAmount(record.name, pre_amount)
+   
+      result += Forecast(next_amount,next_time,record.probability)
+
+      pre_time = next_time
+      pre_amount = next_amount
+ 
+    }
+    
+    result.toList
     
   }
-
+  
   /**
    * This private method returns items from a list of association rules
    */

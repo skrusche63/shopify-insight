@@ -20,6 +20,7 @@ package de.kp.shopify.insight.io
 
 object QueryBuilder {
 
+  // TODO
   def get(source:String,topic:String):String = null
   
 }
