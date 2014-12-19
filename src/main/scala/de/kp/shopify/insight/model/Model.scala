@@ -143,6 +143,12 @@ object Sources {
     
 }
 
+object Sinks {
+  
+  val ELASTIC:String = "ELASTIC"
+    
+}
+
 object Statuses {
   
   val OPEN:String = "open"
@@ -189,15 +195,7 @@ object Elements {
   
 }
 
-object Messages {
-
-  def TASK_IS_UNKNOWN(uid:String,task:String):String = 
-    String.format("""[UID: %s] The task '%s' is unknown.""", uid, task)
-
-    def TRACKING_STARTED(uid:String):String = 
-    String.format("""[UID: %s] Tracking of shopify data started.""", uid)
-  
-}
+object Messages extends BaseMessages
 
 object Tasks {
   
@@ -237,46 +235,4 @@ object Services {
   
   def isService(service:String):Boolean = services.contains(service)
   
-}
-
-/**
- * The TaskMapper decouples external task descriptions from internal ones
- */
-object TaskMapper {
-
-  def get(service:String,task:String):String = {
-    
-    service match {
-    
-      case Services.ASSOCIATION => {
-        
-        task match {
-          /*
-           * A product placement task is mapped onto
-           * the internal 'antecedent' task
-           */
-          case Tasks.CROSS_SELL => "antecedent"
-          /*
-           * A product placement task is mapped onto
-           * the internal 'antecedent' task
-           */
-          case Tasks.PLACEMENT => "antecedent"
-          /*
-           * All other task are actually not mapped onto
-           * internal representation
-           */          
-          case _ => task
-        
-        }
-      
-      }
-      /*
-       * All other task are actually not mapped onto
-       * internal representation
-       */
-      case _ => task
-    }
-    
-  }
-
 }

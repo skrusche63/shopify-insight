@@ -18,10 +18,24 @@ package de.kp.shopify.insight.actor
 * If not, see <http://www.gnu.org/licenses/>.
 */
 
-import de.kp.shopify.insight.RemoteContext
+import akka.actor.ActorRef
 
-abstract class WorkerActor(ctx:RemoteContext) extends BaseActor {
+import de.kp.spark.core.Names
+import de.kp.spark.core.model._
 
-  def getResponse(service:String,message:String) = ctx.send(service,message).mapTo[String] 
+import de.kp.shopify.insight.{RemoteContext}
+
+import de.kp.shopify.insight.model._
+import de.kp.shopify.insight.io._
+
+class RemoteBuilder(ctx:RemoteContext,listener:ActorRef) extends BaseActor {
+  
+  override def receive = {
+    
+    case req:ServiceRequest => {
+      
+    }
+  
+  }
 
 }

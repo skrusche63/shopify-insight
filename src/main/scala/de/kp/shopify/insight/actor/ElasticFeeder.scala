@@ -135,7 +135,7 @@ class ElasticFeeder(listener:ActorRef) extends BaseActor {
         }
 
       } catch {
-        case e:Exception => listener ! String.format("""[UID: %s] Feed request exception: %s.""",uid,e.getMessage)
+        case e:Exception => listener ! String.format("""[UID: %s] Tracking request exception: %s.""",uid,e.getMessage)
 
       } finally {
         
