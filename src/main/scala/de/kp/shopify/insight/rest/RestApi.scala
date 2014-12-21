@@ -193,12 +193,22 @@ class RestApi(host:String,port:Int,system:ActorSystem,@transient sc:SparkContext
 	  }
     }  ~ 
     /*
-     * TODO: we may have to split this request to product, user, order etc
+     * 'product' requests focus on product specific questions
      */
     path("product" / Segment) {subject => 
 	  post {
 	    respondWithStatus(OK) {
 	      ctx => doProduct(ctx,subject)
+	    }
+	  }
+    }  ~ 
+    /*
+     * 'user' requests focus on user specific questions
+     */
+    path("user" / Segment) {subject => 
+	  post {
+	    respondWithStatus(OK) {
+	      ctx => doUser(ctx,subject)
 	    }
 	  }
     }
@@ -215,7 +225,7 @@ class RestApi(host:String,port:Int,system:ActorSystem,@transient sc:SparkContext
     
     if (List("order","product").contains(subject)) {
       
-      val task = "feed:" + subject
+      val task = "collect:" + subject
       val service = ""
 
       val params = getRequest(ctx)
@@ -273,14 +283,89 @@ class RestApi(host:String,port:Int,system:ActorSystem,@transient sc:SparkContext
     }
     
   }
-
+  /**
+   * 'product' supports retrieval of product related mining and prediction
+   * results, such as 'collection','cross-sell', 'promotion':
+   * 
+   * 'collection','cross-sell','promotion'
+   * 
+   * Shopify supports custom collections, i.e. grouping of products that a 
+   * shop owner can create to make their shops easier to browse. 
+   * 
+   * a) 'collection' suggests products that are often purchased together
+   * 
+   * b) 'cross-sell' helps to find additional or related products to put into 
+   * a collection e.g. mac book related, starting from a set of selected products. 
+   * 
+   * c) 'promotion' is similar to 'cross-sell' and answers the questions, which
+   * products to put into a certain collection to push sale for a list of 
+   * selected products.
+   * 
+   * 'product' requests are completely independent of a certain user and focus
+   * on relations between different products. A software product on top of these
+   * requests may be "Smart Collection Builder" that suggests products to put
+   * into a collection.
+   * 
+   */
   private def doProduct[T](ctx:RequestContext,subject:String) = {
 
     implicit val timeout:Timeout = DurationInt(time).second      
 
     val task = "get:" + subject
     
-    val topics = List("cross-sell","loyalty","placement","purchase","recommendation")
+    val topics = List("collection","cross-sell","promotion")
+    if (topics.contains(subject)) {
+      
+      val request = new ServiceRequest("",task,getRequest(ctx))
+    
+      val response = ask(finder,request)      
+      response.onSuccess {
+        case result => {
+
+          /* Different response type have to be distinguished */
+          if (result.isInstanceOf[Suggestions]) {
+            /*
+             * Suggestions is a list of product suggestions that
+             * can be used Shopify users to build custom collections;
+             * this result is provided by 'collection' requests
+             */
+            ctx.complete(result.asInstanceOf[Suggestions])
+            
+          } else if (result.isInstanceOf[Products]) {
+            /*
+             * Products is a list of Shhopify products that are
+             * related to set of selected products; this result
+             * is provided by 'cross-sell' & 'promotion' requests
+             */
+            ctx.complete(result.asInstanceOf[Products])
+            
+          } else if (result.isInstanceOf[ServiceResponse]) {
+            /*
+             * This is the common response type used for almost
+             * all requests
+             */
+            ctx.complete(result.asInstanceOf[ServiceResponse])
+            
+          }
+          
+        }
+      
+      }
+
+      response.onFailure {
+        case throwable => ctx.complete(throwable.getMessage)
+      }
+      
+    }
+  }
+  
+  private def doUser[T](ctx:RequestContext,subject:String) = {
+
+    implicit val timeout:Timeout = DurationInt(time).second      
+
+    val task = "get:" + subject
+    
+    val topics = List("forecast","loyalty","recommendation")
     if (topics.contains(subject)) {
       
       val request = new ServiceRequest("",task,getRequest(ctx))
@@ -289,22 +374,7 @@ class RestApi(host:String,port:Int,system:ActorSystem,@transient sc:SparkContext
       response.onSuccess {
         case result => {
           
-          /* Different response type have to be distinguished */
-          if (result.isInstanceOf[CrossSell]) {
-            /*
-             * A cross sell is retrieved from the Association Analysis 
-             * engine in combination with a Shopify request
-             */
-            ctx.complete(result.asInstanceOf[Placement])
-            
-          } else if (result.isInstanceOf[Placement]) {
-            /*
-             * A product placement is retrieved from the Association
-             * Analysis engine in combination with a Shopify request
-             */
-            ctx.complete(result.asInstanceOf[Placement])
-          
-          } else if (result.isInstanceOf[UserForecasts]) {
+          if (result.isInstanceOf[UserForecasts]) {
             /*
              * A user forecast is retrieved from the Intent Recognition
              * engine in combination with a Shopify request

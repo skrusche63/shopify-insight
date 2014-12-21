@@ -35,7 +35,7 @@ import scala.collection.mutable.{ArrayBuffer,HashMap}
 
 class RemoteQuestor(ctx:RemoteContext,listener:ActorRef) extends BaseActor {
 
-  private val stx = new ShopifyContext()
+  private val stx = new ShopifyContext(listener)
   
   override def receive = {
     
@@ -49,6 +49,20 @@ class RemoteQuestor(ctx:RemoteContext,listener:ActorRef) extends BaseActor {
       try {
       
         val (service,message) = topic match {
+        
+          case "collection" => {
+             /* 
+             * Build service request message to invoke remote Association Analysis engine; 
+             * the 'placement' request is mapped onto an 'rule' task
+             */
+            val service = "association"
+            val task = "get:rule"
+
+            val data = new CollectionBuilder().get(req.data)
+            val message = Serializer.serializeRequest(new ServiceRequest(service,task,data))
+            
+            (service,message)
+          }
         
           case "cross-sell" => {
             /* 
@@ -79,20 +93,21 @@ class RemoteQuestor(ctx:RemoteContext,listener:ActorRef) extends BaseActor {
             (service,message)
             
           }
-        
-          case "placement" => {
+          
+          case "promotion" => {
              /* 
              * Build service request message to invoke remote Association Analysis engine; 
-             * the 'placement' request is mapped onto an 'antecendent' task
+             * the 'promotion' request is mapped onto a 'consequent' task
              */
             val service = "association"
-            val task = "get:antecedent"
+            val task = "get:consequent"
 
-            val data = new PlacementBuilder().get(req.data)
+            val data = new PromotionBuilder().get(req.data)
             val message = Serializer.serializeRequest(new ServiceRequest(service,task,data))
             
             (service,message)
-         }
+          
+          }
         
           case "purchase" => {
             /*
@@ -166,6 +181,20 @@ class RemoteQuestor(ctx:RemoteContext,listener:ActorRef) extends BaseActor {
     
     val Array(task,topic) = req.task.split(":")
     topic match {
+      
+      case "collection" => {
+
+        val rules = Serializer.deserializeRules(intermediate.data(Names.REQ_RESPONSE))
+        /*
+         * Turn retrieved association rules into a list of Shopify products, which
+         * then are returned to requestor as a result of this request.
+         */        
+        val itemsets = getItemsets(rules.items)
+        val collections = itemsets.map(x => Suggestion(getProducts(x._1),x._2,x._3))
+
+        Suggestions(collections)
+        
+      }
  
       case "cross-sell" => {
 
@@ -178,17 +207,22 @@ class RemoteQuestor(ctx:RemoteContext,listener:ActorRef) extends BaseActor {
          * have to be taken into account to build the product list
          */        
         val total = req.data(Names.REQ_TOTAL).toInt
-        val items = getItems(rules.items,total)
+        val items = getConsequentItems(rules.items,total)
           
-        new CrossSell(getProducts(items))
+        new Products(getProducts(items))
        
+      }
+      
+      case "forecast" => {
+        // TODO
+        
       }
       
       case "loyalty" => {
         // TODO
       }
       
-      case "placement" => {
+      case "promotion" => {
 
         val rules = Serializer.deserializeRules(intermediate.data(Names.REQ_RESPONSE))
         /*
@@ -199,44 +233,9 @@ class RemoteQuestor(ctx:RemoteContext,listener:ActorRef) extends BaseActor {
          * have to be taken into account to build the product list
          */        
         val total = req.data(Names.REQ_TOTAL).toInt
-        val items = getItems(rules.items,total)
-        
-        new Placement(getProducts(items))        
-      
-      }
-      
-      case "purchase" => {
-        /*
-         * A set of Markovian rules (i.e. a relation between a certain state and a sequence
-         * of most probable subsequent states) is transformed into a list of user specific
-         * purchase forecasts
-         */
-        val rules = Serializer.deserializeMarkovRules(intermediate.data(Names.REQ_RESPONSE))
-        /*
-         * Transform the rules in an appropriate lookup format as the states sent
-         * to the Intent Recognition engine are distinct
-         */
-        val lookup = rules.items.map(rule => (rule.antecedent,rule.consequent)).toMap
-        /*
-         * The questor provides a list of users and assigned lists of last purchase
-         * time, amount and states
-         */
-        val users = req.data(Names.REQ_USERS).split(",").toList
-        
-        val amounts = req.data(Names.REQ_AMOUNTS).split(",").toList
-        val times = req.data(Names.REQ_TIMES).split(",").toList
-        
-        val states = req.data(Names.REQ_STATES).split(",").toList     
-
-        val dataset = users.zip(amounts).zip(times).zip(states).map{case (((a,b),c),d) => (a,b.toFloat,c.toLong,d)}
-        val forecasts = dataset.map(entry => {
+        val items = getAntecedentItems(rules.items,total)
           
-          val (user,amount,time,state) = entry
-          UserForecast(user,forecast(amount,time,lookup(state)))
-          
-        })
-
-        UserForecasts(forecasts)
+        new Products(getProducts(items))
         
       }
       
@@ -262,7 +261,7 @@ class RemoteQuestor(ctx:RemoteContext,listener:ActorRef) extends BaseActor {
            * to determine the respective items, we first take those items with the heighest 
            * weight, highest confidence and finally highest support
            */
-          val items = getWeightedItems(entry.items,total)
+          val items = getWeightedConsequentItems(entry.items,total)
           new Recommendation(site,user,getProducts(items))
           
         })
@@ -316,11 +315,64 @@ class RemoteQuestor(ctx:RemoteContext,listener:ActorRef) extends BaseActor {
     result.toList
     
   }
+
+  /**
+   * This private method joins antecedent & consequent items 
+   * of provided association rules into a list of weighted 
+   * itemsets
+   */
+  private def getItemsets(rules:List[Rule]):List[(List[Int],Int,Double)] = {
+    
+    val dataset = rules.map(rule => {
+      
+      /* Aggregate all items of a certain rule */
+      val items = rule.antecedent ++ rule.consequent
+      (rule.confidence,rule.support,items)
+      
+    })
+
+    /* Sort items by confidence & support */
+    val sorted = dataset.sortBy(x => (-x._1, -x._2))
+    sorted.map(x => (x._3,x._2,x._1))
+    
+  }
+
+  /**
+   * This private method returns antecedent items from a list 
+   * of association rules
+   */
+  private def getAntecedentItems(rules:List[Rule],total:Int):List[Int] = {
+    
+    val dataset = rules.map(rule => {
+      (rule.confidence,rule.support,rule.antecedent)
+    })
+    
+    val sorted = dataset.sortBy(x => (-x._1, -x._2))
+    val len = sorted.length
+    
+    if (len == 0) return List.empty[Int]
+    
+    var items = List.empty[Int]
+    breakable {
+      
+      (0 until len).foreach( i => {
+        
+        items = items ++ sorted(i)._3
+        if (items.length >= total) break
+      
+      })
+      
+    }
+
+    items
+    
+  }
   
   /**
-   * This private method returns items from a list of association rules
+   * This private method returns consequent items from a list 
+   * of association rules
    */
-  private def getItems(rules:List[Rule],total:Int):List[Int] = {
+  private def getConsequentItems(rules:List[Rule],total:Int):List[Int] = {
     
     val dataset = rules.map(rule => {
       (rule.confidence,rule.support,rule.consequent)
@@ -348,11 +400,11 @@ class RemoteQuestor(ctx:RemoteContext,listener:ActorRef) extends BaseActor {
   }
   
   /**
-   * This private method returns items from a list of weighted association 
-   * rules; the weight is used to specify the intersection of rule based
-   * antecedent and last customer transaction items
+   * This private method returns consequent items from a list of weighted 
+   * association rules; the weight is used to specify the intersection of 
+   * rule based antecedent and last customer transaction items
    */
-  private def getWeightedItems(rules:List[WeightedRule],total:Int):List[Int] = {
+  private def getWeightedConsequentItems(rules:List[WeightedRule],total:Int):List[Int] = {
     
     val dataset = rules.map(rule => {
       (rule.weight,rule.confidence,rule.support,rule.consequent)

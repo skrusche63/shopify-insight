@@ -103,11 +103,15 @@ case class Order(
   items:List[OrderItem]
 )
 case class Orders(items:List[Order])
+
 /**
- * A cross sell is a list of products that refers
- * to the consequent part of an association rule
+ * A suggestion is a list of weighted (by support & confidence) 
+ * product suggestions, that helps to build custom collections
  */
-case class CrossSell(products:List[ShopifyProduct])
+case class Suggestion(products:List[ShopifyProduct],support:Int,confidence:Double)
+case class Suggestions(items:List[Suggestion])
+
+case class Products(products:List[ShopifyProduct])
 
 /**
  * An forecast claims a certain purchase amount at a specific
@@ -119,15 +123,9 @@ case class Forecast(amount:Float,timestamp:Long,score:Double)
  * A user forecast collects a list of forecasts with respect
  * to a certain user
  */
-case class UserForecast(user:String,items:List[Forecast])
+case class UserForecast(site:String,user:String,steps:List[Forecast])
 
 case class UserForecasts(items:List[UserForecast])
-
-/**
- * A placement is a list of products that refers
- * to the consequent part of an association rule
- */
-case class Placement(products:List[ShopifyProduct])
 
 case class Recommendation(
   /* A recommendation is described on a per user basis */

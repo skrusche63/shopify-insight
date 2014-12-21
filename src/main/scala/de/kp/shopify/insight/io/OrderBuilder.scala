@@ -18,16 +18,18 @@ package de.kp.shopify.insight.io
  * If not, see <http://www.gnu.org/licenses/>.
  */
 
+import de.kp.spark.core.model._
+
 import de.kp.shopify.insight.model._
 import org.joda.time.format.DateTimeFormat
 
 class OrderBuilder {
 
   /**
-   * A public method to extract those data from a shopify
-   * order that is indexed as a purchase item
+   * A public method to extract those fields from a Shopify
+   * order that describes an 'Order'
    */
-  def build(site:String,order:ShopifyOrder):Order = {
+  def extractOrder(site:String,order:ShopifyOrder):Order = {
     
     /*
      * The unique identifier of a certain order is used
@@ -86,6 +88,31 @@ class OrderBuilder {
     })
 
     Order(site,user,timestamp,group,amount,items)
+  
+  }
+  /**
+   * A public method to extract those fields from a Shopify
+   * order that describes an 'AmountObject'
+   */
+  def extractPurchase(site:String,order:ShopifyOrder):AmountObject = {
+    
+    /*
+     * The datetime this order was created:
+     * "2014-11-03T13:51:38-05:00"
+     */
+    val created_at = order.created_at
+    val timestamp = toTimestamp(created_at)
+    /*
+     * The unique user identifier is retrieved from the
+     * customer object and there from the 'id' field
+     */
+    val user = order.customer.id.toString
+    /*
+     * The amount is retrieved from the total price
+     */
+    val amount = order.total_price.toFloat
+
+    AmountObject(site,user,timestamp,amount)
   
   }
   

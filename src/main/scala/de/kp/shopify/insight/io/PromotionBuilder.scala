@@ -21,7 +21,16 @@ package de.kp.shopify.insight.io
 import de.kp.spark.core.Names
 import de.kp.spark.core.model._
 
-class PlacementBuilder extends AssociationBuilder {
+import de.kp.shopify.insight.model._
+
+import scala.collection.mutable.HashMap
+
+/**
+ * PromotionBuilder supports training and retrieval of promotion
+ * models by Predictiveworks; the respective request parameters
+ * are prepared (almost) user agnostic
+ */
+class PromotionBuilder extends AssociationBuilder {
 
   override def get(params:Map[String,String]):Map[String,String] = {
     // TODO

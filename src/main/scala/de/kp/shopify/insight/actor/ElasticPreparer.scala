@@ -8,12 +8,8 @@ import akka.actor.ActorRef
 import de.kp.spark.core.Names
 import de.kp.spark.core.model._
 
-import de.kp.spark.core.io._
-import de.kp.spark.core.elastic._
-
-import de.kp.spark.core.spec.FieldBuilder
-
 import de.kp.shopify.insight.io.QueryBuilder
+import de.kp.shopify.insight.elastic._
 
 import de.kp.shopify.insight.model._
 import de.kp.shopify.insight.source._
@@ -80,23 +76,24 @@ class ElasticPreparer(@transient sc:SparkContext,listener:ActorRef) extends Base
             )
 
             val source = new AmountSource(sc)            
-            val dataset = source.get(new ServiceRequest("","",data))
+            val rawset = source.get(new ServiceRequest("","",data))
 
             listener ! String.format("""[UID: %s] Amount data retrieved from Elasticsearch and transformed into states.""",uid)
             
             /*
              * STEP#2: Create index to register states
              */
-            if (createIndex(req,"orders","states") == false)
+            val handler = new ElasticHandler()
+            if (handler.createIndex(req,"orders","states","state") == false)
               throw new Exception("Feed processing has been stopped due to an internal error.")
             
             /*
              * STEP#3: Register states
              */
-            dataset.collect().foreach(record => {
+            val dataset = rawset.collect().map(record => {
               
               val (site,user,timestamp,state) = record
-              val data = Map(
+              Map(
                 
                 Names.SITE_FIELD -> site,
                 Names.USER_FIELD -> user,
@@ -105,11 +102,11 @@ class ElasticPreparer(@transient sc:SparkContext,listener:ActorRef) extends Base
                 Names.STATE_FIELD -> state
                 
               )
-             
-              if (putState(new ServiceRequest("","",data),"orders","states"))
-                  throw new Exception("Preparation process has been stopped due to an internal error.")
               
-            })
+            }).toList
+             
+            if (handler.putStates("orders","states",dataset) == false)
+              throw new Exception("Preparation process has been stopped due to an internal error.")
             
             listener ! String.format("""[UID: %s] Preparation request finished.""",uid)
  
@@ -130,73 +127,5 @@ class ElasticPreparer(@transient sc:SparkContext,listener:ActorRef) extends Base
     }
     
   }
-  
-  private def createIndex(req:ServiceRequest,index:String,mapping:String):Boolean = {
-    
-    try {
-        
-      val builder = ElasticBuilderFactory.getBuilder(mapping,mapping,List.empty[String],List.empty[String])
-      val indexer = new ElasticIndexer()
-    
-      indexer.create(index,mapping,builder)
-      indexer.close()
-      
-      /*
-       * Raw data that are ingested by the tracking functionality do not have
-       * to be specified by a field or metadata specification; we therefore
-       * and the field specification here as an internal feature
-       */        
-      val fields = new FieldBuilder().build(req,mapping)
-      
-      /*
-       * The name of the model to which these fields refer cannot be provided
-       * by the user; we therefore have to re-pack the service request to set
-       * the name of the model
-       */
-      val data = Map(Names.REQ_NAME -> mapping) ++  req.data 
-     
-      if (fields.isEmpty == false) cache.addFields(new ServiceRequest("","",data), fields.toList)
-     
-      true
-    
-    } catch {
-      case e:Exception => false
-    }
-    
-  }
-  
-  private def putState(req:ServiceRequest,index:String,mapping:String):Boolean = {
-     
-    try {
-    
-      val writer = new ElasticWriter()
-        
-      val readyToWrite = writer.open(index,mapping)
-      if (readyToWrite == false) {
-      
-        writer.close()
-      
-        val msg = String.format("""Opening index '%s' and mapping '%s' for write failed.""",index,mapping)
-        throw new Exception(msg)
-      
-      } else {
-      
-        val source = new ElasticStateBuilder().createSource(req.data)
-        /*
-         * Writing this source to the respective index throws an
-         * exception in case of an error; note, that the writer is
-         * automatically closed 
-         */
-        writer.write(index, mapping, source)
-      
-        true
-      
-      }
-    
-    } catch {
-      case e:Exception => false
-    }
-   
-  }
-  
+ 
 }

@@ -22,26 +22,14 @@ import de.kp.spark.core.model._
 
 import de.kp.shopify.insight.model._
 import scala.collection.mutable.{ArrayBuffer,HashMap}
-/**
- * The RequestBuilder is responsible for building tracking request
- * based on a specific predictive engine and respective shopify data
- */
-class RequestBuilder {
 
-  def build(order:Order,topic:String):ServiceRequest = {
-    
-    topic match {
-      
-      case "amount" => buildAmountRequest(order)      
-      case "item"   => buildItemRequest(order)
-      
-      case _ => null
-    
-    }
-    
+class OrderMapper {
+   
+  def toAmountTuple(order:Order):(String,String,Long,Float) = {
+    (order.site,order.user,order.timestamp,order.amount)
   }
-  
-  private def buildAmountRequest(order:Order):ServiceRequest = {
+ 
+  def toAmountMap(order:Order):Map[String,String] = {
         
     val data = HashMap.empty[String,String]
         
@@ -51,11 +39,11 @@ class RequestBuilder {
     data += "timestamp" -> order.timestamp.toString
     data += "amount" -> order.amount.toString
 
-    new ServiceRequest("","",data.toMap)
-
+    data.toMap
+    
   }
   
-  private def buildItemRequest(order:Order):ServiceRequest = {
+  def toItemMap(order:Order):Map[String,String] = {
         
     val data = HashMap.empty[String,String]
         
@@ -71,7 +59,7 @@ class RequestBuilder {
     }
         
     data += "item" -> items.mkString(",")
-    new ServiceRequest("","",data.toMap)
+    data.toMap
     
   }
   

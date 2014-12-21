@@ -22,22 +22,36 @@ import akka.actor.ActorRef
 import de.kp.spark.core.Names
 import de.kp.spark.core.model._
 
-import de.kp.spark.core.io._
-import de.kp.spark.core.elastic._
-
-import de.kp.spark.core.spec.FieldBuilder
-
 import de.kp.shopify.insight.ShopifyContext
-import de.kp.shopify.insight.io.RequestBuilder
+import de.kp.shopify.insight.io.OrderMapper
 
+import de.kp.shopify.insight.elastic._
 import de.kp.shopify.insight.model._
+
+import de.kp.shopify.insight.source._
+
+import scala.collection.mutable.ArrayBuffer
+
+private case class Pair(time:Long,state:String)
+
 /**
- * The ElasticFeeder retrieves orders or products from a Shopify store
- * and registers them in an Elasticsearch index for subsequent processing
+ * The ElasticFeeder retrieves orders or products from a Shopify store and
+ * registers them in an Elasticsearch index for subsequent processing. From
+ * orders the following indexes are built:
+ * 
+ * Store:orders --+----> Amount index (orders/amount)
+ *                :
+ *                :
+ *                +----> Item index (orders/items)
+ *                :
+ *                :
+ *                +----> State index (orders/states)
+ * 
  */
 class ElasticFeeder(listener:ActorRef) extends BaseActor {
 
-  private val stx = new ShopifyContext()  
+  private val stx = new ShopifyContext(listener)  
+  
   override def receive = {
     
     case req:ServiceRequest => {
@@ -55,6 +69,8 @@ class ElasticFeeder(listener:ActorRef) extends BaseActor {
            */
           case "order" => {
             
+            val start = new java.util.Date().getTime
+            
             listener ! String.format("""[UID: %s] Request to feed orders received.""",uid)
             
             /*
@@ -63,69 +79,67 @@ class ElasticFeeder(listener:ActorRef) extends BaseActor {
              * The 'amount' index (mapping) is used by Intent Recognition and
              * supports the Recency-Frequency-Monetary (RFM) model
              * 
-             * The 'item' index (mapping) specifies a transaction database and
+             * The 'items' index (mapping) specifies a transaction database and
              * is used by Association Analysis, Series Analysis and othe engines
              * 
+             * The 'states' index (mapping) specifies a states database derived 
+             * from the amount representation and used by Intent Recognition
              */
-            if (createIndex(req,"orders","amount") == false)
+            val handler = new ElasticHandler()
+            
+            if (handler.createIndex(req,"orders","amount","amount") == false)
               throw new Exception("Feed processing has been stopped due to an internal error.")
 
-            if (createIndex(req,"orders","items") == false)
+            if (handler.createIndex(req,"orders","items","item") == false)
               throw new Exception("Feed processing has been stopped due to an internal error.")
-
+ 
+            if (handler.createIndex(req,"orders","states","state") == false)
+              throw new Exception("Feed processing has been stopped due to an internal error.")
+ 
             listener ! String.format("""[UID: %s] Elasticsearch indexes created.""",uid)
 
             /*
-             * STEP #2: Retrieve orders count from a certain shopify store;
-             * for further processing, we set the limit of responses to the
-             * maximum number (250) allowed by the Shopify interface
+             * STEP #2: Retrieve orders from a certain shopify store; this request takes
+             * into account that the Shopify REST interface returns maximally 250 orders
              */
-            val count = stx.getOrdersCount(req)
+            val orders = stx.getOrders(req)
+            /*
+             * STEP #3: Build tracking requests to send the collected orders to
+             * the respective service or engine; the orders are sent independently 
+             * following a fire-and-forget strategy
+             */
+            val mapper = new OrderMapper()
+            /*
+             * The 'amount' perspective of the order is built and registered
+             */
+            val amounts = orders.map(mapper.toAmountMap(_))
 
-            listener ! String.format("""[UID: %s] Total of %s orders to feed into search index.""",uid,count.toString)
+            if (handler.putAmount("orders","amount",amounts) == false)
+              throw new Exception("Feed processing has been stopped due to an internal error.")
 
-            val pages = Math.ceil(count / 250.0)
-            val excludes = List("limit","page")
-
-            var page = 1
+            listener ! String.format("""[UID: %s] Amount perspective registered in Elasticsearch index.""",uid)
+            /*
+             * The 'item' perspective of the order is built and registered
+             */
+            val items = orders.map(mapper.toItemMap(_))
             
-            while (page <= pages) {
-              /*
-               * STEP #3: Retrieve orders via a paginated approach, retrieving a maximum
-               * of 250 orders per request
-               */
-              val data = req.data.filter(kv => excludes.contains(kv._1) == false) ++ Map("limit" -> "250","page" -> page.toString)
-              val orders = stx.getOrders(new ServiceRequest(req.service,req.task,data))
+            if (handler.putItems("orders","items",items) == false)
+              throw new Exception("Feed processing has been stopped due to an internal error.")
+          
+            listener ! String.format("""[UID: %s] Item perspective registered in Elasticsearch index.""",uid)
+            /*
+             * The 'state' perspective of the order is built and registered
+             */
+            val states = toStates(orders.map(mapper.toAmountTuple(_)))
+            
+            if (handler.putItems("orders","states",states) == false)
+              throw new Exception("Feed processing has been stopped due to an internal error.")
+          
+            listener ! String.format("""[UID: %s] State perspective registered in Elasticsearch index.""",uid)
 
-              listener ! String.format("""[UID: %s] Page %s, and %s orders to feed into search index.""",uid,page.toString,orders.size.toString)
-              
-              /*
-               * STEP #4: Build tracking requests to send the collected orders to
-               * the respective service or engine; the orders are sent independently 
-               * following a fire-and-forget strategy
-               */
-              val builder = new RequestBuilder()
-              for (order <- orders) {
-                /*
-                 * The 'amount' perspective of the order is built and tracked
-                 */
-                if (trackOrder(builder.build(order, "amount"),"orders","amount"))
-                  throw new Exception("Feed processing has been stopped due to an internal error.")
-                
-                /*
-                 * The 'item' perspective of the order is built and tracked
-                 */
-                if (trackOrder(builder.build(order, "item"),"orders","items"))
-                  throw new Exception("Feed processing has been stopped due to an internal error.")
-                
-              }
-             
-              page += 1
-              
-            }
-
-            listener ! String.format("""[UID: %s] Feed request finished.""",uid)
-           
+            val end = new java.util.Date().getTime
+            listener ! String.format("""[UID: %s] Order tracking finished in %s ms.""",uid,(end-start).toString)
+         
           }
           
           case "product" => throw new Exception("Product tracking is not supported yet.")
@@ -146,124 +160,44 @@ class ElasticFeeder(listener:ActorRef) extends BaseActor {
     }
   
   }
-  
-  private def createIndex(req:ServiceRequest,index:String,mapping:String):Boolean = {
-    
-    try {
-        
-      val builder = ElasticBuilderFactory.getBuilder(mapping,mapping,List.empty[String],List.empty[String])
-      val indexer = new ElasticIndexer()
-    
-      indexer.create(index,mapping,builder)
-      indexer.close()
-      
-      /*
-       * Raw data that are ingested by the tracking functionality do not have
-       * to be specified by a field or metadata specification; we therefore
-       * and the field specification here as an internal feature
-       */        
-      val fields = new FieldBuilder().build(req,mapping)
-      
-      /*
-       * The name of the model to which these fields refer cannot be provided
-       * by the user; we therefore have to re-pack the service request to set
-       * the name of the model
-       */
-      val excludes = List(Names.REQ_NAME)
-      val data = Map(Names.REQ_NAME -> mapping) ++  req.data.filter(kv => excludes.contains(kv._1) == false)  
-     
-      if (fields.isEmpty == false) cache.addFields(new ServiceRequest("","",data), fields.toList)
-     
-      true
-    
-    } catch {
-      case e:Exception => false
-    }
-    
-  }
-  
-  private def trackOrder(req:ServiceRequest,index:String,mapping:String):Boolean = {
-     
-    try {
-    
-      val writer = new ElasticWriter()
-        
-      val readyToWrite = writer.open(index,mapping)
-      if (readyToWrite == false) {
-      
-        writer.close()
-      
-        val msg = String.format("""Opening index '%s' and mapping '%s' for write failed.""",index,mapping)
-        throw new Exception(msg)
-      
-      } else {
-     
-        mapping match {
-          
-          case "amount" => {
-      
-            val source = new ElasticAmountBuilder().createSource(req.data)
-            /*
-             * Writing this source to the respective index throws an
-             * exception in case of an error; note, that the writer is
-             * automatically closed 
-             */
-            writer.write(index, mapping, source)
-            
-          }
-          case "item" => {
-      
-            /*
-             * Data preparation comprises the extraction of all common 
-             * fields, i.e. timestamp, site, user and group. The 'item' 
-             * field may specify a list of purchase items and has to be 
-             * processed differently.
-             */
-            val source = new ElasticItemBuilder().createSource(req.data)
-            /*
-             * The 'item' field specifies a comma-separated list
-             * of item (e.g.) product identifiers. Note, that every
-             * item is actually indexed individually. This is due to
-             * synergy effects with other data sources
-             */
-            val items = req.data(Names.ITEM_FIELD).split(",")
-            /*
-             * A trackable event may have a 'score' field assigned;
-             * note, that this field is optional
-             */
-            val scores = if (req.data.contains(Names.REQ_SCORE)) req.data(Names.REQ_SCORE).split(",").map(_.toDouble) else Array.fill[Double](items.length)(0)
 
-            val zipped = items.zip(scores)
-            for  ((item,score) <- zipped) {
-              /*
-               * Set or overwrite the 'item' field in the respective source
-               */
-              source.put(Names.ITEM_FIELD, item)
-              /*
-               * Set or overwrite the 'score' field in the respective source
-               */
-              source.put(Names.SCORE_FIELD, score.asInstanceOf[Object])
-              /*
-               * Writing this source to the respective index throws an
-               * exception in case of an error; note, that the writer is
-               * automatically closed 
-               */
-              writer.write(index, mapping, source)
-            }
-            
-          }
-          case _ => {/* cannot happen */}
-          
-        }
+  private def toStates(amounts:List[(String,String,Long,Float)]):List[Map[String,String]] = {
+    /*
+     * Group amounts by site & user and restrict to those
+     * users with more than one purchase
+     */
+    amounts.groupBy(x => (x._1,x._2)).filter(_._2.size > 1).flatMap(p => {
+
+      val (site,user) = p._1
+      val orders = p._2.map(v => (v._3,v._4)).toList.sortBy(_._1)
       
-        true
+      /* Extract first order */
+      var (pre_time,pre_amount) = orders.head
+      val states = ArrayBuffer.empty[Pair]
+
+      for ((time,amount) <- orders.tail) {
+        
+        val astate = AmountHandler.stateByAmount(amount,pre_amount)
+        val tstate = AmountHandler.stateByTime(time,pre_time)
       
+        val state = astate + tstate
+        states += Pair(time,state)
+        
+        pre_amount = amount
+        pre_time   = time
+        
       }
+      
+      states.map(x => Map(
+        Names.SITE_FIELD -> site,
+        Names.USER_FIELD -> user,
+          
+        Names.STATE_FIELD -> x.state,
+        Names.TIMESTAMP_FIELD -> x.time.toString
+     ))
+      
+    }).toList
     
-    } catch {
-      case e:Exception => false
-    }
-   
   }
 
 }

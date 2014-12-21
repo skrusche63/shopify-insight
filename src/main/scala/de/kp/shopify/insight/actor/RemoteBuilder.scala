@@ -43,6 +43,21 @@ class RemoteBuilder(ctx:RemoteContext,listener:ActorRef) extends BaseActor {
       
         val (service,message) = topic match {
         
+          case "collection" => {
+             /* 
+             * Build service request message to invoke remote Association Analysis engine; 
+             * the 'collection' request is mapped onto a 'train' task
+             */
+            val service = "association"
+            val task = "train"
+
+            val data = new CollectionBuilder().train(req.data)
+            val message = Serializer.serializeRequest(new ServiceRequest(service,task,data))
+            
+            (service,message)
+          
+          }
+        
           case "cross-sell" => {
             /* 
              * Build service request message to invoke remote Association Analysis engine; 
@@ -73,7 +88,7 @@ class RemoteBuilder(ctx:RemoteContext,listener:ActorRef) extends BaseActor {
             
           }
         
-          case "placement" => {
+          case "promotion" => {
              /* 
              * Build service request message to invoke remote Association Analysis engine; 
              * the 'placement' request is mapped onto a 'train' task
@@ -81,11 +96,12 @@ class RemoteBuilder(ctx:RemoteContext,listener:ActorRef) extends BaseActor {
             val service = "association"
             val task = "train"
 
-            val data = new PlacementBuilder().train(req.data)
+            val data = new PromotionBuilder().train(req.data)
             val message = Serializer.serializeRequest(new ServiceRequest(service,task,data))
             
             (service,message)
-         }
+          
+          }
         
           case "purchase" => {
             /*
