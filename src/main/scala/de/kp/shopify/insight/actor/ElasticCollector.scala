@@ -31,6 +31,7 @@ import de.kp.shopify.insight.model._
 import de.kp.shopify.insight.source._
 
 import scala.collection.mutable.ArrayBuffer
+import scala.collection.JavaConversions._
 
 private case class Pair(time:Long,state:String)
 
@@ -123,7 +124,7 @@ class ElasticCollector(listener:ActorRef) extends BaseActor {
             /*
              * The 'item' perspective of the order is built and registered
              */
-            val items = orders.map(mapper.toItemMap(_))
+            val items = orders.flatMap(mapper.toItemMap(_))
             
             if (handler.putItems("orders","items",items) == false)
               throw new Exception("Feed processing has been stopped due to an internal error.")
@@ -134,7 +135,7 @@ class ElasticCollector(listener:ActorRef) extends BaseActor {
              */
             val states = toStates(orders.map(mapper.toAmountTuple(_)))
             
-            if (handler.putItems("orders","states",states) == false)
+            if (handler.putStates("orders","states",states) == false)
               throw new Exception("Feed processing has been stopped due to an internal error.")
           
             listener ! String.format("""[UID: %s] State perspective registered in Elasticsearch index.""",uid)
@@ -177,7 +178,7 @@ class ElasticCollector(listener:ActorRef) extends BaseActor {
   
   }
 
-  private def toStates(amounts:List[(String,String,Long,Float)]):List[Map[String,String]] = {
+  private def toStates(amounts:List[(String,String,Long,Float)]):List[java.util.Map[String,Object]] = {
     /*
      * Group amounts by site & user and restrict to those
      * users with more than one purchase
@@ -204,13 +205,19 @@ class ElasticCollector(listener:ActorRef) extends BaseActor {
         
       }
       
-      states.map(x => Map(
-        Names.SITE_FIELD -> site,
-        Names.USER_FIELD -> user,
+      states.map(x => {
+        
+        val data = new java.util.HashMap[String,Object]()
+        
+        data += Names.SITE_FIELD -> site
+        data += Names.USER_FIELD -> user
           
-        Names.STATE_FIELD -> x.state,
-        Names.TIMESTAMP_FIELD -> x.time.toString
-     ))
+        data += Names.STATE_FIELD -> x.state
+        data += Names.TIMESTAMP_FIELD -> x.time.asInstanceOf[Object]
+        
+        data
+        
+      })
       
     }).toList
     

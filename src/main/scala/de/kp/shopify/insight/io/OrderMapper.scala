@@ -18,10 +18,13 @@ package de.kp.shopify.insight.io
  * If not, see <http://www.gnu.org/licenses/>.
  */
 
+import de.kp.spark.core.Names
 import de.kp.spark.core.model._
 
 import de.kp.shopify.insight.model._
+
 import scala.collection.mutable.{ArrayBuffer,HashMap}
+import scala.collection.JavaConversions._
 
 class OrderMapper {
    
@@ -29,37 +32,39 @@ class OrderMapper {
     (order.site,order.user,order.timestamp,order.amount)
   }
  
-  def toAmountMap(order:Order):Map[String,String] = {
+  def toAmountMap(order:Order):java.util.Map[String,Object] = {
         
-    val data = HashMap.empty[String,String]
+    val data = new java.util.HashMap[String,Object]()
         
-    data += "site" -> order.site
+    data += Names.SITE_FIELD -> order.site
     data += "user" -> order.user
         
-    data += "timestamp" -> order.timestamp.toString
-    data += "amount" -> order.amount.toString
+    data += "timestamp" -> order.timestamp.asInstanceOf[Object]
+    data += "amount" -> order.amount.asInstanceOf[Object]
 
-    data.toMap
+    data
     
   }
   
-  def toItemMap(order:Order):Map[String,String] = {
+  def toItemMap(order:Order):List[java.util.Map[String,Object]] = {
+
+    val items = order.items.map(_.item)
+    items.map(item => {
+    
+      val data = new java.util.HashMap[String,Object]()
         
-    val data = HashMap.empty[String,String]
+      data += Names.SITE_FIELD -> order.site
+      data += "user" -> order.user
         
-    data += "site" -> order.site
-    data += "user" -> order.user
-        
-    data += "timestamp" -> order.timestamp.toString
-    data += "group" -> order.group
-        
-    val items = ArrayBuffer.empty[Int]
-    for (record <- order.items) {
-      items += record.item
-    }
-        
-    data += "item" -> items.mkString(",")
-    data.toMap
+      data += "timestamp" -> order.timestamp.asInstanceOf[Object]
+      data += "group" -> order.group
+
+      data += Names.ITEM_FIELD -> item.asInstanceOf[Object]
+      data += Names.SCORE_FIELD -> 0.0.asInstanceOf[Object]
+      
+      data
+      
+    })    
     
   }
   

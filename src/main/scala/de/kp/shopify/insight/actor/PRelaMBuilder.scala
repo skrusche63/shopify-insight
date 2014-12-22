@@ -18,12 +18,10 @@ package de.kp.shopify.insight.actor
 * If not, see <http://www.gnu.org/licenses/>.
 */
 
-import akka.actor.ActorRef
-
 import de.kp.spark.core.Names
 import de.kp.spark.core.model._
 
-import de.kp.shopify.insight.{RemoteContext,ShopifyContext}
+import de.kp.shopify.insight.{ServerContext,ShopifyContext}
 import de.kp.shopify.insight.model._
 
 import de.kp.shopify.insight.io._
@@ -47,9 +45,9 @@ import scala.collection.JavaConversions._
  * the data analytics pipeline.
  * 
  */
-class PRelaMBuilder(ctx:RemoteContext,listener:ActorRef) extends BaseActor {
+class PRelaMBuilder(serverContext:ServerContext) extends BaseActor {
 
-  private val stx = new ShopifyContext(listener)  
+  private val stx = new ShopifyContext(serverContext.listener)  
 
   override def receive = {
    
@@ -66,7 +64,7 @@ class PRelaMBuilder(ctx:RemoteContext,listener:ActorRef) extends BaseActor {
          */      
         val (service,request) = buildRemoteRequest(params)
 
-        val response = ctx.send(service,request).mapTo[String]            
+        val response = serverContext.getRemoteContext.send(service,request).mapTo[String]            
         response.onSuccess {
         
           case result => {
@@ -83,12 +81,12 @@ class PRelaMBuilder(ctx:RemoteContext,listener:ActorRef) extends BaseActor {
             if (handler.createIndex(params,"orders","rules","rule") == false)
               throw new Exception("Indexing has been stopped due to an internal error.")
  
-            listener ! String.format("""[UID: %s] Elasticsearch index created.""",uid)
+            serverContext.listener ! String.format("""[UID: %s] Elasticsearch index created.""",uid)
 
             if (handler.putRules("orders","rules",rules) == false)
               throw new Exception("Indexing processing has been stopped due to an internal error.")
 
-            listener ! String.format("""[UID: %s] Product rule perspective registered in Elasticsearch index.""",uid)
+            serverContext.listener ! String.format("""[UID: %s] Product rule perspective registered in Elasticsearch index.""",uid)
 
             val data = Map(Names.REQ_UID -> uid,Names.REQ_MODEL -> "PRelaM")            
             context.parent ! EnrichFinished(data)           

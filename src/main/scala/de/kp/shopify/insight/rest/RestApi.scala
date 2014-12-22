@@ -45,7 +45,7 @@ import de.kp.spark.core.model._
 import de.kp.spark.core.rest.RestService
 
 import de.kp.shopify.insight.actor._
-import de.kp.shopify.insight.Configuration
+import de.kp.shopify.insight.ServerContext
 
 import de.kp.shopify.insight.model._
 /**
@@ -63,15 +63,15 @@ class RestApi(host:String,port:Int,system:ActorSystem,@transient sc:SparkContext
   
   override def actorRefFactory:ActorSystem = system
 
-  val (heartbeat,time) = Configuration.heartbeat      
   private val RouteCache = CachingDirectives.routeCache(1000,16,Duration.Inf,Duration("30 min"))
   
   /*
-   * The MessageListener actor is an overall listener that retrieves the error and
+   * The listener actor is an overall listener that retrieves the error and
    * interim messages from all the other actors
    */
-  val listener = system.actorOf(Props(new MessageListener()))
- 
+  private val listener = system.actorOf(Props(new MessageListener()))
+  private val serverContext = new ServerContext(sc,listener)
+  
   def start() {
     RestService.start(routes,system,host,port)
   }
@@ -141,7 +141,7 @@ class RestApi(host:String,port:Int,system:ActorSystem,@transient sc:SparkContext
        * by the DataPipeline actor that is responsible for controlling the analytics 
        * pipeline
        */
-      val pipeline = system.actorOf(Props(new DataPipeline(sc,listener)))
+      val pipeline = system.actorOf(Props(new DataPipeline(serverContext)))
 
       val params = getRequest(ctx)
       val uid = java.util.UUID.randomUUID().toString
@@ -198,7 +198,7 @@ class RestApi(host:String,port:Int,system:ActorSystem,@transient sc:SparkContext
    */
   private def doProduct[T](ctx:RequestContext,subject:String) = {
 
-    implicit val timeout:Timeout = DurationInt(time).second      
+    implicit val timeout:Timeout = DurationInt(serverContext.getTimeout).second      
 
     val task = "get:" + subject
     
@@ -252,7 +252,7 @@ class RestApi(host:String,port:Int,system:ActorSystem,@transient sc:SparkContext
   
   private def doUser[T](ctx:RequestContext,subject:String) = {
 
-    implicit val timeout:Timeout = DurationInt(time).second      
+    implicit val timeout:Timeout = DurationInt(serverContext.getTimeout).second      
 
     val task = "get:" + subject
     

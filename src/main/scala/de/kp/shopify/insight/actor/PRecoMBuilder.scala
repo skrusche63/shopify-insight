@@ -23,7 +23,7 @@ import akka.actor.ActorRef
 import de.kp.spark.core.Names
 import de.kp.spark.core.model._
 
-import de.kp.shopify.insight.{RemoteContext,ShopifyContext}
+import de.kp.shopify.insight.{ServerContext,ShopifyContext}
 import de.kp.shopify.insight.model._
 
 import de.kp.shopify.insight.io._
@@ -47,9 +47,9 @@ import scala.collection.JavaConversions._
  * the data analytics pipeline.
  * 
  */
-class PRecoMBuilder(ctx:RemoteContext,listener:ActorRef) extends BaseActor {
+class PRecoMBuilder(serverContext:ServerContext) extends BaseActor {
 
-  private val stx = new ShopifyContext(listener)  
+  private val stx = new ShopifyContext(serverContext.listener)  
 
   override def receive = {
    
@@ -66,7 +66,7 @@ class PRecoMBuilder(ctx:RemoteContext,listener:ActorRef) extends BaseActor {
          */      
         val (service,request) = buildRemoteRequest(params)
 
-        val response = ctx.send(service,request).mapTo[String]            
+        val response = serverContext.getRemoteContext.send(service,request).mapTo[String]            
         response.onSuccess {
         
           case result => {
@@ -83,12 +83,12 @@ class PRecoMBuilder(ctx:RemoteContext,listener:ActorRef) extends BaseActor {
             if (handler.createIndex(params,"orders","recommendations","recommendation") == false)
               throw new Exception("Indexing has been stopped due to an internal error.")
  
-            listener ! String.format("""[UID: %s] Elasticsearch index created.""",uid)
+            serverContext.listener ! String.format("""[UID: %s] Elasticsearch index created.""",uid)
 
             if (handler.putRules("orders","recommendations",recommendations) == false)
               throw new Exception("Indexing processing has been stopped due to an internal error.")
 
-            listener ! String.format("""[UID: %s] Product recommendation perspective registered in Elasticsearch index.""",uid)
+            serverContext.listener ! String.format("""[UID: %s] Product recommendation perspective registered in Elasticsearch index.""",uid)
 
             val data = Map(Names.REQ_UID -> uid,Names.REQ_MODEL -> "PRecoM")            
             context.parent ! EnrichFinished(data)           

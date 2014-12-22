@@ -18,12 +18,10 @@ package de.kp.shopify.insight.actor
 * If not, see <http://www.gnu.org/licenses/>.
 */
 
-import akka.actor.ActorRef
-
 import de.kp.spark.core.Names
 import de.kp.spark.core.model._
 
-import de.kp.shopify.insight.{RemoteContext,ShopifyContext}
+import de.kp.shopify.insight.{ServerContext,ShopifyContext}
 import de.kp.shopify.insight.model._
 
 import de.kp.shopify.insight.io._
@@ -37,7 +35,7 @@ import org.joda.time.format.DateTimeFormat
 import scala.collection.mutable.{ArrayBuffer,HashMap}
 
 /**
- * FCMBuilder is an actor that analyzes Shopify orders of a certain time interval 
+ * PForcMBuilder is an actor that analyzes Shopify orders of a certain time interval 
  * (last 30 days from now on) and computes from the last two transactions on a per 
  * user basis a forecast of n steps with respect to next amount and datetime
  * 
@@ -45,9 +43,9 @@ import scala.collection.mutable.{ArrayBuffer,HashMap}
  * the data analytics pipeline.
  * 
  */
-class FCMBuilder(ctx:RemoteContext,listener:ActorRef) extends BaseActor {
+class PForcMBuilder(serverContext:ServerContext) extends BaseActor {
 
-  private val stx = new ShopifyContext(listener)  
+  private val stx = new ShopifyContext(serverContext.listener)  
 
   override def receive = {
    
@@ -70,7 +68,7 @@ class FCMBuilder(ctx:RemoteContext,listener:ActorRef) extends BaseActor {
          * 
          */
         val (service,req) = buildRemoteRequest(params,purchases)
-        val response = ctx.send(service,req).mapTo[String]     
+        val response = serverContext.getRemoteContext.send(service,req).mapTo[String]     
         
         response.onSuccess {
         
@@ -89,14 +87,14 @@ class FCMBuilder(ctx:RemoteContext,listener:ActorRef) extends BaseActor {
             if (handler.createIndex(params,"orders","forecasts","forecast") == false)
               throw new Exception("Indexing has been stopped due to an internal error.")
  
-            listener ! String.format("""[UID: %s] Elasticsearch index created.""",uid)
+            serverContext.listener ! String.format("""[UID: %s] Elasticsearch index created.""",uid)
 
             if (handler.putForecasts("orders","forecasts",forecasts) == false)
               throw new Exception("Indexing processing has been stopped due to an internal error.")
 
-            listener ! String.format("""[UID: %s] Forecast perspective registered in Elasticsearch index.""",uid)
+            serverContext.listener ! String.format("""[UID: %s] Forecast perspective registered in Elasticsearch index.""",uid)
 
-            val data = Map(Names.REQ_UID -> uid,Names.REQ_MODEL -> "FCM")            
+            val data = Map(Names.REQ_UID -> uid,Names.REQ_MODEL -> "PForcM")            
             context.parent ! EnrichFinished(data)           
             
             context.stop(self)

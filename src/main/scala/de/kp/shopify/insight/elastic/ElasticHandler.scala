@@ -115,39 +115,7 @@ class ElasticHandler {
    * Put 'amounts' to the Elasticsearch 'amount' index; this method is called during
    * the 'collect' sub process
    */  
- def putAmount(index:String,mapping:String,dataset:List[Map[String,String]]):Boolean = {
-     
-    try {
-    
-      val writer = new ElasticWriter()
-        
-      val readyToWrite = writer.open(index,mapping)
-      if (readyToWrite == false) {
-      
-        writer.close()
-      
-        val msg = String.format("""Opening index '%s' and mapping '%s' for write failed.""",index,mapping)
-        throw new Exception(msg)
-      
-      } else {
-      
-        val builder = new ElasticAmountBuilder()
-        val sources = dataset.map(builder.createSource(_))
-        /*
-         * Writing this source to the respective index throws an
-         * exception in case of an error; note, that the writer is
-         * automatically closed 
-         */
-        writer.writeBulk(index, mapping, sources)      
-        true
-      
-      }
-    
-    } catch {
-      case e:Exception => false
-    }
-   
-  }
+  def putAmount(index:String,mapping:String,sources:List[java.util.Map[String,Object]]):Boolean = putSources(index,mapping,sources)
   /**
    * Put 'forecasts' to the Elasticsearch 'forecasts' index; this method is called during
    * the 'enrich' sub process
@@ -189,150 +157,25 @@ class ElasticHandler {
    * Put 'items' to the Elasticsearch 'items' index; this method is called during
    * the 'collect' sub process
    */
-  def putItems(index:String,mapping:String,dataset:List[Map[String,String]]):Boolean = {
-     
-    try {
-    
-      val writer = new ElasticWriter()
-        
-      val readyToWrite = writer.open(index,mapping)
-      if (readyToWrite == false) {
-      
-        writer.close()
-      
-        val msg = String.format("""Opening index '%s' and mapping '%s' for write failed.""",index,mapping)
-        throw new Exception(msg)
-      
-      } else {
-      
-        val builder = new ElasticItemBuilder()
-        val sources = dataset.map(data => {
-          /*
-           * Data preparation comprises the extraction of all common 
-           * fields, i.e. timestamp, site, user and group. The 'item' 
-           * field may specify a list of purchase items and has to be 
-           * processed differently.
-           */
-          val source = builder.createSource(data)
-          /*
-           * The 'item' field specifies a comma-separated list
-           * of item (e.g.) product identifiers. Note, that every
-           * item is actually indexed individually. This is due to
-           * synergy effects with other data sources
-           */
-          val items = data(Names.ITEM_FIELD).split(",")
-          /*
-           * A trackable event may have a 'score' field assigned;
-           * note, that this field is optional
-           */
-          val scores = if (data.contains(Names.REQ_SCORE)) data(Names.REQ_SCORE).split(",").map(_.toDouble) else Array.fill[Double](items.length)(0)
-
-          val zipped = items.zip(scores)
-          for  ((item,score) <- zipped) {
-            /*
-             * Set or overwrite the 'item' field in the respective source
-             */
-            source.put(Names.ITEM_FIELD, item)
-            /*
-             * Set or overwrite the 'score' field in the respective source
-             */
-            source.put(Names.SCORE_FIELD, score.asInstanceOf[Object])
-          }
-          
-          source
-        })
-        
-        /*
-         * Writing this source to the respective index throws an
-         * exception in case of an error; note, that the writer is
-         * automatically closed 
-         */
-        writer.writeBulk(index, mapping, sources)        
-        true
-      
-      }
-    
-    } catch {
-      case e:Exception => false
-    }
-   
-  }
+  def putItems(index:String,mapping:String,sources:List[java.util.Map[String,Object]]):Boolean = putSources(index,mapping,sources)
   /**
    * Put 'recommendations' to the Elasticsearch 'recommendations' index; this method is called during
    * the 'enrich' sub process
    */  
-  def putRecommendations(index:String,mapping:String,sources:List[java.util.Map[String,Object]]):Boolean = {
-     
-    try {
-    
-      val writer = new ElasticWriter()
-        
-      val readyToWrite = writer.open(index,mapping)
-      if (readyToWrite == false) {
-      
-        writer.close()
-      
-        val msg = String.format("""Opening index '%s' and mapping '%s' for write failed.""",index,mapping)
-        throw new Exception(msg)
-      
-      } else {
-      
-        /*
-         * Writing the sources to the respective index throws an
-         * exception in case of an error; note, that the writer is
-         * automatically closed 
-         */
-        writer.writeBulk(index, mapping, sources)      
-        true
-      
-      }
-    
-    } catch {
-      case e:Exception => false
-    }
-   
-  }
+  def putRecommendations(index:String,mapping:String,sources:List[java.util.Map[String,Object]]):Boolean = putSources(index,mapping,sources)  
   /**
    * Put 'rules' to the Elasticsearch 'rules' index; this method is called during
    * the 'enrich' sub process
    */  
-  def putRules(index:String,mapping:String,sources:List[java.util.Map[String,Object]]):Boolean = {
-     
-    try {
-    
-      val writer = new ElasticWriter()
-        
-      val readyToWrite = writer.open(index,mapping)
-      if (readyToWrite == false) {
-      
-        writer.close()
-      
-        val msg = String.format("""Opening index '%s' and mapping '%s' for write failed.""",index,mapping)
-        throw new Exception(msg)
-      
-      } else {
-      
-        /*
-         * Writing the sources to the respective index throws an
-         * exception in case of an error; note, that the writer is
-         * automatically closed 
-         */
-        writer.writeBulk(index, mapping, sources)      
-        true
-      
-      }
-    
-    } catch {
-      case e:Exception => false
-    }
-   
-  }
+  def putRules(index:String,mapping:String,sources:List[java.util.Map[String,Object]]):Boolean = putSources(index,mapping,sources)
   
   /**
    * Put 'states' to the Elasticsearch 'states' index; this method is called during
    * the 'collect' sub process
    */  
-  def putStates(index:String,mapping:String,dataset:List[Map[String,String]]):Boolean = {
+  def putStates(index:String,mapping:String,sources:List[java.util.Map[String,Object]]):Boolean = putSources(index,mapping,sources)
+
+  private def putSources(index:String,mapping:String,sources:List[java.util.Map[String,Object]]):Boolean = {
      
     try {
     
@@ -347,17 +190,13 @@ class ElasticHandler {
         throw new Exception(msg)
       
       } else {
-        
-        val builder = new ElasticStateBuilder()
-        val sources = dataset.map(builder.createSource(_))
-
+      
         /*
-         * Writing these sources to the respective index throws an
+         * Writing the sources to the respective index throws an
          * exception in case of an error; note, that the writer is
          * automatically closed 
          */
-        writer.writeBulk(index, mapping, sources)
-      
+        writer.writeBulk(index, mapping, sources)      
         true
       
       }

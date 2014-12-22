@@ -18,12 +18,11 @@ package de.kp.shopify.insight.actor
 * If not, see <http://www.gnu.org/licenses/>.
 */
 
-import org.apache.spark.SparkContext
-import akka.actor.{ActorRef,Props}
+import akka.actor.Props
 
 import de.kp.spark.core.Names
 
-import de.kp.shopify.insight.RemoteContext
+import de.kp.shopify.insight.ServerContext
 import de.kp.shopify.insight.model._
 
 import org.joda.time.DateTime
@@ -31,13 +30,12 @@ import org.joda.time.format.DateTimeFormat
 
 import scala.collection.mutable.HashMap
 
-class DataPipeline(@transient sc:SparkContext,listener:ActorRef) extends BaseActor {
+class DataPipeline(serverContext:ServerContext) extends BaseActor {
   /*
    * Reference to the remote Akka context to interact with
    * the Association Analysis and also the Intent Recognition
    * engine of Predictiveworks
    */
-  private val rtx = new RemoteContext()
   override def receive = {
     
     /*
@@ -68,7 +66,7 @@ class DataPipeline(@transient sc:SparkContext,listener:ActorRef) extends BaseAct
              * that the tracking process has been started. Error and
              * interim messages of this process are sent to the listener
              */
-            val actor = context.actorOf(Props(new ElasticCollector(listener)))          
+            val actor = context.actorOf(Props(new ElasticCollector(serverContext.listener)))          
             val new_params = params ++ addParams(params)
             
             actor ! StartCollect(new_params)
@@ -87,7 +85,7 @@ class DataPipeline(@transient sc:SparkContext,listener:ActorRef) extends BaseAct
            * while collecting data from a certain Shopify store and
            * stop the DataPipeline
            */
-          listener ! e.getMessage
+          serverContext.listener ! e.getMessage
           context.stop(self)
           
         }
@@ -114,21 +112,21 @@ class DataPipeline(@transient sc:SparkContext,listener:ActorRef) extends BaseAct
        * The ASRBuilder is responsible for building an association rule model
        * from the data registered in the 'items' index
        */
-      val asr_builder = context.actorOf(Props(new ASRBuilder(rtx,listener)))  
+      val asr_builder = context.actorOf(Props(new ASRBuilder(serverContext)))  
       asr_builder ! StartBuild(message.data)
 
       /*
        * The STMBuilder is responsible for building a state transition model
        * from the data registered in the 'states' index
        */
-      val stm_builder = context.actorOf(Props(new STMBuilder(rtx,listener)))  
+      val stm_builder = context.actorOf(Props(new STMBuilder(serverContext)))  
       stm_builder ! StartBuild(message.data)
       
       /*
        * The HSMBuilder is responsible for building a hidden state model
        * from the data registered in the 'states' index
        */
-      val hsm_builder = context.actorOf(Props(new HSMBuilder(rtx,listener)))  
+      val hsm_builder = context.actorOf(Props(new HSMBuilder(serverContext)))  
       hsm_builder ! StartBuild(message.data)
       
     }
@@ -160,7 +158,7 @@ class DataPipeline(@transient sc:SparkContext,listener:ActorRef) extends BaseAct
          * 
          * ASR -> PRelaM
          */
-        val prelam_builder = context.actorOf(Props(new PRelaMBuilder(rtx,listener)))  
+        val prelam_builder = context.actorOf(Props(new PRelaMBuilder(serverContext)))  
         prelam_builder ! StartEnrich(message.data)
         /*
          * The PRecoMBuilder is responsible for building a product recommendation
@@ -168,7 +166,7 @@ class DataPipeline(@transient sc:SparkContext,listener:ActorRef) extends BaseAct
          * 
          * ASR -> PRecoM
          */
-        val precom_builder = context.actorOf(Props(new PRecoMBuilder(rtx,listener)))  
+        val precom_builder = context.actorOf(Props(new PRecoMBuilder(serverContext)))  
         precom_builder ! StartEnrich(message.data)
         
       } else if (model == "STM") {
@@ -176,9 +174,9 @@ class DataPipeline(@transient sc:SparkContext,listener:ActorRef) extends BaseAct
          * The FCMBuilder is responsible for building a purchase forecast model
          * and registering the result in an Elasticsearch index
          * 
-         * STM -> FCM
+         * STM -> PForcM
          */
-        val fcm_builder = context.actorOf(Props(new FCMBuilder(rtx,listener)))  
+        val fcm_builder = context.actorOf(Props(new PForcMBuilder(serverContext)))  
         fcm_builder ! StartEnrich(message.data)
         
       } else if (model == "HSM") {
