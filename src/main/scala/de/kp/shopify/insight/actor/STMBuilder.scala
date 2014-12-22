@@ -59,7 +59,7 @@ class STMBuilder(rtx:RemoteContext,listener:ActorRef) extends BaseActor {
        * that a certain status has been reached
        */
       val status = ResponseStatus.MODEL_TRAINING_FINISHED
-      val supervisor = context.actorOf(Props(new RemoteSupervisor(req,status)))
+      val supervisor = context.actorOf(Props(new StatusSupervisor(req,status)))
       
       /*
        * We evaluate the response message from the remote
@@ -100,7 +100,7 @@ class STMBuilder(rtx:RemoteContext,listener:ActorRef) extends BaseActor {
        * The StatusEvent message is sent by the RemoteSupervisor (child) and indicates
        * that the (remote) state transition modeling process has been finished successfully.
        * 
-       * Due to this message, the Pipeliner actor (parent) is informed about this event
+       * Due to this message, the DataPipeline actor (parent) is informed about this event
        * and finally this actor stops itself
        */  
       val params = Map(Names.REQ_UID -> event.uid,Names.REQ_MODEL -> "STM")

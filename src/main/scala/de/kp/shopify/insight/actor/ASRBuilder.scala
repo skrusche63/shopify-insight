@@ -33,7 +33,8 @@ import de.kp.shopify.insight.io._
  * by invoking the Association Analysis engine of Predictiveworks.
  * 
  * This is part of the 'build' sub process that represents the second
- * component of the data analytics pipeline.
+ * component of the data analytics pipeline. Note, that the DataPipeline
+ * actor is the PARENT actor of this actor
  * 
  */
 class ASRBuilder(rtx:RemoteContext,listener:ActorRef) extends BaseActor {
@@ -59,7 +60,7 @@ class ASRBuilder(rtx:RemoteContext,listener:ActorRef) extends BaseActor {
        * that a certain status has been reached
        */
       val status = ResponseStatus.MINING_FINISHED
-      val supervisor = context.actorOf(Props(new RemoteSupervisor(req,status)))
+      val supervisor = context.actorOf(Props(new StatusSupervisor(req,status)))
       
       /*
        * We evaluate the response message from the remote
@@ -100,7 +101,7 @@ class ASRBuilder(rtx:RemoteContext,listener:ActorRef) extends BaseActor {
        * The StatusEvent message is sent by the RemoteSupervisor (child) and indicates
        * that the (remote) association rule mining process has been finished successfully.
        * 
-       * Due to this message, the Pipeliner actor (parent) is informed about this event
+       * Due to this message, the DataPipeline actor (parent) is informed about this event
        * and finally this actor stops itself
        */  
       val params = Map(Names.REQ_UID -> event.uid,Names.REQ_MODEL -> "ASR")

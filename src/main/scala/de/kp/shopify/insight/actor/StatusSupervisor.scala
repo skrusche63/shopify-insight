@@ -33,7 +33,7 @@ import scala.concurrent.duration.DurationInt
  * retrieves that latest status with respect to a certain 'site' and 'uid', compares the status with
  * the provided one and informs the subscriber about a match
  */
-class RemoteSupervisor(req:ServiceRequest,value:String) extends BaseActor {
+class StatusSupervisor(req:ServiceRequest,value:String) extends BaseActor {
 
   val scheduledTask = context.system.scheduler.schedule(DurationInt(0).second, DurationInt(1).second,self,new AliveMessage())  
   

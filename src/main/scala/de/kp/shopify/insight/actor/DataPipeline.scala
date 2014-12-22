@@ -31,7 +31,7 @@ import org.joda.time.format.DateTimeFormat
 
 import scala.collection.mutable.HashMap
 
-class Pipeliner(@transient sc:SparkContext,listener:ActorRef) extends BaseActor {
+class DataPipeline(@transient sc:SparkContext,listener:ActorRef) extends BaseActor {
   /*
    * Reference to the remote Akka context to interact with
    * the Association Analysis and also the Intent Recognition
@@ -44,7 +44,7 @@ class Pipeliner(@transient sc:SparkContext,listener:ActorRef) extends BaseActor 
      * The data pipeline starts with a 'collection' of the Shopify orders
      * of a certain time period; the default is 30 days back from now;
      * 
-     * the Pipeliner actor appends additional request parameters for the
+     * the DataPipeline actor appends additional request parameters for the
      * Shopify REST API to restrict the orders, to paid and closed orders
      * from the last 30, 60 or 90 days 
      */
@@ -80,23 +80,32 @@ class Pipeliner(@transient sc:SparkContext,listener:ActorRef) extends BaseActor 
         }
     
       } catch {
-        /*
-         * Inform the message listener about the error that occurred
-         * while collecting data from a certain Shopify store
-         */
-        case e:Exception => listener ! e.getMessage
+        
+        case e:Exception => {
+          /*
+           * Inform the message listener about the error that occurred
+           * while collecting data from a certain Shopify store and
+           * stop the DataPipeline
+           */
+          listener ! e.getMessage
+          context.stop(self)
+          
+        }
 
       } 
       
     }
     
+    case message:CollectFailed => {
+      // TODO  
+    }    
     case message:CollectFinished => {
       /*
        * This message is sent by a collector actor and indicates that the data collection
        * sub process has been finished. Note, that this collector (child) is responsible 
-       * for stopping itself, and NOT the Pipeliner.
+       * for stopping itself, and NOT the DataPipeline.
        * 
-       * After having received this message, the Pipeliner actor starts to build the models;
+       * After having received this message, the DataPipeline actor starts to build the models;
        * to this end, actually three different models have to built by invoking the Association
        * Analysis and Intent Recognition engine of Predictiveworks.
        */
@@ -122,6 +131,10 @@ class Pipeliner(@transient sc:SparkContext,listener:ActorRef) extends BaseActor 
       val hsm_builder = context.actorOf(Props(new HSMBuilder(rtx,listener)))  
       hsm_builder ! StartBuild(message.data)
       
+    }
+    
+    case message:BuildFailed => {
+      // TODO
     }
     
     case message:BuildFinished => {
@@ -184,11 +197,11 @@ class Pipeliner(@transient sc:SparkContext,listener:ActorRef) extends BaseActor 
       
       
     }
-    
-    case message:EnrichFinished => {
-      
+    case message:EnrichFailed => {
       // TODO
-      
+    }
+    case message:EnrichFinished => {
+      // TODO
     }
     
     case _ => {/* do nothing */}

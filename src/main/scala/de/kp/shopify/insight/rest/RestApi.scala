@@ -48,7 +48,14 @@ import de.kp.shopify.insight.actor._
 import de.kp.shopify.insight.Configuration
 
 import de.kp.shopify.insight.model._
-
+/**
+ * Shopify Insight is a REST based data analytics service, using order data 
+ * from the past 30, 60 or 90 days. This service generates multiple insight
+ * models and provides them in terms of a set of Elasticsearch indexes.
+ * 
+ * Elasticsearch is used as the serving layer for all the data analystics
+ * results.
+ */
 class RestApi(host:String,port:Int,system:ActorSystem,@transient sc:SparkContext) extends HttpService with Directives {
 
   implicit val ec:ExecutionContext = system.dispatcher  
@@ -71,36 +78,32 @@ class RestApi(host:String,port:Int,system:ActorSystem,@transient sc:SparkContext
 
   private def routes:Route = {
     /*
-     * 'collect' is a shopify specific service, where data from a certain configured
-     * shopify store are collected and registered either in an Elasticsearch index
-     * or in a cloud database for subsequent data mining and model building.
+     * A 'prepare' request supports the generation of multiple insight models 
+     * from orders in a Shopify store; from orders of a defined period of days 
+     * (e.g. the last 30, 60 or 90 days), multiple Elasticsearch indexes are
+     * built, machine learning models derived by invoking the Association Analysis
+     * and Intent Recognition engine of Predictiveworks. 
      * 
-     * 'collect' specifies the first step in a pipeline of data analytics steps and
-     * turns Shopify orders into 'amount' and 'item' databases
+     * 'prepare' also specifies the first step in a pipeline of data analytics 
+     * pipeline. A 'prepare' request requires the following parameters:
      * 
-     * A 'collect' request requires the following parameters:
-     * 
-     * - site (String)
-     * 
-     * The 'sink' parameter specifies which data sink has to be used to
-     * register 'amount' and 'item' specific datasets
-     * 
-     * - sink (String)
-     * 
-     * The subsequent set of parameters is required to retrieve data from 
-     * a certain Shopify store
+     * - days (Integer, optional)
      * 
      * 
      */
-    path("collect" / Segment) {subject => 
+    path("prepare" / Segment) {subject => 
 	  post {
 	    respondWithStatus(OK) {
-	      ctx => doCollect(ctx,subject)
+	      ctx => doPrepare(ctx,subject)
 	    }
 	  }
     }  ~ 
     /*
-     * 'product' requests focus on product specific questions
+     * 'product' requests focus on product specific questions. A 'product' request
+     * requires the following parameters:
+     * 
+     * - uid (String, mandatory)
+     * 
      */
     path("product" / Segment) {subject => 
 	  post {
@@ -110,7 +113,11 @@ class RestApi(host:String,port:Int,system:ActorSystem,@transient sc:SparkContext
 	  }
     }  ~ 
     /*
-     * 'user' requests focus on user specific questions
+     * 'user' requests focus on user specific questions. A 'user' request requires
+     * the following parameters:
+     * 
+     * - uid (String, mandatory)
+     * 
      */
     path("user" / Segment) {subject => 
 	  post {
@@ -122,30 +129,36 @@ class RestApi(host:String,port:Int,system:ActorSystem,@transient sc:SparkContext
   
   }
   /**
-   * 'collect' describes the starting point of a data analytics process that collects orders
+   * 'prepare' describes the starting point of a data analytics process that collects orders
    * or products from a Shopify store through the respective REST API and builds predictive 
    * models to support product cross sell, purchase forecast, product recommendations and more.
    */
-  private def doCollect[T](ctx:RequestContext,subject:String) = {
+  private def doPrepare[T](ctx:RequestContext,subject:String) = {
     
     if (List("order","product").contains(subject)) {
       /*
        * A 'collect' request starts a data processing pipeline and is accompanied 
-       * by the Pipeliner actor that is responsible for controlling the analytics 
+       * by the DataPipeline actor that is responsible for controlling the analytics 
        * pipeline
        */
-      val pipeline = system.actorOf(Props(new Pipeliner(sc,listener)))
+      val pipeline = system.actorOf(Props(new DataPipeline(sc,listener)))
 
       val params = getRequest(ctx)
       val uid = java.util.UUID.randomUUID().toString
       /*
-       * 'uid', 'name' and 'topic' is set internally and MUST be excluded
+       * 'uid', 'name', 'topic' and 'sink' is set internally and MUST be excluded
        * from the external request parameters
        */
-      val excludes = List(Names.REQ_UID,Names.REQ_NAME,Names.REQ_TOPIC)
-      val data = params.filter(kv => excludes.contains(kv._1) == false) ++ Map(Names.REQ_UID -> uid,Names.REQ_TOPIC -> subject)
+      val excludes = List(Names.REQ_UID,Names.REQ_NAME,Names.REQ_SINK,Names.REQ_TOPIC)
+      val data = params.filter(kv => excludes.contains(kv._1) == false) ++ 
+        Map(Names.REQ_UID -> uid,Names.REQ_SINK -> Sinks.ELASTIC,Names.REQ_TOPIC -> subject)
 
-      /* Delegate data collection to Pipeliner */
+      /* 
+       * Delegate data collection to the DataPipeline actor. Note, that this actor is
+       * created for each 'prepare' request and stops itself either after having 
+       * executed all data processing tasks or after having detected a processing
+       * failure.
+       */
       pipeline ! StartPipeline(data)
 
       val message = "Data analytics started."

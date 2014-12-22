@@ -41,7 +41,7 @@ case class StopActor()
 
 /**
  * StartPipeline specifies a request message sent to a data analytics pipeline 
- * (see Pipeliner actor) to start a new data mining and model building process
+ * (see DataPipeline actor) to start a new data mining and model building process
  */
 case class StartPipeline(data:Map[String,String])
 /**
@@ -67,7 +67,7 @@ case class StartCollect(data:Map[String,String])
 case class CollectFailed(data:Map[String,String])
 
 /**
- * CollectFinished specifies a message sent to the Pipeliner actor to indicate
+ * CollectFinished specifies a message sent to the DataPipeline actor to indicate
  * that the data collection sub process finished sucessfully
  */
 case class CollectFinished(data:Map[String,String])
@@ -79,7 +79,7 @@ case class CollectFinished(data:Map[String,String])
  ***************************************************************************/
 
 /**
- * StartBuildspecifies a message sent from the Pipeliner actor to the remote 
+ * StartBuildspecifies a message sent from the DataPipeline actor to the remote 
  * builder to initiate a data mining or model building task
  */
 case class StartBuild(data:Map[String,String])
