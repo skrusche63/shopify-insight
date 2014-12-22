@@ -38,36 +38,31 @@ class ShopifyContext(listener:ActorRef) {
   private val conf = new ShopifyConfiguration(endpoint,apikey,password)  
   private val client = new ShopifyClient(conf)
 
+  
+  def getPurchases(req:ServiceRequest):List[AmountObject] = getPurchases(req.data)
+  
   /**
    * This method retrieves orders from a Shopify store via the REST API
    * and transforms each order into an 'AmountObject'
    */
-  def getPurchases(req:ServiceRequest):List[AmountObject] = {
-
-    val orders = client.getOrders(req.data)    
-    orders.map(order => new OrderBuilder().extractPurchase(apikey,order))
-    
-  }
-
-  def getOrders(req:ServiceRequest):List[Order] = {
+  def getPurchases(params:Map[String,String]):List[AmountObject] = {
     
     val start = new java.util.Date().getTime
     
-    val uid = req.data(Names.REQ_UID)
-    val params = req.data
+    val uid = params(Names.REQ_UID)
     /*
      * STEP #1: Retrieve orders count from a certain shopify store;
      * for further processing, we set the limit of responses to the
      * maximum number (250) allowed by the Shopify interface
      */
-     val count = client.getOrdersCount(params)
+    val count = client.getOrdersCount(params)
 
-     listener ! String.format("""[UID: %s] Load total of %s orders from Shopify store.""",uid,count.toString)
+    listener ! String.format("""[UID: %s] Load total of %s orders from Shopify store.""",uid,count.toString)
 
-     val pages = Math.ceil(count / 250.0)
-     val excludes = List("limit","page")
+    val pages = Math.ceil(count / 250.0)
+    val excludes = List("limit","page")
 
-     val orders = ArrayBuffer.empty[Order]
+    val purchases = ArrayBuffer.empty[AmountObject]
      
     var page = 1
     while (page <= pages) {
@@ -76,7 +71,48 @@ class ShopifyContext(listener:ActorRef) {
        * of 250 orders per request
        */
       val data = params.filter(kv => excludes.contains(kv._1) == false) ++ Map("limit" -> "250","page" -> page.toString)
-      orders ++= client.getOrders(req.data).map(order => new OrderBuilder().extractOrder(apikey,order))
+      purchases ++= client.getOrders(params).map(order => new OrderBuilder().extractPurchase(apikey,order))
+             
+       page += 1
+              
+    }
+    
+    val end = new java.util.Date().getTime
+    listener ! String.format("""[UID: %s] Purchases loaded in %s milli seconds.""",uid,(end-start).toString)
+
+    purchases.toList
+    
+  }
+  
+  def getOrders(req:ServiceRequest):List[Order] = getOrders(req.data)
+
+  def getOrders(params:Map[String,String]):List[Order] = {
+    
+    val start = new java.util.Date().getTime
+    
+    val uid = params(Names.REQ_UID)
+    /*
+     * STEP #1: Retrieve orders count from a certain shopify store;
+     * for further processing, we set the limit of responses to the
+     * maximum number (250) allowed by the Shopify interface
+     */
+    val count = client.getOrdersCount(params)
+
+    listener ! String.format("""[UID: %s] Load total of %s orders from Shopify store.""",uid,count.toString)
+
+    val pages = Math.ceil(count / 250.0)
+    val excludes = List("limit","page")
+
+    val orders = ArrayBuffer.empty[Order]
+     
+    var page = 1
+    while (page <= pages) {
+      /*
+       * STEP #2: Retrieve orders via a paginated approach, retrieving a maximum
+       * of 250 orders per request
+       */
+      val data = params.filter(kv => excludes.contains(kv._1) == false) ++ Map("limit" -> "250","page" -> page.toString)
+      orders ++= client.getOrders(params).map(order => new OrderBuilder().extractOrder(apikey,order))
              
        page += 1
               

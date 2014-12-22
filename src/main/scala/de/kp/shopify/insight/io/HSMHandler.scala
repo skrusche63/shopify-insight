@@ -24,7 +24,7 @@ import de.kp.spark.core.model._
 import de.kp.shopify.insight.model._
 import scala.collection.mutable.HashMap
 
-class LoyaltyBuilder {
+class HSMHandler {
 
   def get(params:Map[String,String]):Map[String,String] = {
     // TODO

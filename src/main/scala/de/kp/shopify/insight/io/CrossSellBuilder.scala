@@ -30,7 +30,7 @@ import scala.collection.mutable.HashMap
  * models by Predictiveworks; the respective request parameters
  * are prepared (almost) user agnostic
  */
-class CrossSellBuilder extends AssociationBuilder {
+class CrossSellBuilder extends ASRHandler {
 
   override def get(params:Map[String,String]):Map[String,String] = {
     // TODO

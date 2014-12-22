@@ -35,7 +35,7 @@ import scala.collection.mutable.ArrayBuffer
 private case class Pair(time:Long,state:String)
 
 /**
- * The ElasticFeeder retrieves orders or products from a Shopify store and
+ * The ElasticCollector retrieves orders or products from a Shopify store and
  * registers them in an Elasticsearch index for subsequent processing. From
  * orders the following indexes are built:
  * 
@@ -48,18 +48,20 @@ private case class Pair(time:Long,state:String)
  *                +----> State index (orders/states)
  * 
  */
-class ElasticFeeder(listener:ActorRef) extends BaseActor {
+class ElasticCollector(listener:ActorRef) extends BaseActor {
 
   private val stx = new ShopifyContext(listener)  
   
   override def receive = {
     
-    case req:ServiceRequest => {
+    case msg:StartCollect => {
 
-      val uid = req.data(Names.REQ_UID)
+      val params = msg.data
+      val uid = params(Names.REQ_UID)
+      
       try {
         
-        val Array(task,topic) = req.task.split(":")
+        val topic = params(Names.REQ_TOPIC)
         topic match {
           /*
            * Retrieve orders from Shopify store via REST interface, prepare index
@@ -71,7 +73,7 @@ class ElasticFeeder(listener:ActorRef) extends BaseActor {
             
             val start = new java.util.Date().getTime
             
-            listener ! String.format("""[UID: %s] Request to feed orders received.""",uid)
+            listener ! String.format("""[UID: %s] Request to register orders received.""",uid)
             
             /*
              * STEP #1: Create search indexes (if not already present)
@@ -87,14 +89,14 @@ class ElasticFeeder(listener:ActorRef) extends BaseActor {
              */
             val handler = new ElasticHandler()
             
-            if (handler.createIndex(req,"orders","amount","amount") == false)
-              throw new Exception("Feed processing has been stopped due to an internal error.")
+            if (handler.createIndex(params,"orders","amount","amount") == false)
+              throw new Exception("Index processing has been stopped due to an internal error.")
 
-            if (handler.createIndex(req,"orders","items","item") == false)
-              throw new Exception("Feed processing has been stopped due to an internal error.")
+            if (handler.createIndex(params,"orders","items","item") == false)
+              throw new Exception("index processing has been stopped due to an internal error.")
  
-            if (handler.createIndex(req,"orders","states","state") == false)
-              throw new Exception("Feed processing has been stopped due to an internal error.")
+            if (handler.createIndex(params,"orders","states","state") == false)
+              throw new Exception("Index processing has been stopped due to an internal error.")
  
             listener ! String.format("""[UID: %s] Elasticsearch indexes created.""",uid)
 
@@ -102,7 +104,7 @@ class ElasticFeeder(listener:ActorRef) extends BaseActor {
              * STEP #2: Retrieve orders from a certain shopify store; this request takes
              * into account that the Shopify REST interface returns maximally 250 orders
              */
-            val orders = stx.getOrders(req)
+            val orders = stx.getOrders(params)
             /*
              * STEP #3: Build tracking requests to send the collected orders to
              * the respective service or engine; the orders are sent independently 
@@ -138,18 +140,32 @@ class ElasticFeeder(listener:ActorRef) extends BaseActor {
             listener ! String.format("""[UID: %s] State perspective registered in Elasticsearch index.""",uid)
 
             val end = new java.util.Date().getTime
-            listener ! String.format("""[UID: %s] Order tracking finished in %s ms.""",uid,(end-start).toString)
+            listener ! String.format("""[UID: %s] Order collection finished in %s ms.""",uid,(end-start).toString)
          
+            /*
+             * Finally the pipeline gets informed, that the collection 
+             * sub process finished successfully
+             */
+            context.parent ! CollectFinished(params)
+            
           }
           
-          case "product" => throw new Exception("Product tracking is not supported yet.")
+          case "product" => throw new Exception("Product collection is not supported yet.")
             
           case _ => {/* do nothing */}
           
         }
 
       } catch {
-        case e:Exception => listener ! String.format("""[UID: %s] Tracking request exception: %s.""",uid,e.getMessage)
+        case e:Exception => {
+          /* 
+           * In case of an error the message listener gets informed, and also
+           * the data processing pipeline in order to stop further sub processes 
+           */
+          listener ! String.format("""[UID: %s] Collection exception: %s.""",uid,e.getMessage)
+          context.parent ! CollectFailed(params)
+        
+        }
 
       } finally {
         

@@ -36,6 +36,70 @@ case class ActorStatus(
 )
 
 case class ActorsStatus(items:List[ActorStatus])
+
+case class StopActor()
+
+/**
+ * StartPipeline specifies a request message sent to a data analytics pipeline 
+ * (see Pipeliner actor) to start a new data mining and model building process
+ */
+case class StartPipeline(data:Map[String,String])
+/**
+ * Status event specifies a message sent by the RemoteSupervisor actor to indicate
+ * that a certain 'status' of a mining or model building task has been reached.
+ */
+case class StatusEvent(uid:String,service:String,task:String,value:String)
+
+case class SimpleResponse(uid:String,message:String)
+
+/****************************************************************************
+ * 
+ *                      SUB PROCESS 'COLLECT'
+ * 
+ ***************************************************************************/
+
+/**
+ * StartCollect specifies a message sent to a data collector actor (e.g. Elastic
+ * Collector) to indicate that the collection sub process has to be started
+ */
+case class StartCollect(data:Map[String,String])
+
+case class CollectFailed(data:Map[String,String])
+
+/**
+ * CollectFinished specifies a message sent to the Pipeliner actor to indicate
+ * that the data collection sub process finished sucessfully
+ */
+case class CollectFinished(data:Map[String,String])
+
+/****************************************************************************
+ * 
+ *                      SUB PROCESS 'BUILD'
+ * 
+ ***************************************************************************/
+
+/**
+ * StartBuildspecifies a message sent from the Pipeliner actor to the remote 
+ * builder to initiate a data mining or model building task
+ */
+case class StartBuild(data:Map[String,String])
+
+case class BuildFailed(data:Map[String,String])
+
+case class BuildFinished(data:Map[String,String])
+
+/****************************************************************************
+ * 
+ *                      SUB PROCESS 'ENRICH'
+ * 
+ ***************************************************************************/
+
+case class StartEnrich(data:Map[String,String])
+
+case class EnrichFailed(data:Map[String,String])
+
+case class EnrichFinished(data:Map[String,String])
+
 /**
  * OrderItem is used to describe a single order or purchase
  * related entity that is indexed in an Elasticsearch index 

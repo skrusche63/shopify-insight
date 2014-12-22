@@ -24,12 +24,9 @@ import de.kp.spark.core.model._
 import de.kp.shopify.insight.model._
 import scala.collection.mutable.HashMap
 
-class PurchaseBuilder {
-
-  def get(params:Map[String,String]):Map[String,String] = {
-    // TODO
-    null
-  }
+class ASRHandler {
+  
+  def get(params:Map[String,String]):Map[String,String] = null
 
   def train(params:Map[String,String]):Map[String,String] = {
     
@@ -37,18 +34,17 @@ class PurchaseBuilder {
      * The subsequent set of parameters is mandatory for training
      * an association model and must be provided by the requestor
      */
-    val com_mandatory = List(Names.REQ_SITE,Names.REQ_UID,Names.REQ_NAME,Names.REQ_SOURCE)
+    val com_mandatory = List(Names.REQ_SITE,Names.REQ_UID,Names.REQ_NAME,Names.REQ_SOURCE,Names.REQ_ALGORITHM)
     val data = HashMap.empty[String,String]
     
     for (field <- com_mandatory) data += field -> params(field)
 
     /*
-     * The algorithm is restricted to 'MARKOV' and must be set
-     * internally
+     * The subsequent set of parameters is optional
      */
-    data += Names.REQ_ALGORITHM -> "MARKOV"
-    data += Names.REQ_INTENT    -> "STATE"
-    
+    val com_optional = List(Names.REQ_SINK)
+    for (field <- com_optional) if (params.contains(field)) data += field -> params(field)
+
     /*
      * The following parameters depend on the source & sink selected
      */
@@ -61,16 +57,45 @@ class PurchaseBuilder {
        * 'collection' phase
        */
       data += Names.REQ_SOURCE_INDEX -> "orders"
-      data += Names.REQ_SOURCE_TYPE  -> "states"
+      data += Names.REQ_SOURCE_TYPE  -> "items"
       
-      data += Names.REQ_QUERY -> QueryBuilder.get(source,"state")
+      data += Names.REQ_QUERY -> QueryBuilder.get(source,"item")
       
     } else {
       throw new Exception(String.format("""[UID: %s] The source '%s' is not supported.""",data(Names.REQ_UID),source))
     }
+    
+    if (data.contains(Names.REQ_SINK)) {
+      
+      val sink = data(Names.REQ_SINK)
+      if (sink == Sinks.ELASTIC) {
+        /*
+         * Add index & mapping internally as the requestor does not
+         * know the Elasticsearch index structure; the index MUST be
+         * identical to that index, that has been created during the
+         * 'collection' phase
+         */
+        data += Names.REQ_SINK_INDEX -> "orders"
+        data += Names.REQ_SINK_TYPE  -> "rules"
+        
+      } else {
+        throw new Exception(String.format("""[UID: %s] The sink '%s' is not supported.""",data(Names.REQ_UID),sink))
+        
+      }
+      
+    }
+    
+    /*
+     * The subsequent parameters are model specific parameters
+     */
+    val mod_mandatory = List("k","minconf","weight")
+    for (field <- mod_mandatory) data += field -> params(field)
+    
+    val mod_optional = List("delta")
+    for (field <- mod_optional) if (params.contains(field)) data += field -> params(field)
    
     data.toMap
     
   }
-
+  
 }

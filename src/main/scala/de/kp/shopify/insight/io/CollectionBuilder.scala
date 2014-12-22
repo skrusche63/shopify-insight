@@ -21,7 +21,7 @@ package de.kp.shopify.insight.io
 import de.kp.spark.core.Names
 import de.kp.spark.core.model._
 
-class CollectionBuilder extends AssociationBuilder {
+class CollectionBuilder extends ASRHandler {
 
   override def get(params:Map[String,String]):Map[String,String] = {
     // TODO

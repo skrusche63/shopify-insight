@@ -32,9 +32,10 @@ import spray.http.StatusCodes._
 import spray.routing.{Directives,HttpService,RequestContext,Route}
 import spray.routing.directives.CachingDirectives
 
+import scala.concurrent.Future
+
 import scala.concurrent.{ExecutionContext}
-import scala.concurrent.duration.Duration
-import scala.concurrent.duration.DurationInt
+import scala.concurrent.duration.{Duration,DurationInt}
 
 import scala.util.parsing.json._
 
@@ -63,34 +64,6 @@ class RestApi(host:String,port:Int,system:ActorSystem,@transient sc:SparkContext
    * interim messages from all the other actors
    */
   val listener = system.actorOf(Props(new MessageListener()))
-  /*
-   * This Feeder actor is responsible for data collection, i.e. data are gathered 
-   * from a certain Shopify store, transformed into 'amount' and 'item' specific
-   * information elements and then persisted e.g. in an Elasticsearch index, or
-   * sent to Kinesis etc
-   */
-  val feeder = system.actorOf(Props(new Feeder("Feeder",listener,sc)), name="Feeder")
-  /*
-   * This Preparer actor is responsible for data preparation, i.e. data that have
-   * been gathered by the feeder a step before, and for persisting the transformed 
-   * data e.g. in an Elasticsearch index, or sent to Kinesis etc
-   */
-  val preparer = system.actorOf(Props(new Preparer("Preparer",listener,sc)), name="Preparer")
-  /*
-   * This Monitor actor is responsible for retrieving status informations from the different
-   * predictive engines that form Predictiveworks.
-   */
-  val monitor = system.actorOf(Props(new Monitor("Monitor")), name="Monitor")
-  /*
-   * This master actor is responsible for initiating data mining or predictive analytics
-   * tasks with respect to the different predictive engines
-   */
-  val trainer = system.actorOf(Props(new Trainer("Trainer",listener,sc)), name="Trainer")
-  /*
-   * This Finder actor is responsible for retrieving data mining results and predictions
-   * from Predictiveworks and merges these results with data from shopify stores
-   */
-  val finder = system.actorOf(Props(new Finder("Finder",listener)), name="Finder")
  
   def start() {
     RestService.start(routes,system,host,port)
@@ -127,72 +100,6 @@ class RestApi(host:String,port:Int,system:ActorSystem,@transient sc:SparkContext
 	  }
     }  ~ 
     /*
-     * 'prepare' supports preparation or preprocessing of 'amount' or 'item' related
-     * data. It is the second step in a pipeline of data analytics steps and turns
-     * these data into data that are directly accessible by Predictiveworks
-     * 
-     * A 'prepare' request requires the following parameters:
-     * 
-     * - site (String)
-     * 
-     * The parameter values for 'uid' & 'name' are usually system generated values and 
-     * must be provided with a 'prepare' request; 'uid' is the unique identifier of a
-     * certain data analytics pipeline, and 'name' specifies the unique name of a field
-     * or metadata name; note, that models can usually be retrained under the SAME 
-     * metadata plan (or name)
-     * 
-     * - uid (String)
-     * - name (String)
-     * 
-     * The 'source' parameter specifies which data source has to be used to
-     * retrieve the 'amount' 
-     * 
-     * - source (String)
-     * 
-     * The 'sink' parameter specifies which data sink has to be used to 
-     * register the results of the preparation phase
-     * 
-     * - sink (String)
-     * 
-     */
-    path("prepare" / Segment) {subject => 
-	  post {
-	    respondWithStatus(OK) {
-	      ctx => doPrepare(ctx,subject)
-	    }
-	  }
-    }  ~ 
-    /*
-     * 'train' starts a certain data mining or model building task and is the
-     * third step in a pipeline of data analytics steps.
-     * 
-     * A 'train' request requires the following parameters:
-     * 
-     * - site (String)
-     * 
-     * - uid (String)
-     * - name (String)
-     * 
-     */
-    path("train" / Segment) {service => 
-	  post {
-	    respondWithStatus(OK) {
-	      ctx => doTrain(ctx,service)
-	    }
-	  }
-    }  ~ 
-    /*
-     * 'status' is part of the administrative interface and retrieves the
-     * current status of a certain data mining or model building task
-     */
-    path("status" / Segment) {subject => 
-	  post {
-	    respondWithStatus(OK) {
-	      ctx => doStatus(ctx,subject)
-	    }
-	  }
-    }  ~ 
-    /*
      * 'product' requests focus on product specific questions
      */
     path("product" / Segment) {subject => 
@@ -215,73 +122,42 @@ class RestApi(host:String,port:Int,system:ActorSystem,@transient sc:SparkContext
   
   }
   /**
-   * 'collect' is an adimistrative task to collect data from a certain
-   * shopify store and register them in either an Elasticsearch index or
-   * a cloud database
+   * 'collect' describes the starting point of a data analytics process that collects orders
+   * or products from a Shopify store through the respective REST API and builds predictive 
+   * models to support product cross sell, purchase forecast, product recommendations and more.
    */
   private def doCollect[T](ctx:RequestContext,subject:String) = {
     
-    implicit val timeout:Timeout = DurationInt(time).second
-    
     if (List("order","product").contains(subject)) {
-      
-      val task = "collect:" + subject
-      val service = ""
+      /*
+       * A 'collect' request starts a data processing pipeline and is accompanied 
+       * by the Pipeliner actor that is responsible for controlling the analytics 
+       * pipeline
+       */
+      val pipeline = system.actorOf(Props(new Pipeliner(sc,listener)))
 
       val params = getRequest(ctx)
+      val uid = java.util.UUID.randomUUID().toString
       /*
-       * The requstor can provide a unique identifier for the data analytics pipeline 
-       * that always starts with a 'collect' request; in addition an external 'name' 
-       * variable can be provided to distinguish different field or parameter plans;
-       * 
-       * 'uid' & 'name' are returned with this request and msut be used with follow
-       * on requests, such as 'prepare' or 'train' 
-       * 
+       * 'uid', 'name' and 'topic' is set internally and MUST be excluded
+       * from the external request parameters
        */
-      val uid = if (params.contains(Names.REQ_UID)) params(Names.REQ_UID) 
-        else java.util.UUID.randomUUID().toString
-      
-      val name =  if (params.contains(Names.REQ_NAME)) params(Names.REQ_NAME) 
-        else "shopify_" + new java.util.Date().getTime.toString
+      val excludes = List(Names.REQ_UID,Names.REQ_NAME,Names.REQ_TOPIC)
+      val data = params.filter(kv => excludes.contains(kv._1) == false) ++ Map(Names.REQ_UID -> uid,Names.REQ_TOPIC -> subject)
 
-      val excludes = List(Names.REQ_UID,Names.REQ_NAME)
-      val data = params.filter(kv => excludes.contains(kv._1) == false) ++ Map(Names.REQ_UID -> uid,Names.REQ_NAME -> name)
+      /* Delegate data collection to Pipeliner */
+      pipeline ! StartPipeline(data)
 
-      val request = new ServiceRequest(service,task,data)
-      val response = ask(feeder,request).mapTo[ServiceResponse]
-      
-      ctx.complete(response)
+      val message = "Data analytics started."
+      ctx.complete(SimpleResponse(uid,message))
       
     } else {
-      /* do nothing */      
+      
+      val message = "This request is not supported."
+      ctx.complete(SimpleResponse("",message))
+           
     }
 
-  }
-  /**
-   * 'prepare' is a follow on task that is actually required to transform 'amount' 
-   * data into an appropriate state representation, that can directly be analyzed 
-   * by Intent Recognition
-   */  
-  private def doPrepare[T](ctx:RequestContext,subject:String) = {
-    
-    implicit val timeout:Timeout = DurationInt(time).second
-    
-    if (List("amount").contains(subject)) {
-      
-      val task = "prepare:" + subject
-      val service = ""
-
-      val data = getRequest(ctx)
-
-      val request = new ServiceRequest(service,task,data)
-      val response = ask(preparer,request).mapTo[ServiceResponse]
-      
-      ctx.complete(response)
-      
-    } else {
-      /* do nothing */      
-    }
-    
   }
   /**
    * 'product' supports retrieval of product related mining and prediction
@@ -318,7 +194,9 @@ class RestApi(host:String,port:Int,system:ActorSystem,@transient sc:SparkContext
       
       val request = new ServiceRequest("",task,getRequest(ctx))
     
-      val response = ask(finder,request)      
+      // TODO
+      
+      val response:Future[Any] = null     
       response.onSuccess {
         case result => {
 
@@ -370,7 +248,9 @@ class RestApi(host:String,port:Int,system:ActorSystem,@transient sc:SparkContext
       
       val request = new ServiceRequest("",task,getRequest(ctx))
     
-      val response = ask(finder,request)      
+      // TODO
+      
+      val response:Future[Any] = null     
       response.onSuccess {
         case result => {
           
@@ -407,60 +287,6 @@ class RestApi(host:String,port:Int,system:ActorSystem,@transient sc:SparkContext
       }
       
     }
-  }
-  /**
-   * 'status' is an administration request to determine whether a certain data
-   * mining task has been finished or not.
-   */
-  private def doStatus[T](ctx:RequestContext,subject:String) = {
-    
-    implicit val timeout:Timeout = DurationInt(time).second
-    val task = "status:" + subject
-    
-    val topics = List("latest","all")
-    if (topics.contains(subject)) {
-        
-      val request = new ServiceRequest("",task,getRequest(ctx))
-      /*
-       * Invoke monitor actor to retrieve the status information;
-       * the result is returned as JSON data structure
-       */
-      val response = ask(monitor,request).mapTo[ServiceResponse] 
-      ctx.complete(response)
-      
-    } else {
-      /* do nothing */      
-    }
-  
-  }
-  /**
-   * This request starts a certain data mining or model building task;
-   * actually the following models are supported:
-   * 
-   * - cross-sell
-   * - loyalty
-   * - placement
-   * - purchase
-   * - recommendation
-   * 
-   */
-  private def doTrain[T](ctx:RequestContext,subject:String) = {
-    
-    implicit val timeout:Timeout = DurationInt(time).second
-    val task = "train:" + subject
-    
-    val topics = List("cross-sell","loyalty","placement","purchase","recommendation")
-    if (topics.contains(subject)) {
-      
-      val request = new ServiceRequest("",task,getRequest(ctx))
-
-      val response = ask(trainer,request).mapTo[ServiceResponse] 
-      ctx.complete(response)
-       
-    } else {      
-      /* do nothing */
-    }
-    
   }
 
   private def getHeaders(ctx:RequestContext):Map[String,String] = {
