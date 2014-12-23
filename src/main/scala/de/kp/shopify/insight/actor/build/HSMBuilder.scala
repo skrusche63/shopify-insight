@@ -43,6 +43,9 @@ class HSMBuilder(prepareContext:PrepareContext) extends BaseActor {
   override def receive = {
    
     case message:StartBuild => {
+      
+      val req_params = message.data
+      val uid = req_params(Names.REQ_UID)
       /* 
        * Build service request message to invoke remote Intent Recognition 
        * engine to train a hidden state model from a 'states' index
@@ -50,11 +53,14 @@ class HSMBuilder(prepareContext:PrepareContext) extends BaseActor {
       val service = "intent"
       val task = "train"
 
-      val data = new HSMHandler().train(message.data)
+      val data = new HSMHandler().train(req_params)
       val req  = new ServiceRequest(service,task,data)
       
       val serialized = Serializer.serializeRequest(req)
       val response = prepareContext.getRemoteContext.send(service,serialized).mapTo[String]  
+      
+      prepareContext.listener ! String.format("""[INFO][UID: %s] Hidden state model building started.""",uid)
+
       /*
        * The RemoteSupervisor actor monitors the Redis cache entries of this
        * hidden state model building request and informs this actor (as parent)
@@ -74,6 +80,8 @@ class HSMBuilder(prepareContext:PrepareContext) extends BaseActor {
  
           val res = Serializer.deserializeResponse(result)
           if (res.status == ResponseStatus.FAILURE) {
+      
+            prepareContext.listener ! String.format("""[ERROR][UID: %s] Hidden state model building failed due to an engine error.""",uid)
  
             context.parent ! BuildFailed(res.data)
             context.stop(self)
@@ -86,18 +94,23 @@ class HSMBuilder(prepareContext:PrepareContext) extends BaseActor {
       response.onFailure {
           
         case throwable => {
+      
+          prepareContext.listener ! String.format("""[INFO][UID: %s] Hidden state model building finished.""",uid)
         
           val params = Map(Names.REQ_MESSAGE -> throwable.getMessage) ++ message.data
           context.parent ! BuildFailed(params)
           
           context.stop(self)
             
-          }
-	    }
+        }
+	    
+      }
        
     }
   
     case event:StatusEvent => {
+      
+      prepareContext.listener ! String.format("""[INFO][UID: %s] Hidden state model building started.""",event.uid)
       /*
        * The StatusEvent message is sent by the RemoteSupervisor (child) and indicates
        * that the (remote) hidden state modeling process has been finished successfully.
