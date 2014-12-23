@@ -48,61 +48,75 @@ class PForcMBuilder(prepareContext:PrepareContext) extends BaseActor {
    
     case message:StartEnrich => {
       
+      val req_params = message.data
+      val uid = req_params(Names.REQ_UID)
+      
       try {
       
-        val params = message.data
-        val uid = params(Names.REQ_UID)
+        prepareContext.listener ! String.format("""[INFO][UID: %s] Purchase forecast model building started.""",uid)
         
         /*
          * STEP #1: Transform Shopify orders into purchases; these purchases are used 
          * to compute n-step ahead forecasts with respect to purchase amount and time
          */
-        val purchases = transform(prepareContext.getPurchases(params))
+        val purchases = transform(prepareContext.getPurchases(req_params))
+      
+        prepareContext.listener ! String.format("""[INFO][UID: %s] Orders successfully transformed into purchases.""",uid)
+
         /*
          * STEP #2: Retrieve Markovian rules from Intent Recognition engine, combine
          * rules and purchases into a user specific set of purchase forecasts
          * 
          */
-        val (service,req) = buildRemoteRequest(params,purchases)
+        val (service,req) = buildRemoteRequest(req_params,purchases.map(_._5))
         val response = prepareContext.getRemoteContext.send(service,req).mapTo[String]     
         
         response.onSuccess {
         
           case result => {
  
-            val intermediate = Serializer.deserializeResponse(result)
-            val forecasts = buildForecasts(intermediate,purchases)
-            
-            /*
-             * STEP #3: Create search index (if not already present);
-             * the index is used to register the forecasts derived from
-             * the state transition model
-             */
-            val handler = new ElasticHandler()
-            
-            if (handler.createIndex(params,"orders","forecasts","forecast") == false)
-              throw new Exception("Indexing has been stopped due to an internal error.")
+            val res = Serializer.deserializeResponse(result)
+            if (res.status == ResponseStatus.FAILURE) {
+                    
+              prepareContext.listener ! String.format("""[ERROR][UID: %s] Retrieval of Markovian rules failed due to an engine error.""",uid)
  
-            prepareContext.listener ! String.format("""[UID: %s] Elasticsearch index created.""",uid)
+              context.parent ! EnrichFailed(res.data)
+              context.stop(self)
 
-            if (handler.putForecasts("orders","forecasts",forecasts) == false)
-              throw new Exception("Indexing processing has been stopped due to an internal error.")
+            } else {
 
-            prepareContext.listener ! String.format("""[UID: %s] Forecast perspective registered in Elasticsearch index.""",uid)
-
-            val data = Map(Names.REQ_UID -> uid,Names.REQ_MODEL -> "PForcM")            
-            context.parent ! EnrichFinished(data)           
+              val forecasts = buildForecasts(res,purchases)
             
-            context.stop(self)
+              /*
+               * STEP #3: Create search index (if not already present); the index is used to 
+               * register the forecasts derived from the Markovian rules. 
+               */
+              val handler = new ElasticHandler()
+            
+              if (handler.createIndex(req_params,"orders","forecasts","forecast") == false)
+                throw new Exception("Indexing has been stopped due to an internal error.")
+ 
+              prepareContext.listener ! String.format("""[INFO][UID: %s] Elasticsearch index created.""",uid)
+
+              if (handler.putForecasts("orders","forecasts",forecasts) == false)
+                throw new Exception("Indexing processing has been stopped due to an internal error.")
+
+              prepareContext.listener ! String.format("""[INFO][UID: %s] Purchase forecast model building finished.""",uid)
+
+              val data = Map(Names.REQ_UID -> uid,Names.REQ_MODEL -> "PForcM")            
+              context.parent ! EnrichFinished(data)           
+            
+              context.stop(self)
         
+            }
+            
           }
 
         }
-        /*
-         * The Intent Recognition engine returned an error message
-         */
         response.onFailure {
           case throwable => {
+
+            prepareContext.listener ! String.format("""[ERROR][UID: %s] Retrieval of Markovian rules failed due to an internal error.""",uid)
           
             val params = Map(Names.REQ_MESSAGE -> throwable.getMessage) ++ message.data
           
@@ -115,6 +129,8 @@ class PForcMBuilder(prepareContext:PrepareContext) extends BaseActor {
         
       } catch {
         case e:Exception => {
+
+          prepareContext.listener ! String.format("""[ERROR][UID: %s] Retrieval of Markovian rules failed due to an internal error.""",uid)
           
           val params = Map(Names.REQ_MESSAGE -> e.getMessage) ++ message.data
 
@@ -192,14 +208,18 @@ class PForcMBuilder(prepareContext:PrepareContext) extends BaseActor {
     
   }
   
-  private def buildRemoteRequest(params:Map[String,String],purchases:List[(String,String,Float,Long,String)]):(String,String) = {
+  private def buildRemoteRequest(params:Map[String,String],states:List[String]):(String,String) = {
 
     val service = "intent"
     val task = "get:state"
 
-    // TODO
+    /*
+     * The list of last customer purchase states must be added to the 
+     * request parameters; note, that this done outside the STMHandler 
+     */
+    val new_params = Map(Names.REQ_STATES -> states.mkString(",")) ++ params
       
-    val data = new STMHandler().get(params)
+    val data = new STMHandler().get(new_params)
     val message = Serializer.serializeRequest(new ServiceRequest(service,task,data))
             
     (service,message)

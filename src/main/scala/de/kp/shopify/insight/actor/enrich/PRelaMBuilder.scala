@@ -77,12 +77,12 @@ class PRelaMBuilder(prepareContext:PrepareContext) extends BaseActor {
             if (handler.createIndex(req_params,"orders","rules","rule") == false)
               throw new Exception("Indexing has been stopped due to an internal error.")
  
-            prepareContext.listener ! String.format("""[UID: %s] Elasticsearch index created.""",uid)
+            prepareContext.listener ! String.format("""[INFO][UID: %s] Elasticsearch index created.""",uid)
 
             if (handler.putRules("orders","rules",rules) == false)
               throw new Exception("Indexing processing has been stopped due to an internal error.")
 
-            prepareContext.listener ! String.format("""[UID: %s] Product rule perspective registered in Elasticsearch index.""",uid)
+            prepareContext.listener ! String.format("""[INFO][UID: %s] Product rule perspective registered in Elasticsearch index.""",uid)
 
             val data = Map(Names.REQ_UID -> uid,Names.REQ_MODEL -> "PRelaM")            
             context.parent ! EnrichFinished(data)           

@@ -25,47 +25,68 @@ class PRecoMBuilder(prepareContext:PrepareContext) extends BaseActor {
   override def receive = {
    
     case message:StartEnrich => {
+
+      val req_params = message.data
+      val uid = req_params(Names.REQ_UID)
       
       try {
-
-        val params = message.data
-        val uid = params(Names.REQ_UID)
         
+        prepareContext.listener ! String.format("""[INFO][UID: %s] Product recommendation model building started.""",uid)
         /*
-         * STEP #1: Retrieve association rules from the Association 
-         * Analysis engine
+         * STEP #1: Transform Shopify orders into last transaction itemsets; these
+         * itemsets are then used as antecedents to filter those association rules
+         * that match the antecedents
+         */
+        val itemsets = transform(prepareContext.getOrders(req_params))
+         
+        /*
+         * STEP #2: Retrieve association rules from the Association Analysis engine
          */      
-        val (service,request) = buildRemoteRequest(params)
+        val (service,request) = buildRemoteRequest(req_params)
 
         val response = prepareContext.getRemoteContext.send(service,request).mapTo[String]            
         response.onSuccess {
         
           case result => {
  
-            val intermediate = Serializer.deserializeResponse(result)
-            val recommendations = buildProductRecommendations(intermediate)
-            /*
-             * STEP #2: Create search index (if not already present);
-             * the index is used to register the recommendations derived 
-             * from the association rule model
-             */
-            val handler = new ElasticHandler()
-            
-            if (handler.createIndex(params,"orders","recommendations","recommendation") == false)
-              throw new Exception("Indexing has been stopped due to an internal error.")
+            val res = Serializer.deserializeResponse(result)
+            if (res.status == ResponseStatus.FAILURE) {
+                    
+              prepareContext.listener ! String.format("""[ERROR][UID: %s] Retrieval of Association rules failed due to an engine error.""",uid)
  
-            prepareContext.listener ! String.format("""[UID: %s] Elasticsearch index created.""",uid)
+              context.parent ! EnrichFailed(res.data)
+              context.stop(self)
 
-            if (handler.putRules("orders","recommendations",recommendations) == false)
-              throw new Exception("Indexing processing has been stopped due to an internal error.")
-
-            prepareContext.listener ! String.format("""[UID: %s] Product recommendation perspective registered in Elasticsearch index.""",uid)
-
-            val data = Map(Names.REQ_UID -> uid,Names.REQ_MODEL -> "PRecoM")            
-            context.parent ! EnrichFinished(data)           
+            } else {
+              /*
+               * STEP #3: Build product recommendations by merging the association
+               * rules and the last transaction itemsets
+               */            
+              val recommendations = buildProductRecommendations(res,itemsets)
+              /*
+               * STEP #2: Create search index (if not already present);
+               * the index is used to register the recommendations derived 
+               * from the association rule model
+               */
+              val handler = new ElasticHandler()
             
-            context.stop(self)
+              if (handler.createIndex(req_params,"orders","recommendations","recommendation") == false)
+                throw new Exception("Indexing has been stopped due to an internal error.")
+ 
+              prepareContext.listener ! String.format("""[INFO][UID: %s] Elasticsearch index created.""",uid)
+
+              if (handler.putRules("orders","recommendations",recommendations) == false)
+                throw new Exception("Indexing processing has been stopped due to an internal error.")
+
+              prepareContext.listener ! String.format("""[INFO][UID: %s] Product recommendation model building finished.""",uid)
+
+              val data = Map(Names.REQ_UID -> uid,Names.REQ_MODEL -> "PRecoM")            
+              context.parent ! EnrichFinished(data)           
+            
+              context.stop(self)
              
+            }
+            
           }
           
         }
@@ -74,6 +95,8 @@ class PRecoMBuilder(prepareContext:PrepareContext) extends BaseActor {
          */
         response.onFailure {
           case throwable => {
+                    
+            prepareContext.listener ! String.format("""[ERROR][UID: %s] Retrieval of Association rules failed due to an internal error.""",uid)
           
             val params = Map(Names.REQ_MESSAGE -> throwable.getMessage) ++ message.data
           
@@ -86,6 +109,8 @@ class PRecoMBuilder(prepareContext:PrepareContext) extends BaseActor {
          
       } catch {
         case e:Exception => {
+                    
+          prepareContext.listener ! String.format("""[ERROR][UID: %s] Retrieval of Association rules failed due to an internal error.""",uid)
           
           val params = Map(Names.REQ_MESSAGE -> e.getMessage) ++ message.data
 
@@ -100,9 +125,12 @@ class PRecoMBuilder(prepareContext:PrepareContext) extends BaseActor {
   }
 
   private def buildRemoteRequest(params:Map[String,String]):(String,String) = {
-
+    /*
+     * Product recommendations are derived from the assocation rule model;
+     * note, that we do not leverage the 'transaction' channel here.
+     */
     val service = "association"
-    val task = "get:transaction"
+    val task = "get:rule"
 
     val data = new ASRHandler().get(params)
     val message = Serializer.serializeRequest(new ServiceRequest(service,task,data))
@@ -111,7 +139,8 @@ class PRecoMBuilder(prepareContext:PrepareContext) extends BaseActor {
 
   }
   
-  private def buildProductRecommendations(response:ServiceResponse):List[java.util.Map[String,Object]] = {
+  // TODO : client side retrieve from association rules
+  private def buildProductRecommendations(response:ServiceResponse,itemsets:List[(String,String,List[Int])]):List[java.util.Map[String,Object]] = {
             
     val uid = response.data(Names.REQ_UID)
     /*
@@ -163,6 +192,23 @@ class PRecoMBuilder(prepareContext:PrepareContext) extends BaseActor {
           
     })
 
+  }
+  private def transform(orders:List[Order]):List[(String,String,List[Int])] = {
+    
+    /*
+     * Group orders by site & user
+     */
+    val result = orders.groupBy(o => (o.site,o.user)).map(o => {
+
+      val (site,user) = o._1
+      val (timestamp,itemset) = o._2.map(v => (v.timestamp,v.items)).toList.sortBy(_._1).last
+      
+      (site,user,itemset.map(_.item))
+      
+    })
+    
+    result.toList 
+    
   }
   
 }

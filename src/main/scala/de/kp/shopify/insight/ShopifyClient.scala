@@ -139,14 +139,14 @@ class ShopifyClient(configuration:ShopifyConfiguration) {
       return response
     
     } catch {
-      case e:Exception => throw new ShopifyException("Could not process query",e)
+      case e:Exception => throw new Exception("Could not process query",e)
     }
 
   }
 
   private def validate(response:ShopifyResponse) {
     if (response.errors != null) {
-      throw new ShopifyException(response.errors)
+      throw new Exception(response.errors)
     }
   }
 
