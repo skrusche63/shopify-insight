@@ -1,4 +1,4 @@
-package de.kp.shopify.insight.actor
+package de.kp.shopify.insight.actor.build
 /* Copyright (c) 2014 Dr. Krusche & Partner PartG
 * 
 * This file is part of the Shopify-Insight project
@@ -23,48 +23,48 @@ import akka.actor.Props
 import de.kp.spark.core.Names
 import de.kp.spark.core.model._
 
-import de.kp.shopify.insight.ServerContext
-
+import de.kp.shopify.insight.PrepareContext
 import de.kp.shopify.insight.model._
 import de.kp.shopify.insight.io._
 
+import de.kp.shopify.insight.actor.{BaseActor,StatusSupervisor}
+
 /**
- * ASRBuilder is responsible for building an associaton rule model
- * by invoking the Association Analysis engine of Predictiveworks.
+ * STMBuilder is responsible for building a state transition model
+ * by invoking the Intent Recognition engine of Predictiveworks.
  * 
  * This is part of the 'build' sub process that represents the second
- * component of the data analytics pipeline. Note, that the DataPipeline
- * actor is the PARENT actor of this actor
+ * component of the data analytics pipeline.
  * 
  */
-class ASRBuilder(serverContext:ServerContext) extends BaseActor {
+class STMBuilder(prepareContext:PrepareContext) extends BaseActor {
   
   override def receive = {
    
     case message:StartBuild => {
       /* 
-       * Build service request message to invoke remote Association Analysis 
-       * engine to train an association rule model from an 'items' index
+       * Build service request message to invoke remote Intent Recognition 
+       * engine to train a state transition model from a 'states' index
        */
-      val service = "association"
+      val service = "intent"
       val task = "train"
 
-      val data = new ASRHandler().train(message.data)
+      val data = new STMHandler().train(message.data)
       val req  = new ServiceRequest(service,task,data)
       
       val serialized = Serializer.serializeRequest(req)
-      val response = serverContext.getRemoteContext.send(service,serialized).mapTo[String]  
+      val response = prepareContext.getRemoteContext.send(service,serialized).mapTo[String]  
       /*
        * The RemoteSupervisor actor monitors the Redis cache entries of this
-       * association rule mining request and informs this actor (as parent)
+       * state transition model building request and informs this actor (as parent)
        * that a certain status has been reached
        */
-      val status = ResponseStatus.MINING_FINISHED
+      val status = ResponseStatus.MODEL_TRAINING_FINISHED
       val supervisor = context.actorOf(Props(new StatusSupervisor(req,status)))
       
       /*
        * We evaluate the response message from the remote
-       * Association Analysis engine to check whether an
+       * Intent Recognition engine to check whether an
        * error occurred
        */
       response.onSuccess {
@@ -99,12 +99,12 @@ class ASRBuilder(serverContext:ServerContext) extends BaseActor {
     case event:StatusEvent => {
       /*
        * The StatusEvent message is sent by the RemoteSupervisor (child) and indicates
-       * that the (remote) association rule mining process has been finished successfully.
+       * that the (remote) state transition modeling process has been finished successfully.
        * 
        * Due to this message, the DataPipeline actor (parent) is informed about this event
        * and finally this actor stops itself
        */  
-      val params = Map(Names.REQ_UID -> event.uid,Names.REQ_MODEL -> "ASR")
+      val params = Map(Names.REQ_UID -> event.uid,Names.REQ_MODEL -> "STM")
       context.parent ! BuildFinished(params)
       
       context.stop(self)

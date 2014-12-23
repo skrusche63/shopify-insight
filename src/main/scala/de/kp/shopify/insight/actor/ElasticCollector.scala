@@ -20,9 +20,8 @@ package de.kp.shopify.insight.actor
 import akka.actor.ActorRef
 
 import de.kp.spark.core.Names
-import de.kp.spark.core.model._
 
-import de.kp.shopify.insight.ShopifyContext
+import de.kp.shopify.insight.PrepareContext
 import de.kp.shopify.insight.io.OrderMapper
 
 import de.kp.shopify.insight.elastic._
@@ -49,20 +48,18 @@ private case class Pair(time:Long,state:String)
  *                +----> State index (orders/states)
  * 
  */
-class ElasticCollector(listener:ActorRef) extends BaseActor {
-
-  private val stx = new ShopifyContext(listener)  
+class ElasticCollector(prepareContext:PrepareContext) extends BaseActor {
   
   override def receive = {
     
     case msg:StartCollect => {
 
-      val params = msg.data
-      val uid = params(Names.REQ_UID)
+      val req_params = msg.data
+      val uid = req_params(Names.REQ_UID)
       
       try {
         
-        val topic = params(Names.REQ_TOPIC)
+        val topic = req_params(Names.REQ_TOPIC)
         topic match {
           /*
            * Retrieve orders from Shopify store via REST interface, prepare index
@@ -74,7 +71,7 @@ class ElasticCollector(listener:ActorRef) extends BaseActor {
             
             val start = new java.util.Date().getTime
             
-            listener ! String.format("""[UID: %s] Request to register orders received.""",uid)
+            prepareContext.listener ! String.format("""[INFO][UID: %s] Request to register orders received.""",uid)
             
             /*
              * STEP #1: Create search indexes (if not already present)
@@ -90,22 +87,22 @@ class ElasticCollector(listener:ActorRef) extends BaseActor {
              */
             val handler = new ElasticHandler()
             
-            if (handler.createIndex(params,"orders","amount","amount") == false)
-              throw new Exception("Index processing has been stopped due to an internal error.")
+            if (handler.createIndex(req_params,"orders","amount","amount") == false)
+              throw new Exception("Index creation for 'orders/amount' has been stopped due to an internal error.")
 
-            if (handler.createIndex(params,"orders","items","item") == false)
-              throw new Exception("index processing has been stopped due to an internal error.")
+            if (handler.createIndex(req_params,"orders","items","item") == false)
+              throw new Exception("Index creation for 'orders/items' has been stopped due to an internal error.")
  
-            if (handler.createIndex(params,"orders","states","state") == false)
-              throw new Exception("Index processing has been stopped due to an internal error.")
+            if (handler.createIndex(req_params,"orders","states","state") == false)
+              throw new Exception("Index creation for 'orders/states' has been stopped due to an internal error.")
  
-            listener ! String.format("""[UID: %s] Elasticsearch indexes created.""",uid)
+            prepareContext.listener ! String.format("""[INFO][UID: %s] Elasticsearch indexes created.""",uid)
 
             /*
              * STEP #2: Retrieve orders from a certain shopify store; this request takes
              * into account that the Shopify REST interface returns maximally 250 orders
              */
-            val orders = stx.getOrders(params)
+            val orders = prepareContext.getOrders(req_params)
             /*
              * STEP #3: Build tracking requests to send the collected orders to
              * the respective service or engine; the orders are sent independently 
@@ -118,36 +115,36 @@ class ElasticCollector(listener:ActorRef) extends BaseActor {
             val amounts = orders.map(mapper.toAmountMap(_))
 
             if (handler.putAmount("orders","amount",amounts) == false)
-              throw new Exception("Feed processing has been stopped due to an internal error.")
+              throw new Exception("Indexing for 'orders/amount' has been stopped due to an internal error.")
 
-            listener ! String.format("""[UID: %s] Amount perspective registered in Elasticsearch index.""",uid)
+            prepareContext.listener ! String.format("""[INFO][UID: %s] Amount perspective registered in Elasticsearch index.""",uid)
             /*
              * The 'item' perspective of the order is built and registered
              */
             val items = orders.flatMap(mapper.toItemMap(_))
             
             if (handler.putItems("orders","items",items) == false)
-              throw new Exception("Feed processing has been stopped due to an internal error.")
+              throw new Exception("Indexing for 'orders/items' has been stopped due to an internal error.")
           
-            listener ! String.format("""[UID: %s] Item perspective registered in Elasticsearch index.""",uid)
+            prepareContext.listener ! String.format("""[INFO][UID: %s] Item perspective registered in Elasticsearch index.""",uid)
             /*
              * The 'state' perspective of the order is built and registered
              */
             val states = toStates(orders.map(mapper.toAmountTuple(_)))
             
             if (handler.putStates("orders","states",states) == false)
-              throw new Exception("Feed processing has been stopped due to an internal error.")
+              throw new Exception("Indexing for 'orders/states' has been stopped due to an internal error.")
           
-            listener ! String.format("""[UID: %s] State perspective registered in Elasticsearch index.""",uid)
+            prepareContext.listener ! String.format("""[INFO][UID: %s] State perspective registered in Elasticsearch index.""",uid)
 
             val end = new java.util.Date().getTime
-            listener ! String.format("""[UID: %s] Order collection finished in %s ms.""",uid,(end-start).toString)
+            prepareContext.listener ! String.format("""[INFO][UID: %s] Order indexing finished in %s ms.""",uid,(end-start).toString)
          
             /*
              * Finally the pipeline gets informed, that the collection 
              * sub process finished successfully
              */
-            context.parent ! CollectFinished(params)
+            context.parent ! CollectFinished(req_params)
             
           }
           
@@ -163,8 +160,8 @@ class ElasticCollector(listener:ActorRef) extends BaseActor {
            * In case of an error the message listener gets informed, and also
            * the data processing pipeline in order to stop further sub processes 
            */
-          listener ! String.format("""[UID: %s] Collection exception: %s.""",uid,e.getMessage)
-          context.parent ! CollectFailed(params)
+          prepareContext.listener ! String.format("""[ERROR][UID: %s] Collection exception: %s.""",uid,e.getMessage)
+          context.parent ! CollectFailed(req_params)
         
         }
 

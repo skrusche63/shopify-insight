@@ -22,15 +22,19 @@ import akka.actor.Props
 
 import de.kp.spark.core.Names
 
-import de.kp.shopify.insight.ServerContext
+import de.kp.shopify.insight.PrepareContext
+
 import de.kp.shopify.insight.model._
+
+import de.kp.shopify.insight.actor.build._
+import de.kp.shopify.insight.actor.enrich._
 
 import org.joda.time.DateTime
 import org.joda.time.format.DateTimeFormat
 
 import scala.collection.mutable.HashMap
 
-class DataPipeline(serverContext:ServerContext) extends BaseActor {
+class DataPipeline(prepareContext:PrepareContext) extends BaseActor {
   /*
    * Reference to the remote Akka context to interact with
    * the Association Analysis and also the Intent Recognition
@@ -50,10 +54,16 @@ class DataPipeline(serverContext:ServerContext) extends BaseActor {
       
       try {      
         
-        val params = message.data
+        /*
+         * The data analytics pipeline retrieves Shopify orders; we therefore
+         * have to make clear, that no previous orders are still available
+         */
+        prepareContext.clear
+        
+        val req_params = message.data
       
-        val uid = params(Names.REQ_UID)      
-        val sink = params(Names.REQ_SINK)
+        val uid = req_params(Names.REQ_UID)      
+        val sink = req_params(Names.REQ_SINK)
         /*
          * The Pipeline actor is responsible for creating an appropriate
          * actor that executes the collection request
@@ -62,18 +72,16 @@ class DataPipeline(serverContext:ServerContext) extends BaseActor {
         
           case Sinks.ELASTIC => {
             /*
-             * Send request to ElasticFeeder actor and inform requestor
+             * Send request to ElasticCollector actor and inform requestor
              * that the tracking process has been started. Error and
              * interim messages of this process are sent to the listener
              */
-            val actor = context.actorOf(Props(new ElasticCollector(serverContext.listener)))          
-            val new_params = params ++ addParams(params)
-            
-            actor ! StartCollect(new_params)
+            val actor = context.actorOf(Props(new ElasticCollector(prepareContext)))          
+            actor ! StartCollect(req_params)
           
           }
         
-          case _ => throw new Exception(String.format("""[UID: %s] The sink '%s' is not supported.""",uid,sink))
+          case _ => throw new Exception(String.format("""[ERROR][UID: %s] The sink '%s' is not supported.""",uid,sink))
       
         }
     
@@ -85,17 +93,24 @@ class DataPipeline(serverContext:ServerContext) extends BaseActor {
            * while collecting data from a certain Shopify store and
            * stop the DataPipeline
            */
-          serverContext.listener ! e.getMessage
+          prepareContext.listener ! e.getMessage
+          
+          prepareContext.clear
           context.stop(self)
           
         }
 
       } 
       
-    }
-    
+    }   
     case message:CollectFailed => {
-      // TODO  
+      /*
+       * The Collector actor already sent an error message to the message listener;
+       * no additional notification has to be done, so just stop the pipeline
+       */
+      prepareContext.clear
+      context.stop(self)
+      
     }    
     case message:CollectFinished => {
       /*
@@ -112,27 +127,33 @@ class DataPipeline(serverContext:ServerContext) extends BaseActor {
        * The ASRBuilder is responsible for building an association rule model
        * from the data registered in the 'items' index
        */
-      val asr_builder = context.actorOf(Props(new ASRBuilder(serverContext)))  
+      val asr_builder = context.actorOf(Props(new ASRBuilder(prepareContext)))  
       asr_builder ! StartBuild(message.data)
 
       /*
        * The STMBuilder is responsible for building a state transition model
        * from the data registered in the 'states' index
        */
-      val stm_builder = context.actorOf(Props(new STMBuilder(serverContext)))  
+      val stm_builder = context.actorOf(Props(new STMBuilder(prepareContext)))  
       stm_builder ! StartBuild(message.data)
       
       /*
        * The HSMBuilder is responsible for building a hidden state model
        * from the data registered in the 'states' index
        */
-      val hsm_builder = context.actorOf(Props(new HSMBuilder(serverContext)))  
+      val hsm_builder = context.actorOf(Props(new HSMBuilder(prepareContext)))  
       hsm_builder ! StartBuild(message.data)
       
     }
     
     case message:BuildFailed => {
-      // TODO
+      /*
+       * The Builder actors (ASR,STM and HSM) already sent an error message to the message 
+       * listener; no additional notification has to be done, so just stop the pipeline
+       */
+      prepareContext.clear
+      context.stop(self)
+      
     }
     
     case message:BuildFinished => {
@@ -158,7 +179,7 @@ class DataPipeline(serverContext:ServerContext) extends BaseActor {
          * 
          * ASR -> PRelaM
          */
-        val prelam_builder = context.actorOf(Props(new PRelaMBuilder(serverContext)))  
+        val prelam_builder = context.actorOf(Props(new PRelaMBuilder(prepareContext)))  
         prelam_builder ! StartEnrich(message.data)
         /*
          * The PRecoMBuilder is responsible for building a product recommendation
@@ -166,22 +187,28 @@ class DataPipeline(serverContext:ServerContext) extends BaseActor {
          * 
          * ASR -> PRecoM
          */
-        val precom_builder = context.actorOf(Props(new PRecoMBuilder(serverContext)))  
+        val precom_builder = context.actorOf(Props(new PRecoMBuilder(prepareContext)))  
         precom_builder ! StartEnrich(message.data)
         
       } else if (model == "STM") {
         /*
-         * The FCMBuilder is responsible for building a purchase forecast model
+         * The PForcMBuilder is responsible for building a purchase forecast model
          * and registering the result in an Elasticsearch index
          * 
          * STM -> PForcM
          */
-        val fcm_builder = context.actorOf(Props(new PForcMBuilder(serverContext)))  
-        fcm_builder ! StartEnrich(message.data)
+        val pforcm_builder = context.actorOf(Props(new PForcMBuilder(prepareContext)))  
+        pforcm_builder ! StartEnrich(message.data)
         
       } else if (model == "HSM") {
-        
-        // TODO
+        /*
+         * The ULoyaMBuilder is responsible for building a user loyalty model
+         * and registering the result in an Elasticsearch index
+         * 
+         * HSM -> ULoyaM
+         */
+        val uloya_builder = context.actorOf(Props(new ULoyaMBuilder(prepareContext)))  
+        uloya_builder ! StartEnrich(message.data)
         
       } else {
         
@@ -203,43 +230,6 @@ class DataPipeline(serverContext:ServerContext) extends BaseActor {
     }
     
     case _ => {/* do nothing */}
-    
-  }
-  
-  private def addParams(params:Map[String,String]):Map[String,String] = {
-
-    val days = if (params.contains(Names.REQ_DAYS)) params(Names.REQ_DAYS).toInt else 30
-    
-    val created_max = new DateTime()
-    val created_min = created_max.minusDays(days)
-
-    val data = HashMap(
-      "created_at_min" -> formatted(created_min.getMillis),
-      "created_at_max" -> formatted(created_max.getMillis)
-    )
-    
-    /*
-     * We restrict to those orders that have been paid,
-     * and that are closed already, as this is the basis
-     * for adequate forecasts 
-     */
-    data += "financial_status" -> "paid"
-    data += "status" -> "closed"
-
-    data.toMap
-    
-  }
-  /**
-   * This method is used to format a certain timestamp, provided with 
-   * a request to collect data from a certain Shopify store
-   */
-  private def formatted(time:Long):String = {
-
-    //2008-12-31 03:00
-    val pattern = "yyyy-MM-dd HH:mm"
-    val formatter = DateTimeFormat.forPattern(pattern)
-    
-    formatter.print(time)
     
   }
 

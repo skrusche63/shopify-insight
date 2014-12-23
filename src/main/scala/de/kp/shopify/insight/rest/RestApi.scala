@@ -45,7 +45,7 @@ import de.kp.spark.core.model._
 import de.kp.spark.core.rest.RestService
 
 import de.kp.shopify.insight.actor._
-import de.kp.shopify.insight.ServerContext
+import de.kp.shopify.insight.{FindContext,PrepareContext}
 
 import de.kp.shopify.insight.model._
 /**
@@ -70,7 +70,9 @@ class RestApi(host:String,port:Int,system:ActorSystem,@transient sc:SparkContext
    * interim messages from all the other actors
    */
   private val listener = system.actorOf(Props(new MessageListener()))
-  private val serverContext = new ServerContext(sc,listener)
+  private val prepareContext = new PrepareContext(sc,listener)
+  
+  private val findContext = new FindContext()
   
   def start() {
     RestService.start(routes,system,host,port)
@@ -141,7 +143,7 @@ class RestApi(host:String,port:Int,system:ActorSystem,@transient sc:SparkContext
        * by the DataPipeline actor that is responsible for controlling the analytics 
        * pipeline
        */
-      val pipeline = system.actorOf(Props(new DataPipeline(serverContext)))
+      val pipeline = system.actorOf(Props(new DataPipeline(prepareContext)))
 
       val params = getRequest(ctx)
       val uid = java.util.UUID.randomUUID().toString
@@ -198,18 +200,18 @@ class RestApi(host:String,port:Int,system:ActorSystem,@transient sc:SparkContext
    */
   private def doProduct[T](ctx:RequestContext,subject:String) = {
 
-    implicit val timeout:Timeout = DurationInt(serverContext.getTimeout).second      
+    implicit val timeout:Timeout = DurationInt(prepareContext.getTimeout).second      
 
     val task = "get:" + subject
     
     val topics = List("collection","cross-sell","promotion")
     if (topics.contains(subject)) {
-      
-      val request = new ServiceRequest("",task,getRequest(ctx))
+
+      val actor = system.actorOf(Props(new ProductQuestor(findContext)))
     
-      // TODO
-      
-      val response:Future[Any] = null     
+      val request = new ServiceRequest("",task,getRequest(ctx))
+      val response = ask(actor,request)     
+
       response.onSuccess {
         case result => {
 
@@ -252,18 +254,18 @@ class RestApi(host:String,port:Int,system:ActorSystem,@transient sc:SparkContext
   
   private def doUser[T](ctx:RequestContext,subject:String) = {
 
-    implicit val timeout:Timeout = DurationInt(serverContext.getTimeout).second      
+    implicit val timeout:Timeout = DurationInt(prepareContext.getTimeout).second      
 
     val task = "get:" + subject
     
     val topics = List("forecast","loyalty","recommendation")
     if (topics.contains(subject)) {
-      
-      val request = new ServiceRequest("",task,getRequest(ctx))
+
+      val actor = system.actorOf(Props(new UserQuestor(findContext)))
     
-      // TODO
+      val request = new ServiceRequest("",task,getRequest(ctx))
+      val response = ask(actor,request)     
       
-      val response:Future[Any] = null     
       response.onSuccess {
         case result => {
           

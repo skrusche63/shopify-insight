@@ -1,4 +1,4 @@
-package de.kp.shopify.insight.actor
+package de.kp.shopify.insight.actor.build
 /* Copyright (c) 2014 Dr. Krusche & Partner PartG
 * 
 * This file is part of the Shopify-Insight project
@@ -23,10 +23,12 @@ import akka.actor.Props
 import de.kp.spark.core.Names
 import de.kp.spark.core.model._
 
-import de.kp.shopify.insight.ServerContext
-
+import de.kp.shopify.insight.PrepareContext
 import de.kp.shopify.insight.model._
+
 import de.kp.shopify.insight.io._
+
+import de.kp.shopify.insight.actor.{BaseActor,StatusSupervisor}
 
 /**
  * HSMBuilder is responsible for building a hidden state model
@@ -36,7 +38,7 @@ import de.kp.shopify.insight.io._
  * component of the data analytics pipeline.
  * 
  */
-class HSMBuilder(serverContext:ServerContext) extends BaseActor {
+class HSMBuilder(prepareContext:PrepareContext) extends BaseActor {
   
   override def receive = {
    
@@ -52,7 +54,7 @@ class HSMBuilder(serverContext:ServerContext) extends BaseActor {
       val req  = new ServiceRequest(service,task,data)
       
       val serialized = Serializer.serializeRequest(req)
-      val response = serverContext.getRemoteContext.send(service,serialized).mapTo[String]  
+      val response = prepareContext.getRemoteContext.send(service,serialized).mapTo[String]  
       /*
        * The RemoteSupervisor actor monitors the Redis cache entries of this
        * hidden state model building request and informs this actor (as parent)

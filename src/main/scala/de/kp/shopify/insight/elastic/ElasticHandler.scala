@@ -87,6 +87,18 @@ class ElasticHandler {
     
           indexer.create(index,mapping,builder)
           indexer.close()
+        
+        } else if (topic == "loyalty") {
+          /*
+           * This Elasticsearch index registers loyalty trajectories;
+           * in this case no additional fields have to be created as no
+           * Predictiveworks engine will ever request these data
+           */
+          val builder = new ElasticLoyaltyBuilder().createBuilder(mapping)
+          val indexer = new ElasticIndexer()
+    
+          indexer.create(index,mapping,builder)
+          indexer.close()
           
         } else if (topic == "recommendation") {
           /*
@@ -159,6 +171,11 @@ class ElasticHandler {
    */
   def putItems(index:String,mapping:String,sources:List[java.util.Map[String,Object]]):Boolean = putSources(index,mapping,sources)
   /**
+   * Put 'loyalty' to the Elasticsearch 'loyalty' index; this method is called during
+   * the 'enrich' sub process
+   */
+  def putLoyalty(index:String,mapping:String,sources:List[java.util.Map[String,Object]]):Boolean = putSources(index,mapping,sources)
+  /**
    * Put 'recommendations' to the Elasticsearch 'recommendations' index; this method is called during
    * the 'enrich' sub process
    */  
@@ -167,8 +184,7 @@ class ElasticHandler {
    * Put 'rules' to the Elasticsearch 'rules' index; this method is called during
    * the 'enrich' sub process
    */  
-  def putRules(index:String,mapping:String,sources:List[java.util.Map[String,Object]]):Boolean = putSources(index,mapping,sources)
-  
+  def putRules(index:String,mapping:String,sources:List[java.util.Map[String,Object]]):Boolean = putSources(index,mapping,sources)  
   /**
    * Put 'states' to the Elasticsearch 'states' index; this method is called during
    * the 'collect' sub process

@@ -1,4 +1,4 @@
-package de.kp.shopify.insight.actor
+package de.kp.shopify.insight.actor.enrich
 /* Copyright (c) 2014 Dr. Krusche & Partner PartG
 * 
 * This file is part of the Shopify-Insight project
@@ -21,18 +21,17 @@ package de.kp.shopify.insight.actor
 import de.kp.spark.core.Names
 import de.kp.spark.core.model._
 
-import de.kp.shopify.insight.{ServerContext,ShopifyContext}
+import de.kp.shopify.insight.PrepareContext
+
+import de.kp.shopify.insight.actor._
+
 import de.kp.shopify.insight.model._
-
 import de.kp.shopify.insight.io._
-import de.kp.shopify.insight.elastic._
 
+import de.kp.shopify.insight.elastic._
 import de.kp.shopify.insight.source._
 
-import org.joda.time.DateTime
-import org.joda.time.format.DateTimeFormat
-
-import scala.collection.mutable.{ArrayBuffer,HashMap}
+import scala.collection.mutable.ArrayBuffer
 
 /**
  * PForcMBuilder is an actor that analyzes Shopify orders of a certain time interval 
@@ -43,9 +42,7 @@ import scala.collection.mutable.{ArrayBuffer,HashMap}
  * the data analytics pipeline.
  * 
  */
-class PForcMBuilder(serverContext:ServerContext) extends BaseActor {
-
-  private val stx = new ShopifyContext(serverContext.listener)  
+class PForcMBuilder(prepareContext:PrepareContext) extends BaseActor {
 
   override def receive = {
    
@@ -57,18 +54,17 @@ class PForcMBuilder(serverContext:ServerContext) extends BaseActor {
         val uid = params(Names.REQ_UID)
         
         /*
-         * STEP #1: Load & transform Shopify orders into purchases; these purchases
-         * are used to compute n-step ahead forecasts with respect to purchase amount
-         * and time
+         * STEP #1: Transform Shopify orders into purchases; these purchases are used 
+         * to compute n-step ahead forecasts with respect to purchase amount and time
          */
-        val purchases = transform(stx.getPurchases(params))
+        val purchases = transform(prepareContext.getPurchases(params))
         /*
          * STEP #2: Retrieve Markovian rules from Intent Recognition engine, combine
          * rules and purchases into a user specific set of purchase forecasts
          * 
          */
         val (service,req) = buildRemoteRequest(params,purchases)
-        val response = serverContext.getRemoteContext.send(service,req).mapTo[String]     
+        val response = prepareContext.getRemoteContext.send(service,req).mapTo[String]     
         
         response.onSuccess {
         
@@ -87,12 +83,12 @@ class PForcMBuilder(serverContext:ServerContext) extends BaseActor {
             if (handler.createIndex(params,"orders","forecasts","forecast") == false)
               throw new Exception("Indexing has been stopped due to an internal error.")
  
-            serverContext.listener ! String.format("""[UID: %s] Elasticsearch index created.""",uid)
+            prepareContext.listener ! String.format("""[UID: %s] Elasticsearch index created.""",uid)
 
             if (handler.putForecasts("orders","forecasts",forecasts) == false)
               throw new Exception("Indexing processing has been stopped due to an internal error.")
 
-            serverContext.listener ! String.format("""[UID: %s] Forecast perspective registered in Elasticsearch index.""",uid)
+            prepareContext.listener ! String.format("""[UID: %s] Forecast perspective registered in Elasticsearch index.""",uid)
 
             val data = Map(Names.REQ_UID -> uid,Names.REQ_MODEL -> "PForcM")            
             context.parent ! EnrichFinished(data)           
@@ -201,6 +197,8 @@ class PForcMBuilder(serverContext:ServerContext) extends BaseActor {
     val service = "intent"
     val task = "get:state"
 
+    // TODO
+      
     val data = new STMHandler().get(params)
     val message = Serializer.serializeRequest(new ServiceRequest(service,task,data))
             
