@@ -100,6 +100,18 @@ case class EnrichFailed(data:Map[String,String])
 
 case class EnrichFinished(data:Map[String,String])
 
+/****************************************************************************
+ * 
+ *                      SUB PROCESS 'PROFILE'
+ * 
+ ***************************************************************************/
+
+case class StartProfile(data:Map[String,String])
+
+case class ProfileFailed(data:Map[String,String])
+
+case class ProfileFinished(data:Map[String,String])
+
 /**
  * OrderItem is used to describe a single order or purchase
  * related entity that is indexed in an Elasticsearch index 

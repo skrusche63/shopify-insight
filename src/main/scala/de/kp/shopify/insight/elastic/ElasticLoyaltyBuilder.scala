@@ -49,6 +49,12 @@ class ElasticLoyaltyBuilder {
                   .field("type", "string")
                   .field("index", "not_analyzed")
                .endObject()
+
+               /* uid */
+               .startObject(UID_FIELD)
+                 .field("type", "string")
+                 .field("index", "not_analyzed")
+               .endObject()
                
                /* trajectory */
                .startObject(TRAJECTORY_FIELD)

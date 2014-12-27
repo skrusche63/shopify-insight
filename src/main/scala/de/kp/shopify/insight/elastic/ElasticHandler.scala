@@ -38,30 +38,19 @@ class ElasticHandler {
     
     try {
       
-      /*
-       * This method is used to create a specific Elasticsearch index; to this end, we
-       * have to distinguish between core topics, i.e. information objects that are
-       * supported by the core projects, and those that depend on specific application
-       * logic
-       */
-      val core_topics = List("amount","event","item","feature","product","rule","sequence","state")
-      if (core_topics.contains(topic)) {
-        /*
-         * Core information elements get indexed during the collection sub process,
-         * and have to match with one of the topics specified above, as no other
-         * topics are supported by the Predictiveworsk engines
-         */
+      if (topic == "item" || topic == "state") {
+        
         val builder = ElasticBuilderFactory.getBuilder(topic,mapping,List.empty[String],List.empty[String])
         val indexer = new ElasticIndexer()
     
         indexer.create(index,mapping,builder)
         indexer.close()
-      
         /*
-         * Raw data that are ingested by the tracking functionality do not have
-         * to be specified by a field or metadata specification; we therefore
-         * and the field specification here as an internal feature
-         */        
+         * Topics 'item' and 'state' are prepared by the collector and used
+         * by the Association Analysis and Intent Recognition engine; due to
+         * this fact, we also have to build metadata specifications to enable
+         * these engines to access the Elasticsearch indexes 
+         */      
         val fields = new FieldBuilder().build(params,topic)
       
         /*
@@ -74,47 +63,57 @@ class ElasticHandler {
      
         if (fields.isEmpty == false) cache.addFields(data, fields.toList)
      
-      } else {
-        
-        if (topic == "forecast") {
-          /*
-           * This Elasticsearch index registers purchase or sale forecasts;
-           * in this case no additional fields have to be created as no
-           * Predictiveworks engine will ever request these data
-           */
-          val builder = new ElasticForecastBuilder().createBuilder(mapping)
-          val indexer = new ElasticIndexer()
+      } else if (topic == "forecast") {
+        /*
+         * Topic 'forecast' is indexed by the forecast modeler and does not require 
+         * a metadata specification as these data are not shared with predictive
+         * engines
+         */
+        val builder = new ElasticForecastBuilder().createBuilder(mapping)
+        val indexer = new ElasticIndexer()
     
-          indexer.create(index,mapping,builder)
-          indexer.close()
+        indexer.create(index,mapping,builder)
+        indexer.close()
         
-        } else if (topic == "loyalty") {
-          /*
-           * This Elasticsearch index registers loyalty trajectories;
-           * in this case no additional fields have to be created as no
-           * Predictiveworks engine will ever request these data
-           */
-          val builder = new ElasticLoyaltyBuilder().createBuilder(mapping)
-          val indexer = new ElasticIndexer()
+      } else if (topic == "loyalty") {
+        /*
+         * Topic 'loyalty' is indexed by the loyalty modeler and does not require 
+         * a metadata specification as these data are not shared with predictive
+         * engines
+         */
+        val builder = new ElasticLoyaltyBuilder().createBuilder(mapping)
+        val indexer = new ElasticIndexer()
     
-          indexer.create(index,mapping,builder)
-          indexer.close()
+        indexer.create(index,mapping,builder)
+        indexer.close()
           
-        } else if (topic == "recommendation") {
-          /*
-           * This Elasticsearch index registers product recommendations;
-           * in this case no additional fields have to be created as no
-           * Predictiveworks engine will ever request these data
-           */
-          val builder = new ElasticRecommendationBuilder().createBuilder(mapping)
-          val indexer = new ElasticIndexer()
+      } else if (topic == "recommendation") {
+        /*
+         * Topic 'recommendation' is indexed by the loyalty modeler and does not 
+         * require a metadata specification as these data are not shared with 
+         * predictive engines
+         */
+        val builder = new ElasticRecommendationBuilder().createBuilder(mapping)
+        val indexer = new ElasticIndexer()
     
-          indexer.create(index,mapping,builder)
-          indexer.close()
+        indexer.create(index,mapping,builder)
+        indexer.close()
+       
+      } else if (topic == "rule") {
+        /*
+         * Topic 'rule' is indexed by relation modeler and does not require a
+         * metadata specification as these data are not shared with predictive
+         * engines
+         */
+        val builder = ElasticBuilderFactory.getBuilder(topic,mapping,List.empty[String],List.empty[String])
+        val indexer = new ElasticIndexer()
+    
+        indexer.create(index,mapping,builder)
+        indexer.close()
           
-        }
-        
       }
+        
+      // TODO - Profiling
       
       true
     
@@ -123,44 +122,8 @@ class ElasticHandler {
     }
     
   }
-  /**
-   * Put 'amounts' to the Elasticsearch 'amount' index; this method is called during
-   * the 'collect' sub process
-   */  
-  def putAmount(index:String,mapping:String,sources:List[java.util.Map[String,Object]]):Boolean = putSources(index,mapping,sources)
-  /**
-   * Put 'forecasts' to the Elasticsearch 'forecasts' index; this method is called during
-   * the 'enrich' sub process
-   */    
-  def putForecasts(index:String,mapping:String,sources:List[java.util.Map[String,Object]]):Boolean = putSources(index,mapping,sources)
   
-  /**
-   * Put 'items' to the Elasticsearch 'items' index; this method is called during
-   * the 'collect' sub process
-   */
-  def putItems(index:String,mapping:String,sources:List[java.util.Map[String,Object]]):Boolean = putSources(index,mapping,sources)
-  /**
-   * Put 'loyalty' to the Elasticsearch 'loyalty' index; this method is called during
-   * the 'enrich' sub process
-   */
-  def putLoyalty(index:String,mapping:String,sources:List[java.util.Map[String,Object]]):Boolean = putSources(index,mapping,sources)
-  /**
-   * Put 'recommendations' to the Elasticsearch 'recommendations' index; this method is called during
-   * the 'enrich' sub process
-   */  
-  def putRecommendations(index:String,mapping:String,sources:List[java.util.Map[String,Object]]):Boolean = putSources(index,mapping,sources)  
-  /**
-   * Put 'rules' to the Elasticsearch 'rules' index; this method is called during
-   * the 'enrich' sub process
-   */  
-  def putRules(index:String,mapping:String,sources:List[java.util.Map[String,Object]]):Boolean = putSources(index,mapping,sources)  
-  /**
-   * Put 'states' to the Elasticsearch 'states' index; this method is called during
-   * the 'collect' sub process
-   */  
-  def putStates(index:String,mapping:String,sources:List[java.util.Map[String,Object]]):Boolean = putSources(index,mapping,sources)
-
-  private def putSources(index:String,mapping:String,sources:List[java.util.Map[String,Object]]):Boolean = {
+  def putSources(index:String,mapping:String,sources:List[java.util.Map[String,Object]]):Boolean = {
      
     try {
     

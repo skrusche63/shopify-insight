@@ -22,18 +22,24 @@ import akka.actor.Props
 
 import de.kp.spark.core.Names
 
-import de.kp.shopify.insight.PrepareContext
-import de.kp.shopify.insight.model._
+import de.kp.shopify.insight.{FindContext,PrepareContext}
 
 import de.kp.shopify.insight.actor.build._
 import de.kp.shopify.insight.actor.enrich._
+import de.kp.shopify.insight.actor.profile._
+
+import de.kp.shopify.insight.elastic._
+import de.kp.shopify.insight.model._
 
 import org.joda.time.DateTime
 import org.joda.time.format.DateTimeFormat
 
-import scala.collection.mutable.HashMap
+import scala.collection.mutable.{ArrayBuffer,HashMap}
 
-class DataPipeline(prepareContext:PrepareContext) extends BaseActor {
+class DataPipeline(prepareContext:PrepareContext,findContext:FindContext) extends BaseActor {
+  
+  private val MODELS = ArrayBuffer.empty[String]
+  private val MODELS_COMPLETE = 4
   /*
    * Reference to the remote Akka context to interact with
    * the Association Analysis and also the Intent Recognition
@@ -51,6 +57,11 @@ class DataPipeline(prepareContext:PrepareContext) extends BaseActor {
      */
     case message:StartPipeline => {
       
+      /**********************************************************************
+       *      
+       *                       SUB PROCESS 'COLLECT'
+       * 
+       *********************************************************************/
       try {      
         
         /*
@@ -70,6 +81,8 @@ class DataPipeline(prepareContext:PrepareContext) extends BaseActor {
         sink match {
         
           case Sinks.ELASTIC => {
+            
+            createElasticIndexes(req_params)
             /*
              * Send request to ElasticCollector actor and inform requestor
              * that the tracking process has been started. Error and
@@ -121,6 +134,12 @@ class DataPipeline(prepareContext:PrepareContext) extends BaseActor {
        * to this end, actually three different models have to built by invoking the Association
        * Analysis and Intent Recognition engine of Predictiveworks.
        */
+
+      /**********************************************************************
+       *      
+       *                       SUB PROCESS 'ENRICH'
+       * 
+       *********************************************************************/
       
       /*
        * The ASRBuilder is responsible for building an association rule model
@@ -143,8 +162,7 @@ class DataPipeline(prepareContext:PrepareContext) extends BaseActor {
       val hsm_builder = context.actorOf(Props(new HSMBuilder(prepareContext)))  
       hsm_builder ! StartBuild(message.data)
       
-    }
-    
+    }    
     case message:BuildFailed => {
       /*
        * The Builder actors (ASR,STM and HSM) already sent an error message to the message 
@@ -153,8 +171,7 @@ class DataPipeline(prepareContext:PrepareContext) extends BaseActor {
       prepareContext.clear
       context.stop(self)
       
-    }
-    
+    }    
     case message:BuildFinished => {
       /*
        * This message is sent by one of the Builder actors and indicates that the building
@@ -173,41 +190,41 @@ class DataPipeline(prepareContext:PrepareContext) extends BaseActor {
       val model = message.data(Names.REQ_MODEL)
       if (model == "ASR") {
         /*
-         * The PRelaMBuilder is responsible for building a product rule model and
+         * The RelationModeler is responsible for building a product rule model and
          * registering the result in an Elasticsearch index
          * 
-         * ASR -> PRelaM
+         * ASR -> PRELAM
          */
-        val prelam_builder = context.actorOf(Props(new PRelaMBuilder(prepareContext)))  
-        prelam_builder ! StartEnrich(message.data)
+        val prelam_modeler = context.actorOf(Props(new RelationModeler(prepareContext)))  
+        prelam_modeler ! StartEnrich(message.data)
         /*
-         * The PRecoMBuilder is responsible for building a product recommendation
+         * The RecommendationModeler is responsible for building a product recommendation
          *  model and registering the result in an Elasticsearch index
          * 
-         * ASR -> PRecoM
+         * ASR -> URECOM
          */
-        val precom_builder = context.actorOf(Props(new PRecoMBuilder(prepareContext)))  
-        precom_builder ! StartEnrich(message.data)
+        val urecom_modeler = context.actorOf(Props(new RecommendationModeler(prepareContext)))  
+        urecom_modeler ! StartEnrich(message.data)
         
       } else if (model == "STM") {
         /*
-         * The PForcMBuilder is responsible for building a purchase forecast model
+         * The ForecastModeler is responsible for building a purchase forecast model
          * and registering the result in an Elasticsearch index
          * 
-         * STM -> PForcM
+         * STM -> UFORCM
          */
-        val pforcm_builder = context.actorOf(Props(new PForcMBuilder(prepareContext)))  
-        pforcm_builder ! StartEnrich(message.data)
+        val uforcm_modeler = context.actorOf(Props(new ForecastModeler(prepareContext)))  
+        uforcm_modeler ! StartEnrich(message.data)
         
       } else if (model == "HSM") {
         /*
-         * The ULoyaMBuilder is responsible for building a user loyalty model
+         * The LoyaltyModeler is responsible for building a user loyalty model
          * and registering the result in an Elasticsearch index
          * 
-         * HSM -> ULoyaM
+         * HSM -> ULOYAM
          */
-        val uloya_builder = context.actorOf(Props(new ULoyaMBuilder(prepareContext)))  
-        uloya_builder ! StartEnrich(message.data)
+        val uloya_modeler = context.actorOf(Props(new LoyaltyModeler(prepareContext)))  
+        uloya_modeler ! StartEnrich(message.data)
         
       } else {
         
@@ -221,14 +238,107 @@ class DataPipeline(prepareContext:PrepareContext) extends BaseActor {
       
     }
     case message:EnrichFailed => {
-      // TODO
+      /*
+       * The Enrich actors (URECOM,PRELAM,UFORCM and ULOYAM) already sent an error message 
+       * to the message listener; no additional notification has to be done, so just stop 
+       * the pipeline
+       */
+      prepareContext.clear
+      context.stop(self)
+
     }
     case message:EnrichFinished => {
-      // TODO
+      /*
+       * Collect the models built by the enrichment sub processes
+       */
+      val model = message.data(Names.REQ_MODEL)
+      if (List("PRELAM","UFORCM","ULOYAM","URECOM").contains(model)) MODELS += model
+      
+      if (MODELS.size == MODELS_COMPLETE) {
+        /*
+         * The final step within the data analytics pipeline
+         * is the generation of product and user profiles
+         */
+      
+        /********************************************************************
+         *      
+         *                     SUB PROCESS 'PROFILE'
+         * 
+         *******************************************************************/
+         
+        val user_profiler = context.actorOf(Props(new UserProfiler(prepareContext,findContext)))  
+        user_profiler ! StartProfile(message.data)
+         
+        val product_profiler = context.actorOf(Props(new ProductProfiler(prepareContext)))  
+        product_profiler ! StartProfile(message.data)
+        
+      }
+      
     }
-    
+    case message:ProfileFailed => {
+      
+    }
+    case message:ProfileFinished => {
+      
+    }
     case _ => {/* do nothing */}
     
   }
+  /**
+   * A helper method to prepare all Elasticsearch indexes used by the 
+   * Shopify Analytics (or Insight) Server
+   */
+  private def createElasticIndexes(params:Map[String,String]) {
+    
+    val uid = params(Names.REQ_UID)
+    /*
+     * Create search indexes (if not already present)
+     * 
+     * The 'items' index (mapping) specifies a transaction database and
+     * is used by Association Analysis, Series Analysis and other engines
+     * 
+     * The 'states' index (mapping) specifies a states database derived 
+     * from the amount representation and used by Intent Recognition
+     * 
+     * The 'forecast' index (mapping) specifies a sales forecast database
+     * derived from the Markovian rules built by the Intent Recognition
+     * engine
+     * 
+     * The 'recommendation' index (mapping) specifies a product recommendation
+     * database derived from the Association rules and the last items purchased
+     * 
+     * The 'rule' index (mapping) specifies the association rules database
+     * computed by the Association Analysis engine
+     */
+    val handler = new ElasticHandler()
+    /*
+     * SUB PROCESS 'COLLECT'
+     */
+    if (handler.createIndex(params,"orders","items","item") == false)
+      throw new Exception("Index creation for 'orders/items' has been stopped due to an internal error.")
+ 
+    if (handler.createIndex(params,"orders","states","state") == false)
+      throw new Exception("Index creation for 'orders/states' has been stopped due to an internal error.")
+    /*       
+     * SUB PROCESS 'ENRICH'
+     */
+    if (handler.createIndex(params,"orders","forecasts","forecast") == false)
+      throw new Exception("Indexing has been stopped due to an internal error.")
 
+    if (handler.createIndex(params,"orders","loyalty","loyalty") == false)
+      throw new Exception("Indexing has been stopped due to an internal error.")
+            
+    if (handler.createIndex(params,"orders","recommendations","recommendation") == false)
+      throw new Exception("Indexing has been stopped due to an internal error.")
+            
+    if (handler.createIndex(params,"orders","rules","rule") == false)
+      throw new Exception("Indexing has been stopped due to an internal error.")
+    /*       
+     * SUB PROCESS 'PROFILE'
+     */
+  
+    prepareContext.listener ! String.format("""[INFO][UID: %s] Elasticsearch indexes created.""",uid)
+    
+  }
+  
 }

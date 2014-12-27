@@ -143,7 +143,7 @@ class RestApi(host:String,port:Int,system:ActorSystem,@transient sc:SparkContext
        * by the DataPipeline actor that is responsible for controlling the analytics 
        * pipeline
        */
-      val pipeline = system.actorOf(Props(new DataPipeline(prepareContext)))
+      val pipeline = system.actorOf(Props(new DataPipeline(prepareContext,findContext)))
 
       val params = getRequest(ctx)
       val uid = java.util.UUID.randomUUID().toString

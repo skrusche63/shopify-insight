@@ -69,61 +69,28 @@ class ElasticCollector(prepareContext:PrepareContext) extends BaseActor {
            */
           case "order" => {
             
-            val start = new java.util.Date().getTime
-            
             prepareContext.listener ! String.format("""[INFO][UID: %s] Request to register orders received.""",uid)
             
-            /*
-             * STEP #1: Create search indexes (if not already present)
-             *
-             * The 'amount' index (mapping) is used by Intent Recognition and
-             * supports the Recency-Frequency-Monetary (RFM) model
-             * 
-             * The 'items' index (mapping) specifies a transaction database and
-             * is used by Association Analysis, Series Analysis and othe engines
-             * 
-             * The 'states' index (mapping) specifies a states database derived 
-             * from the amount representation and used by Intent Recognition
-             */
+            val start = new java.util.Date().getTime            
             val handler = new ElasticHandler()
-            
-            if (handler.createIndex(req_params,"orders","amount","amount") == false)
-              throw new Exception("Index creation for 'orders/amount' has been stopped due to an internal error.")
-
-            if (handler.createIndex(req_params,"orders","items","item") == false)
-              throw new Exception("Index creation for 'orders/items' has been stopped due to an internal error.")
- 
-            if (handler.createIndex(req_params,"orders","states","state") == false)
-              throw new Exception("Index creation for 'orders/states' has been stopped due to an internal error.")
- 
-            prepareContext.listener ! String.format("""[INFO][UID: %s] Elasticsearch indexes created.""",uid)
 
             /*
-             * STEP #2: Retrieve orders from a certain shopify store; this request takes
+             * STEP #1: Retrieve orders from a certain shopify store; this request takes
              * into account that the Shopify REST interface returns maximally 250 orders
              */
             val orders = prepareContext.getOrders(req_params)
             /*
-             * STEP #3: Build tracking requests to send the collected orders to
+             * STEP #2: Build tracking requests to send the collected orders to
              * the respective service or engine; the orders are sent independently 
              * following a fire-and-forget strategy
              */
             val mapper = new OrderMapper()
             /*
-             * The 'amount' perspective of the order is built and registered
-             */
-            val amounts = orders.map(mapper.toAmountMap(_))
-
-            if (handler.putAmount("orders","amount",amounts) == false)
-              throw new Exception("Indexing for 'orders/amount' has been stopped due to an internal error.")
-
-            prepareContext.listener ! String.format("""[INFO][UID: %s] Amount perspective registered in Elasticsearch index.""",uid)
-            /*
              * The 'item' perspective of the order is built and registered
              */
             val items = orders.flatMap(mapper.toItemMap(_))
             
-            if (handler.putItems("orders","items",items) == false)
+            if (handler.putSources("orders","items",items) == false)
               throw new Exception("Indexing for 'orders/items' has been stopped due to an internal error.")
           
             prepareContext.listener ! String.format("""[INFO][UID: %s] Item perspective registered in Elasticsearch index.""",uid)
@@ -132,7 +99,7 @@ class ElasticCollector(prepareContext:PrepareContext) extends BaseActor {
              */
             val states = toStates(orders.map(mapper.toAmountTuple(_)))
             
-            if (handler.putStates("orders","states",states) == false)
+            if (handler.putSources("orders","states",states) == false)
               throw new Exception("Indexing for 'orders/states' has been stopped due to an internal error.")
           
             prepareContext.listener ! String.format("""[INFO][UID: %s] State perspective registered in Elasticsearch index.""",uid)

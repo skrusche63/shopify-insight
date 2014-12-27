@@ -35,7 +35,7 @@ import scala.collection.mutable.ArrayBuffer
 import scala.collection.JavaConversions._
 
 /**
- * PForcMBuilder is an actor that analyzes Shopify orders of a certain time interval 
+ * ForecastModeler is an actor that analyzes Shopify orders of a certain time interval 
  * (last 30 days from now on) and computes from the last two transactions on a per 
  * user basis a forecast of n steps with respect to next amount and datetime
  * 
@@ -43,7 +43,7 @@ import scala.collection.JavaConversions._
  * the data analytics pipeline.
  * 
  */
-class PForcMBuilder(prepareContext:PrepareContext) extends BaseActor {
+class ForecastModeler(prepareContext:PrepareContext) extends BaseActor {
 
   override def receive = {
    
@@ -88,23 +88,14 @@ class PForcMBuilder(prepareContext:PrepareContext) extends BaseActor {
 
               val forecasts = buildForecasts(res,purchases)
             
-              /*
-               * STEP #3: Create search index (if not already present); the index is used to 
-               * register the forecasts derived from the Markovian rules. 
-               */
               val handler = new ElasticHandler()
-            
-              if (handler.createIndex(req_params,"orders","forecasts","forecast") == false)
-                throw new Exception("Indexing has been stopped due to an internal error.")
- 
-              prepareContext.listener ! String.format("""[INFO][UID: %s] Elasticsearch index created.""",uid)
 
-              if (handler.putForecasts("orders","forecasts",forecasts) == false)
+              if (handler.putSources("orders","forecasts",forecasts) == false)
                 throw new Exception("Indexing processing has been stopped due to an internal error.")
 
               prepareContext.listener ! String.format("""[INFO][UID: %s] Purchase forecast model building finished.""",uid)
 
-              val data = Map(Names.REQ_UID -> uid,Names.REQ_MODEL -> "PForcM")            
+              val data = Map(Names.REQ_UID -> uid,Names.REQ_MODEL -> "UFORCM")            
               context.parent ! EnrichFinished(data)           
             
               context.stop(self)

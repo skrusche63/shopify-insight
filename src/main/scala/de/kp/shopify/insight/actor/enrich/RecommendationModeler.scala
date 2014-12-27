@@ -12,15 +12,15 @@ import de.kp.shopify.insight.actor.BaseActor
 
 
 /**
- * PRecoMBuilder is an actor that uses an association rule model, transforms
- * the model into a product recommendation model (PRM) and and registers the result 
- * in an ElasticSearch index.
+ * RecommendationModeler is an actor that uses an association rule model, 
+ * transforms the model into a user recommendation model and and registers 
+ * the result in an ElasticSearch index.
  * 
- * This is part of the 'enrich' sub process that represents the third component of 
- * the data analytics pipeline.
+ * This is part of the 'enrich' sub process that represents the third component 
+ * of the data analytics pipeline.
  * 
  */
-class PRecoMBuilder(prepareContext:PrepareContext) extends BaseActor {
+class RecommendationModeler(prepareContext:PrepareContext) extends BaseActor {
 
   override def receive = {
    
@@ -31,7 +31,7 @@ class PRecoMBuilder(prepareContext:PrepareContext) extends BaseActor {
       
       try {
         
-        prepareContext.listener ! String.format("""[INFO][UID: %s] Product recommendation model building started.""",uid)
+        prepareContext.listener ! String.format("""[INFO][UID: %s] User recommendation model building started.""",uid)
         /*
          * STEP #1: Transform Shopify orders into last transaction itemsets; these
          * itemsets are then used as antecedents to filter those association rules
@@ -69,18 +69,13 @@ class PRecoMBuilder(prepareContext:PrepareContext) extends BaseActor {
                * from the association rule model
                */
               val handler = new ElasticHandler()
-            
-              if (handler.createIndex(req_params,"orders","recommendations","recommendation") == false)
-                throw new Exception("Indexing has been stopped due to an internal error.")
- 
-              prepareContext.listener ! String.format("""[INFO][UID: %s] Elasticsearch index created.""",uid)
 
-              if (handler.putRules("orders","recommendations",recommendations) == false)
+              if (handler.putSources("orders","recommendations",recommendations) == false)
                 throw new Exception("Indexing processing has been stopped due to an internal error.")
 
-              prepareContext.listener ! String.format("""[INFO][UID: %s] Product recommendation model building finished.""",uid)
+              prepareContext.listener ! String.format("""[INFO][UID: %s] User recommendation model building finished.""",uid)
 
-              val data = Map(Names.REQ_UID -> uid,Names.REQ_MODEL -> "PRecoM")            
+              val data = Map(Names.REQ_UID -> uid,Names.REQ_MODEL -> "URECOM")            
               context.parent ! EnrichFinished(data)           
             
               context.stop(self)

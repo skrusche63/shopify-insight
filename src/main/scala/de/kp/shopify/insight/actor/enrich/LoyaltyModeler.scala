@@ -33,60 +33,69 @@ import de.kp.shopify.insight.source._
 import scala.collection.mutable.ArrayBuffer
 import scala.collection.JavaConversions._
 
-class ULoyaMBuilder(serverContext:PrepareContext) extends BaseActor {
+class LoyaltyModeler(prepareContext:PrepareContext) extends BaseActor {
 
   override def receive = {
    
     case message:StartEnrich => {
       
+      val req_params = message.data
+      val uid = req_params(Names.REQ_UID)
+      
       try {
       
-        val params = message.data
-        val uid = params(Names.REQ_UID)
-        
+        prepareContext.listener ! String.format("""[INFO][UID: %s] User loyalty model building started.""",uid)
+       
         /*
          * STEP #1: Transform Shopify orders into sequences of observed states; 
          * these observations are then used to determine the assigned hidden 
          * loyalty states
          */
-        val observations = transform(serverContext.getPurchases(params))
+        val observations = transform(prepareContext.getPurchases(req_params))
+      
+        prepareContext.listener ! String.format("""[INFO][UID: %s] Purchases successfully transformed into observations.""",uid)
+
         /*
          * STEP #2: Retrieve hidden Markon states from Intent Recognition engine, 
          * combine those and observations into a user specific loyalty trajectories
          * 
          */
-        val (service,req) = buildRemoteRequest(params,observations)
-        val response = serverContext.getRemoteContext.send(service,req).mapTo[String]     
+        val (service,req) = buildRemoteRequest(req_params,observations)
+        val response = prepareContext.getRemoteContext.send(service,req).mapTo[String]     
         
         response.onSuccess {
         
           case result => {
  
-            val intermediate = Serializer.deserializeResponse(result)
-            val trajectories = buildTrajectories(intermediate,observations)
-            
-            /*
-             * STEP #3: Create search index (if not already present);
-             * the index is used to register the trajectories derived 
-             * from the hideen state model
-             */
-            val handler = new ElasticHandler()
-            
-            if (handler.createIndex(params,"orders","loyalty","loyalty") == false)
-              throw new Exception("Indexing has been stopped due to an internal error.")
+            val res = Serializer.deserializeResponse(result)
+            if (res.status == ResponseStatus.FAILURE) {
+                    
+              prepareContext.listener ! String.format("""[ERROR][UID: %s] Retrieval of hidden Markov states failed due to an engine error.""",uid)
  
-            serverContext.listener ! String.format("""[UID: %s] Elasticsearch index created.""",uid)
+              context.parent ! EnrichFailed(res.data)
+              context.stop(self)
 
-            if (handler.putLoyalty("orders","loyalty",trajectories) == false)
-              throw new Exception("Indexing processing has been stopped due to an internal error.")
-
-            serverContext.listener ! String.format("""[UID: %s] Loyalty perspective registered in Elasticsearch index.""",uid)
-
-            val data = Map(Names.REQ_UID -> uid,Names.REQ_MODEL -> "PLoyaM")            
-            context.parent ! EnrichFinished(data)           
+            } else {
             
-            context.stop(self)
-        
+              val trajectories = buildTrajectories(res,observations)
+            
+              /*
+               * STEP #3: Register the trajectories derived from the hidden state model
+               */
+              val handler = new ElasticHandler()
+ 
+              if (handler.putSources("orders","loyalty",trajectories) == false)
+                throw new Exception("Indexing processing has been stopped due to an internal error.")
+
+              prepareContext.listener ! String.format("""[INFO][UID: %s] User loyalty model building finished.""",uid)
+
+              val data = Map(Names.REQ_UID -> uid,Names.REQ_MODEL -> "ULOYAM")            
+              context.parent ! EnrichFinished(data)           
+            
+              context.stop(self)
+            
+            }
+          
           }
 
         }
@@ -95,7 +104,9 @@ class ULoyaMBuilder(serverContext:PrepareContext) extends BaseActor {
          */
         response.onFailure {
           case throwable => {
-          
+                    
+            prepareContext.listener ! String.format("""[ERROR][UID: %s] Retrieval of hidden Markov states failed due to an internal error.""",uid)
+           
             val params = Map(Names.REQ_MESSAGE -> throwable.getMessage) ++ message.data
           
             context.parent ! EnrichFailed(params)           
@@ -107,6 +118,8 @@ class ULoyaMBuilder(serverContext:PrepareContext) extends BaseActor {
         
       } catch {
         case e:Exception => {
+                    
+          prepareContext.listener ! String.format("""[ERROR][UID: %s] Retrieval of hidden Markov states failed due to an internal error.""",uid)
           
           val params = Map(Names.REQ_MESSAGE -> e.getMessage) ++ message.data
 
@@ -120,7 +133,12 @@ class ULoyaMBuilder(serverContext:PrepareContext) extends BaseActor {
     }
 
   }  
+  /**
+   * Buid user loyalty trajectories
+   */
   private def buildTrajectories(response:ServiceResponse,observations:List[(String,String,List[String])]):List[java.util.Map[String,Object]] = {
+
+    val uid = response.data(Names.REQ_UID)
    
     val states_list = response.data(Names.REQ_RESPONSE).split(";").map(x => x.split(","))
     val trajectories = ArrayBuffer.empty[java.util.Map[String,Object]]
@@ -136,6 +154,7 @@ class ULoyaMBuilder(serverContext:PrepareContext) extends BaseActor {
       data += Names.SITE_FIELD -> site
       data += Names.USER_FIELD -> user
       
+      data += Names.UID_FIELD -> uid
       data += Names.TRAJECTORY_FIELD -> states.toList.asInstanceOf[Object]
       
       trajectories += data
@@ -151,9 +170,13 @@ class ULoyaMBuilder(serverContext:PrepareContext) extends BaseActor {
     val service = "intent"
     val task = "get:state"
 
-    // TODO
-      
-    val data = new HSMHandler().get(params)
+    /*
+     * The list of last customer observations must be added to the 
+     * request parameters; note, that this done outside the HSMHandler 
+     */
+    val new_params = Map(Names.REQ_OBSERVATIONS -> observations.map(x => x._3.mkString(",")).mkString(";")) ++ params
+       
+    val data = new HSMHandler().get(new_params)
     val message = Serializer.serializeRequest(new ServiceRequest(service,task,data))
             
     (service,message)
