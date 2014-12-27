@@ -132,39 +132,8 @@ class ElasticHandler {
    * Put 'forecasts' to the Elasticsearch 'forecasts' index; this method is called during
    * the 'enrich' sub process
    */    
-  def putForecasts(index:String,mapping:String,dataset:List[Map[String,String]]):Boolean = {
-     
-    try {
-    
-      val writer = new ElasticWriter()
-        
-      val readyToWrite = writer.open(index,mapping)
-      if (readyToWrite == false) {
-      
-        writer.close()
-      
-        val msg = String.format("""Opening index '%s' and mapping '%s' for write failed.""",index,mapping)
-        throw new Exception(msg)
-      
-      } else {
-      
-        val builder = new ElasticForecastBuilder()
-        val sources = dataset.map(builder.createSource(_))
-        /*
-         * Writing this source to the respective index throws an
-         * exception in case of an error; note, that the writer is
-         * automatically closed 
-         */
-        writer.writeBulk(index, mapping, sources)      
-        true
-      
-      }
-    
-    } catch {
-      case e:Exception => false
-    }
-   
-  }
+  def putForecasts(index:String,mapping:String,sources:List[java.util.Map[String,Object]]):Boolean = putSources(index,mapping,sources)
+  
   /**
    * Put 'items' to the Elasticsearch 'items' index; this method is called during
    * the 'collect' sub process

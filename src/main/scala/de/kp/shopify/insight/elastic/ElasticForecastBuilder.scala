@@ -49,6 +49,12 @@ class ElasticForecastBuilder {
                   .field("type", "string")
                   .field("index", "not_analyzed")
                .endObject()
+
+               /* uid */
+               .startObject(UID_FIELD)
+                 .field("type", "string")
+                 .field("index", "not_analyzed")
+               .endObject()
                
                /* step */
                .startObject(STEP_FIELD)
@@ -76,24 +82,6 @@ class ElasticForecastBuilder {
                     
     builder
 
-  }
-  
-  def createSource(params:Map[String,String]):java.util.Map[String,Object] = {
-    
-    val source = HashMap.empty[String,String]
-    
-    source += Names.SITE_FIELD -> params(Names.SITE_FIELD)
-    source += Names.USER_FIELD -> params(Names.USER_FIELD)
-      
-    source += Names.STEP_FIELD -> params(Names.STEP_FIELD)
- 
-    source += Names.AMOUNT_FIELD -> params(Names.AMOUNT_FIELD)
-    source += Names.TIMESTAMP_FIELD -> params(Names.TIMESTAMP_FIELD)
-      
-    source += Names.SCORE_FIELD -> params(Names.SCORE_FIELD)
-
-    source
-    
   }
 
 }

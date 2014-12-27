@@ -23,7 +23,6 @@ import akka.actor.Props
 import de.kp.spark.core.Names
 
 import de.kp.shopify.insight.PrepareContext
-
 import de.kp.shopify.insight.model._
 
 import de.kp.shopify.insight.actor.build._

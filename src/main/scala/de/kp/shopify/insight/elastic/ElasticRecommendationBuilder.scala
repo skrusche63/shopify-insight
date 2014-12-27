@@ -60,12 +60,6 @@ class ElasticRecommendationBuilder {
                  .field("type", "string")
                  .field("index", "not_analyzed")
                .endObject()
-                    
-               /* recommendation */
-               .startObject(RECOMMENDATION_FIELD)
-                 .field("type", "string")
-                 .field("index", "not_analyzed")
-               .endObject()
 
                /* consequent */
                .startObject(CONSEQUENT_FIELD)
@@ -75,6 +69,11 @@ class ElasticRecommendationBuilder {
                /* support */
                .startObject(SUPPORT_FIELD)
                  .field("type", "integer")
+               .endObject()
+                    
+               /* total */
+               .startObject(TOTAL_FIELD)
+                 .field("type", "long")
                .endObject()
 
                /* confidence */

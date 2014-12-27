@@ -139,59 +139,53 @@ class PRecoMBuilder(prepareContext:PrepareContext) extends BaseActor {
 
   }
   
-  // TODO : client side retrieve from association rules
   private def buildProductRecommendations(response:ServiceResponse,itemsets:List[(String,String,List[Int])]):List[java.util.Map[String,Object]] = {
             
     val uid = response.data(Names.REQ_UID)
-    /*
-     * A recommendation request is dedicated to a certain 'site' and a list of users, 
-     * and the result is a list of rules assigned to this input
-     */
-    val rules = Serializer.deserializeMultiUserRules(response.data(Names.REQ_RESPONSE))
-    
-    /*
-     * Determine timestamp for the actual set of rules to be indexed
-     */
+    val rules = Serializer.deserializeRules(response.data(Names.REQ_RESPONSE))
+
     val now = new java.util.Date()
     val timestamp = now.getTime()
-    
-    rules.items.flatMap(entry => {
 
-      /* 
-       * Unique identifier to group all entries that 
-       * refer to the same recommendation
-       */      
-      val rid = java.util.UUID.randomUUID().toString()
-              
-      val (site,user) = (entry.site,entry.user)
-      entry.items.map(wrule => {
-        /*
-         * A weighted rule specify the intersection ration of the association rule
-         * antecedent part with the users last transaction items
-         */
-        val source = new java.util.HashMap[String,Object]()    
+    itemsets.map(itemset => {
+      
+      val (site,user,items) = itemset
+      /*
+       * Replace antecendent part of the retrieved rules by the itemset of the last 
+       * user transaction, compute intersection ratio and restrict to those modified 
+       * rules where antecedent and consequent are completely disjunct; finally sort
+       * new rules by a) ratio AND b) confidence AND c) support and take best element 
+       */
+      val new_rules = rules.items.map(rule => {
 
-        source += Names.SITE_FIELD -> site
-        source += Names.USER_FIELD -> user
+        val intersect = items.intersect(rule.antecedent)
+        val ratio = intersect.length.toDouble / items.length
+                  
+        (items,rule.consequent,rule.support,rule.total,rule.confidence,ratio)
       
-        source += Names.UID_FIELD -> uid
-        source += Names.TIMESTAMP_FIELD -> timestamp.asInstanceOf[Object]
+      }).filter(r => (r._1.intersect(r._2).size == 0))
       
-        source += Names.RECOMMENDATION_FIELD -> rid
+      val best_rule = new_rules.sortBy(x => (-x._6, -x._5, -x._3)).head
+      val source = new java.util.HashMap[String,Object]()    
+
+      source += Names.SITE_FIELD -> site
+      source += Names.USER_FIELD -> user
+      
+      source += Names.UID_FIELD -> uid
+      source += Names.TIMESTAMP_FIELD -> timestamp.asInstanceOf[Object]
         
-        source += Names.CONSEQUENT_FIELD -> wrule.consequent
+      source += Names.CONSEQUENT_FIELD -> best_rule._2
         
-        source += Names.SUPPORT_FIELD -> wrule.support.asInstanceOf[Object]
-        source += Names.CONFIDENCE_FIELD -> wrule.confidence.asInstanceOf[Object]
+      source += Names.SUPPORT_FIELD -> best_rule._3.asInstanceOf[Object]
+      source += Names.TOTAL_FIELD -> best_rule._4.asInstanceOf[Object]
+      
+      source += Names.CONFIDENCE_FIELD -> best_rule._5.asInstanceOf[Object]        
+      source += Names.WEIGHT_FIELD -> best_rule._6.asInstanceOf[Object]
         
-        source += Names.WEIGHT_FIELD -> wrule.weight.asInstanceOf[Object]
-        
-        source
-        
-      })
-          
+      source
+
     })
-
+ 
   }
   private def transform(orders:List[Order]):List[(String,String,List[Int])] = {
     

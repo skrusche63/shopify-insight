@@ -1,4 +1,4 @@
-package de.kp.shopify.insight.actor
+package de.kp.shopify.insight.actor.enrich
 /* Copyright (c) 2014 Dr. Krusche & Partner PartG
 * 
 * This file is part of the Shopify-Insight project
@@ -22,17 +22,15 @@ import de.kp.spark.core.Names
 import de.kp.spark.core.model._
 
 import de.kp.shopify.insight.PrepareContext
+import de.kp.shopify.insight.actor.BaseActor
+
 import de.kp.shopify.insight.model._
-
 import de.kp.shopify.insight.io._
-import de.kp.shopify.insight.elastic._
 
+import de.kp.shopify.insight.elastic._
 import de.kp.shopify.insight.source._
 
-import org.joda.time.DateTime
-import org.joda.time.format.DateTimeFormat
-
-import scala.collection.mutable.{ArrayBuffer,HashMap}
+import scala.collection.mutable.ArrayBuffer
 import scala.collection.JavaConversions._
 
 class ULoyaMBuilder(serverContext:PrepareContext) extends BaseActor {

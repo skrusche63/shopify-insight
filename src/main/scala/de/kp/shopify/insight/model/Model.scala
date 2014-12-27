@@ -168,6 +168,25 @@ case class Order(
 )
 case class Orders(items:List[Order])
 
+/****************************************************************************
+ * 
+ *                      PROCESS 'QUERY'
+ * 
+ ***************************************************************************/
+
+case class CrossSellQuery(data:Map[String,String])
+
+/**
+ * A ForecastQuery supports the generation of marketing campaigns by forecasting
+ * the next purchase date and amount
+ */
+case class ForecastQuery(data:Map[String,String])
+/**
+ * A SuggestQuery supports the generation of Shopify collections, based
+ * on the association rules built by the data analytics pipeline (before) 
+ */
+case class SuggestQuery(data:Map[String,String])
+
 /**
  * A suggestion is a list of weighted (by support & confidence) 
  * product suggestions, that helps to build custom collections
@@ -178,18 +197,15 @@ case class Suggestions(items:List[Suggestion])
 case class Products(products:List[ShopifyProduct])
 
 /**
- * An forecast claims a certain purchase amount at a specific
- * timestamp with an assigned score, that describes the likelihood 
- * that this purchase happens
+ * A forecast (event) claims a certain purchase amount within a specific
+ * period of days, and the assigned score describes the likelihood that
+ * this event happens
  */
-case class Forecast(amount:Float,timestamp:Long,score:Double)
-/**
- * A user forecast collects a list of forecasts with respect
- * to a certain user
- */
-case class UserForecast(site:String,user:String,steps:List[Forecast])
+case class Forecast(site:String,user:String,amount:Float,days:Int,score:Double)
 
-case class UserForecasts(items:List[UserForecast])
+case class Forecasts(items:List[Forecast])
+
+case class PromotionQuery(data:Map[String,String])
 
 case class Recommendation(
   /* A recommendation is described on a per user basis */
@@ -197,20 +213,6 @@ case class Recommendation(
 )
 
 case class Recommendations(items:List[Recommendation])
-
-/**
- * A derived association rule that additionally specifies the matching weight
- * between the antecent field and the respective field in mined and original
- * association rules
- */
-case class WeightedRule (
-  antecedent:List[Int],consequent:List[Int],support:Int,confidence:Double,weight:Double)
-/**
- * A set of weighted rules assigned to a certain user of a specific site
- */
-case class UserRules(site:String,user:String,items:List[WeightedRule])
-
-case class MultiUserRules(items:List[UserRules])
 
 object ResponseStatus extends BaseStatus
 
@@ -241,75 +243,7 @@ object Statuses {
 object Serializer extends BaseSerializer {
 
   def serializeActorsStatus(statuses:ActorsStatus):String = write(statuses) 
-  
-  /** 
-   * Multi user rules specify the result of association analysis and are used to 
-   * build product recommendations built on top of association rules
-   */
-  def deserializeMultiUserRules(rules:String):MultiUserRules = read[MultiUserRules](rules)  
 
-}
-
-/**
- * Elements specify which data descriptions have to be pre-built
- * in an Elasticsearch index; these indexes are used to persist
- * trackable data and also mining results
- */
-object Elements {
-  
-  val AMOUNT:String = "amount"
-  
-  val FEATURE:String = "feature"
-
-  val ITEM:String = "item"
-  
-  val RULE:String = "rule"
-    
-  val SEQUENCE:String = "sequence"
-
-  private val elements = List(AMOUNT,FEATURE,ITEM,RULE,SEQUENCE)  
-  def isElement(element:String):Boolean = elements.contains(element)
-  
 }
 
 object Messages extends BaseMessages
-
-object Tasks {
-  
-  val CROSS_SELL:String = "cross_sell"
-  val PLACEMENT:String  = "placement"
-    
-  val RECOMMENDATION:String = "recommendation"
-  
-  private val tasks = List(RECOMMENDATION)
-  def isTask(task:String):Boolean = tasks.contains(task)
-    
-}
-
-object Services {
-  /*
-   * Shopifyinsight. supports Association Analysis; the respective request
-   * is delegated to Predictiveworks.
-   */
-  val ASSOCIATION:String = "association"
-  /*
-   * Shopifyinsight. supports Intent Recognition; the respective request is
-   * delegated to Predictiveworks.
-   */
-  val INTENT:String = "intent"
-  /*
-   * Recommendation is an internal service of PIWIKinsight and uses ALS to
-   * predict the most preferred item for a certain user
-   */
-  val RECOMMENDATION:String = "recommendation"
-  /*
-   * Shopifyinsight. supports Series Analysis; the respectiv request is 
-   * delegated to Predictiveworks.
-   */
-  val SERIES:String = "series"
-    
-  private val services = List(ASSOCIATION,INTENT,SERIES)
-  
-  def isService(service:String):Boolean = services.contains(service)
-  
-}

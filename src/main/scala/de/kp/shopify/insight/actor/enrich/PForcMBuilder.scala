@@ -32,6 +32,7 @@ import de.kp.shopify.insight.elastic._
 import de.kp.shopify.insight.source._
 
 import scala.collection.mutable.ArrayBuffer
+import scala.collection.JavaConversions._
 
 /**
  * PForcMBuilder is an actor that analyzes Shopify orders of a certain time interval 
@@ -145,7 +146,10 @@ class PForcMBuilder(prepareContext:PrepareContext) extends BaseActor {
 
   }  
 
-  private def buildForecasts(response:ServiceResponse,purchases:List[(String,String,Float,Long,String)]):List[Map[String,String]] = {
+  private def buildForecasts(response:ServiceResponse,purchases:List[(String,String,Float,Long,String)]):List[java.util.Map[String,Object]] = {
+
+    val uid = response.data(Names.REQ_UID)
+    
     /*
      * A set of Markovian rules (i.e. a relation between a certain state and a sequence
      * of most probable subsequent states) is transformed into a list of user specific
@@ -166,7 +170,20 @@ class PForcMBuilder(prepareContext:PrepareContext) extends BaseActor {
       val (site,user,amount,time,state) = p
       
       val forecasts = buildForecasts(amount,time,lookup(state)).zipWithIndex
-      forecasts.map(x => x._1 ++ Map(Names.SITE_FIELD -> site,Names.USER_FIELD -> user,Names.STEP_FIELD -> (x._2 + 1).toString))
+      forecasts.map(x => {
+        
+        val source = new java.util.HashMap[String,Object]()
+        
+        source += Names.SITE_FIELD -> site
+        source += Names.USER_FIELD -> user
+        
+        source += Names.UID_FIELD -> uid
+        source += Names.STEP_FIELD -> (x._2 + 1).asInstanceOf[Object]
+        
+        x._1.foreach(entry => source += entry._1 -> entry._2)       
+        source
+        
+      })
     
     })
     
@@ -175,9 +192,9 @@ class PForcMBuilder(prepareContext:PrepareContext) extends BaseActor {
    * The Intent Recognition engine returns a list of Markovian states; the ordering
    * of these states reflects the number of steps looked ahead
    */
-  private def buildForecasts(amount:Float,time:Long,states:List[MarkovState]):List[Map[String,String]] = {
+  private def buildForecasts(amount:Float,time:Long,states:List[MarkovState]):List[java.util.Map[String,Object]] = {
     
-    val result = ArrayBuffer.empty[Map[String,String]]
+    val result = ArrayBuffer.empty[java.util.Map[String,Object]]
     val steps = states.size
     
     if (steps == 0) return result.toList
@@ -187,7 +204,13 @@ class PForcMBuilder(prepareContext:PrepareContext) extends BaseActor {
     val next_time = AmountHandler.nextDate(record.name, time)
     val next_amount = AmountHandler.nextAmount(record.name, amount)
    
-    result += Map(Names.AMOUNT_FIELD -> next_amount.toString,Names.TIMESTAMP_FIELD -> next_time.toString,Names.SCORE_FIELD -> record.probability.toString)
+    val source = new java.util.HashMap[String,Object]()
+    
+    source += Names.AMOUNT_FIELD -> next_amount.asInstanceOf[Object]
+    source += Names.TIMESTAMP_FIELD -> next_time.asInstanceOf[Object]
+    
+    source += Names.SCORE_FIELD -> record.probability.asInstanceOf[Object]
+    result += source
 
     var pre_time = next_time
     var pre_amount = next_amount
@@ -197,7 +220,13 @@ class PForcMBuilder(prepareContext:PrepareContext) extends BaseActor {
       val next_time = AmountHandler.nextDate(record.name, pre_time)
       val next_amount = AmountHandler.nextAmount(record.name, pre_amount)
    
-      result += Map(Names.AMOUNT_FIELD -> next_amount.toString,Names.TIMESTAMP_FIELD -> next_time.toString,Names.SCORE_FIELD -> record.probability.toString)
+      val source = new java.util.HashMap[String,Object]()
+    
+      source += Names.AMOUNT_FIELD -> next_amount.asInstanceOf[Object]
+      source += Names.TIMESTAMP_FIELD -> next_time.asInstanceOf[Object]
+    
+      source += Names.SCORE_FIELD -> record.probability.asInstanceOf[Object]
+      result += source
 
       pre_time = next_time
       pre_amount = next_amount

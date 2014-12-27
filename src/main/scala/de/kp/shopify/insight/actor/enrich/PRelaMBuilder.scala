@@ -33,7 +33,6 @@ import de.kp.shopify.insight.source._
 
 import scala.collection.JavaConversions._
 
-
 /**
  * PRelaMBuilder is an actor that uses an association rule model, transforms
  * the model into a product rule model (PRM) and and registers the result 
@@ -48,11 +47,13 @@ class PRelaMBuilder(prepareContext:PrepareContext) extends BaseActor {
   override def receive = {
    
     case message:StartEnrich => {
+
+      val req_params = message.data
+      val uid = req_params(Names.REQ_UID)
       
       try {
-
-        val req_params = message.data
-        val uid = req_params(Names.REQ_UID)
+        
+        prepareContext.listener ! String.format("""[INFO][UID: %s] Product relation model building started.""",uid)
         
         /*
          * STEP #1: Retrieve association rules from the Association 
@@ -65,30 +66,41 @@ class PRelaMBuilder(prepareContext:PrepareContext) extends BaseActor {
         
           case result => {
  
-            val intermediate = Serializer.deserializeResponse(result)
-            val rules = buildProductRules(intermediate)
-            /*
-             * STEP #2: Create search index (if not already present);
-             * the index is used to register the rules derived from
-             * the association rule model
-             */
-            val handler = new ElasticHandler()
-            
-            if (handler.createIndex(req_params,"orders","rules","rule") == false)
-              throw new Exception("Indexing has been stopped due to an internal error.")
+            val res = Serializer.deserializeResponse(result)
+            if (res.status == ResponseStatus.FAILURE) {
+                    
+              prepareContext.listener ! String.format("""[ERROR][UID: %s] Retrieval of Association rules failed due to an engine error.""",uid)
  
-            prepareContext.listener ! String.format("""[INFO][UID: %s] Elasticsearch index created.""",uid)
+              context.parent ! EnrichFailed(res.data)
+              context.stop(self)
 
-            if (handler.putRules("orders","rules",rules) == false)
-              throw new Exception("Indexing processing has been stopped due to an internal error.")
+            } else {
 
-            prepareContext.listener ! String.format("""[INFO][UID: %s] Product rule perspective registered in Elasticsearch index.""",uid)
-
-            val data = Map(Names.REQ_UID -> uid,Names.REQ_MODEL -> "PRelaM")            
-            context.parent ! EnrichFinished(data)           
+              val rules = buildProductRules(res)
+              /*
+               * STEP #2: Create search index (if not already present);
+               * the index is used to register the rules derived from
+               * the association rule model
+               */
+              val handler = new ElasticHandler()
             
-            context.stop(self)
-             
+              if (handler.createIndex(req_params,"orders","rules","rule") == false)
+                throw new Exception("Indexing has been stopped due to an internal error.")
+ 
+              prepareContext.listener ! String.format("""[INFO][UID: %s] Elasticsearch index created.""",uid)
+
+              if (handler.putRules("orders","rules",rules) == false)
+                throw new Exception("Indexing processing has been stopped due to an internal error.")
+
+              prepareContext.listener ! String.format("""[INFO][UID: %s] Product relation model building finished.""",uid)
+
+              val data = Map(Names.REQ_UID -> uid,Names.REQ_MODEL -> "PRelaM")            
+              context.parent ! EnrichFinished(data)           
+            
+              context.stop(self)
+            
+            }
+          
           }
           
         }
@@ -97,6 +109,8 @@ class PRelaMBuilder(prepareContext:PrepareContext) extends BaseActor {
          */
         response.onFailure {
           case throwable => {
+                    
+            prepareContext.listener ! String.format("""[ERROR][UID: %s] Retrieval of Association rules failed due to an internal error.""",uid)
           
             val params = Map(Names.REQ_MESSAGE -> throwable.getMessage) ++ message.data
           
@@ -109,6 +123,8 @@ class PRelaMBuilder(prepareContext:PrepareContext) extends BaseActor {
          
       } catch {
         case e:Exception => {
+                    
+          prepareContext.listener ! String.format("""[ERROR][UID: %s] Retrieval of Association rules failed due to an internal error.""",uid)
           
           val params = Map(Names.REQ_MESSAGE -> e.getMessage) ++ message.data
 
@@ -144,38 +160,23 @@ class PRelaMBuilder(prepareContext:PrepareContext) extends BaseActor {
      */
     val now = new java.util.Date()
     val timestamp = now.getTime()
-   
-    rules.items.flatMap(rule => {
+    
+    rules.items.map(rule => {
       
-      /* 
-       * Unique identifier to group all entries that refer to the same rule
-       */      
-      val rid = java.util.UUID.randomUUID().toString()
-      /*
-       * The rule antecedents are indexed as single documents
-       * with an additional weight, derived from the total number
-       * of antecedents per rule
-       */
-      rule.antecedent.map(item => {
+      val source = new java.util.HashMap[String,Object]()    
       
-        val source = new java.util.HashMap[String,Object]()    
+      source += Names.TIMESTAMP_FIELD -> timestamp.asInstanceOf[Object]
+      source += Names.UID_FIELD -> uid
       
-        source += Names.TIMESTAMP_FIELD -> timestamp.asInstanceOf[Object]
-        source += Names.UID_FIELD -> uid
-      
-        source += Names.RULE_FIELD -> rid
+      source += Names.ANTECEDENT_FIELD -> rule.antecedent
+      source += Names.CONSEQUENT_FIELD -> rule.consequent
         
-        source += Names.ANTECEDENT_FIELD -> item.asInstanceOf[Object]
-        source += Names.CONSEQUENT_FIELD -> rule.consequent
+      source += Names.SUPPORT_FIELD -> rule.support.asInstanceOf[Object]
+      source += Names.CONFIDENCE_FIELD -> rule.confidence.asInstanceOf[Object]
+
+      source += Names.TOTAL_FIELD -> rule.total.asInstanceOf[Object]
         
-        source += Names.SUPPORT_FIELD -> rule.support.asInstanceOf[Object]
-        source += Names.CONFIDENCE_FIELD -> rule.confidence.asInstanceOf[Object]
-        
-        source += Names.WEIGHT_FIELD -> (1.toDouble / rule.antecedent.length).asInstanceOf[Object]
-        
-        source
-      
-      })
+      source
       
     })
     

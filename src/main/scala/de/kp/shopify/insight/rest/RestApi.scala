@@ -201,18 +201,27 @@ class RestApi(host:String,port:Int,system:ActorSystem,@transient sc:SparkContext
   private def doProduct[T](ctx:RequestContext,subject:String) = {
 
     implicit val timeout:Timeout = DurationInt(prepareContext.getTimeout).second      
-
-    val task = "get:" + subject
+ 
+    val actor = system.actorOf(Props(new ProductQuestor(findContext)))
+    val params = getRequest(ctx)
     
-    val topics = List("collection","cross-sell","promotion")
-    if (topics.contains(subject)) {
+    val request = subject match {
+      
+      case "collection" => SuggestQuery(params)
+      
+      case "cross-sell" => CrossSellQuery(params)
+      
+      case "promotion" => PromotionQuery(params)
+      
+      case _ => null
 
-      val actor = system.actorOf(Props(new ProductQuestor(findContext)))
+    }
     
-      val request = new ServiceRequest("",task,getRequest(ctx))
+    if (request != null) {
+    
       val response = ask(actor,request)     
-
       response.onSuccess {
+        
         case result => {
 
           /* Different response type have to be distinguished */
@@ -247,34 +256,40 @@ class RestApi(host:String,port:Int,system:ActorSystem,@transient sc:SparkContext
 
       response.onFailure {
         case throwable => ctx.complete(throwable.getMessage)
-      }
-      
+      }      
+
     }
+      
   }
   
   private def doUser[T](ctx:RequestContext,subject:String) = {
 
     implicit val timeout:Timeout = DurationInt(prepareContext.getTimeout).second      
 
-    val task = "get:" + subject
+    val actor = system.actorOf(Props(new UserQuestor(findContext)))
+    val params = getRequest(ctx)
     
-    val topics = List("forecast","loyalty","recommendation")
-    if (topics.contains(subject)) {
-
-      val actor = system.actorOf(Props(new UserQuestor(findContext)))
-    
-      val request = new ServiceRequest("",task,getRequest(ctx))
-      val response = ask(actor,request)     
+    val request = subject match {
       
+      case "forecast" => ForecastQuery(params)
+      
+      case "loyalty" => {}
+      
+      case "recommendation" => {}
+      
+      case _ => null
+
+    }
+    
+    if (request != null) {
+      
+      val response = ask(actor,request)           
       response.onSuccess {
+        
         case result => {
           
-          if (result.isInstanceOf[UserForecasts]) {
-            /*
-             * A user forecast is retrieved from the Intent Recognition
-             * engine in combination with a Shopify request
-             */
-            ctx.complete(result.asInstanceOf[UserForecasts])
+          if (result.isInstanceOf[Forecasts]) {
+            ctx.complete(result.asInstanceOf[Forecasts])
             
           } else if (result.isInstanceOf[Recommendations]) {
              /*
@@ -302,6 +317,7 @@ class RestApi(host:String,port:Int,system:ActorSystem,@transient sc:SparkContext
       }
       
     }
+
   }
 
   private def getHeaders(ctx:RequestContext):Map[String,String] = {
