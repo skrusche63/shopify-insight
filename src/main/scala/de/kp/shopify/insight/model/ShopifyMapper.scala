@@ -1,4 +1,4 @@
-package de.kp.shopify.insight.io
+package de.kp.shopify.insight.model
 /* Copyright (c) 2014 Dr. Krusche & Partner PartG
  * 
  * This file is part of the Shopify-Insight project
@@ -18,12 +18,52 @@ package de.kp.shopify.insight.io
  * If not, see <http://www.gnu.org/licenses/>.
  */
 
+import de.kp.spark.core.Names
 import de.kp.spark.core.model._
 
 import de.kp.shopify.insight.model._
-import org.joda.time.format.DateTimeFormat
 
-class OrderBuilder {
+import org.joda.time.format.DateTimeFormat
+import scala.collection.JavaConversions._
+
+class ShopifyMapper {
+
+  def extractCustomer(site:String,customer:ShopifyCustomer):Customer = {
+    /*
+     * The unique user identifier is retrieved from the
+     * customer object and there from the 'id' field
+     */
+    val user = customer.id.toString
+    /*
+     * Retrieve the first & last name of a customer
+     */
+    val firstName = customer.first_name
+    val lastName  = customer.last_name
+    /*
+     * Retrieve email data from customer
+     */
+    val emailAddress = customer.email
+    val emailVerified = customer.verified_email
+    /*
+     * Determine marketing indicator and current state
+     */
+    val marketing = customer.accepts_marketing
+    val state = customer.state
+    /*
+     * Determine order specific data
+     */
+    val lastOrder = customer.last_order_id.toString
+    val ordersCount = customer.orders_count
+    
+    val totalSpent = customer.total_spent.toFloat
+    
+    Customer(site,user,firstName,lastName,emailAddress,emailVerified,marketing,state,lastOrder,ordersCount,totalSpent)
+    
+  }
+
+  def extractProduct(site:String,product:ShopifyProduct):Product = {
+    null
+  }
 
   /**
    * A public method to extract those fields from a Shopify
@@ -90,6 +130,7 @@ class OrderBuilder {
     Order(site,user,timestamp,group,amount,items)
   
   }
+
   /**
    * A public method to extract those fields from a Shopify
    * order that describes an 'AmountObject'
@@ -115,7 +156,47 @@ class OrderBuilder {
     AmountObject(site,user,timestamp,amount)
   
   }
+   
+  def toAmountTuple(order:Order):(String,String,Long,Float) = {
+    (order.site,order.user,order.timestamp,order.amount)
+  }
+ 
+  def toAmountMap(order:Order):java.util.Map[String,Object] = {
+        
+    val data = new java.util.HashMap[String,Object]()
+        
+    data += Names.SITE_FIELD -> order.site
+    data += "user" -> order.user
+        
+    data += "timestamp" -> order.timestamp.asInstanceOf[Object]
+    data += "amount" -> order.amount.asInstanceOf[Object]
+
+    data
+    
+  }
   
+  def toItemMap(order:Order):List[java.util.Map[String,Object]] = {
+
+    val items = order.items.map(_.item)
+    items.map(item => {
+    
+      val data = new java.util.HashMap[String,Object]()
+        
+      data += Names.SITE_FIELD -> order.site
+      data += "user" -> order.user
+        
+      data += "timestamp" -> order.timestamp.asInstanceOf[Object]
+      data += "group" -> order.group
+
+      data += Names.ITEM_FIELD -> item.asInstanceOf[Object]
+      data += Names.SCORE_FIELD -> 0.0.asInstanceOf[Object]
+      
+      data
+      
+    })    
+    
+  }
+ 
   private def toTimestamp(text:String):Long = {
       
     //2014-11-03T13:51:38-05:00
@@ -125,5 +206,5 @@ class OrderBuilder {
     val datetime = formatter.parseDateTime(text)
     datetime.toDate.getTime
     
-  }
+  }  
 }

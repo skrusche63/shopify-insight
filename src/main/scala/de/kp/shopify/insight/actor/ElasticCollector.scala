@@ -22,7 +22,6 @@ import akka.actor.ActorRef
 import de.kp.spark.core.Names
 
 import de.kp.shopify.insight.PrepareContext
-import de.kp.shopify.insight.io.OrderMapper
 
 import de.kp.shopify.insight.elastic._
 import de.kp.shopify.insight.model._
@@ -80,23 +79,18 @@ class ElasticCollector(prepareContext:PrepareContext) extends BaseActor {
              */
             val orders = prepareContext.getOrders(req_params)
             /*
-             * STEP #2: Build tracking requests to send the collected orders to
-             * the respective service or engine; the orders are sent independently 
-             * following a fire-and-forget strategy
+             * STEP #2: Index 'items' and 'states' to enable remote Predictiveworks 
+             * engines to access these data; note, that 'items' are used by Association
+             * Analysis and 'states' by Intent Recognition
              */
-            val mapper = new OrderMapper()
-            /*
-             * The 'item' perspective of the order is built and registered
-             */
-            val items = orders.flatMap(mapper.toItemMap(_))
+            val items = toItems(req_params,orders)
             
             if (handler.putSources("orders","items",items) == false)
               throw new Exception("Indexing for 'orders/items' has been stopped due to an internal error.")
           
             prepareContext.listener ! String.format("""[INFO][UID: %s] Item perspective registered in Elasticsearch index.""",uid)
-            /*
-             * The 'state' perspective of the order is built and registered
-             */
+
+            val mapper = new ShopifyMapper()
             val states = toStates(orders.map(mapper.toAmountTuple(_)))
             
             if (handler.putSources("orders","states",states) == false)
@@ -140,6 +134,33 @@ class ElasticCollector(prepareContext:PrepareContext) extends BaseActor {
       
     }
   
+  }
+  private def toItems(params:Map[String,String],orders:List[Order]):List[java.util.Map[String,Object]] = {
+
+    orders.flatMap(order => {
+      
+      val items = order.items.map(_.item)
+      items.map(item => {
+    
+        val data = new java.util.HashMap[String,Object]()
+
+        data += Names.UID_FIELD -> params(Names.UID_FIELD)
+        
+        data += Names.SITE_FIELD -> order.site
+        data += Names.SITE_FIELD -> order.user
+        
+        data += Names.TIMESTAMP_FIELD -> order.timestamp.asInstanceOf[Object]
+        data += Names.GROUP_FIELD -> order.group
+
+        data += Names.ITEM_FIELD -> item.asInstanceOf[Object]
+        data += Names.SCORE_FIELD -> 0.0.asInstanceOf[Object]
+      
+        data
+      
+      })    
+      
+    }).toList
+    
   }
 
   private def toStates(amounts:List[(String,String,Long,Float)]):List[java.util.Map[String,Object]] = {

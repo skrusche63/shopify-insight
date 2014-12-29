@@ -269,7 +269,7 @@ class DataPipeline(prepareContext:PrepareContext,findContext:FindContext) extend
         val user_profiler = context.actorOf(Props(new UserProfiler(prepareContext,findContext)))  
         user_profiler ! StartProfile(message.data)
          
-        val product_profiler = context.actorOf(Props(new ProductProfiler(prepareContext)))  
+        val product_profiler = context.actorOf(Props(new ProductProfiler(prepareContext,findContext)))  
         product_profiler ! StartProfile(message.data)
         
       }
@@ -309,6 +309,9 @@ class DataPipeline(prepareContext:PrepareContext,findContext:FindContext) extend
      * 
      * The 'rule' index (mapping) specifies the association rules database
      * computed by the Association Analysis engine
+     * 
+     * The 'profile' index (mapping) specifies the user profile database
+     * computed by the user profiler
      */
     val handler = new ElasticHandler()
     /*
@@ -335,7 +338,9 @@ class DataPipeline(prepareContext:PrepareContext,findContext:FindContext) extend
       throw new Exception("Indexing has been stopped due to an internal error.")
     /*       
      * SUB PROCESS 'PROFILE'
-     */
+     */           
+    if (handler.createIndex(params,"users","profiles","profile") == false)
+      throw new Exception("Indexing has been stopped due to an internal error.")
   
     prepareContext.listener ! String.format("""[INFO][UID: %s] Elasticsearch indexes created.""",uid)
     

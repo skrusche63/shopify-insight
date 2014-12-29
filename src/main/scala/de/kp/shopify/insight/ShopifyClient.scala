@@ -48,7 +48,52 @@ class ShopifyClient(configuration:ShopifyConfiguration) {
       configuration.getApikey() + ":" + configuration.getPassword() + "@")
       
   val webTarget = client.target(endpoint).path("admin")   
+
+  /**************************************************************************
+   * 
+   *                        CUSTOMER SUPPORT
+   * 
+   *************************************************************************/
   
+  def getCustomers(params:Map[String,String]):List[ShopifyCustomer] = {
+    getResponse("customers.json", params, null, HttpMethod.GET).customers
+  }
+  
+  /**
+   * A request to the Shopify's REST interface to retrieve
+   * the total number of customers
+   */
+  def getCustomersCount(params:Map[String,String]):Int = {
+    getResponse("customers/count.json", params, null, HttpMethod.GET).count
+    
+  }
+
+  /**************************************************************************
+   * 
+   *                        PRODUCT SUPPORT
+   * 
+   *************************************************************************/
+  
+  def getProduct(pid:Long):ShopifyProduct = {
+    getResponse("products/" + pid + ".json", null, null, HttpMethod.GET).product    
+  }
+  /**
+   * Retrieve all products that match the provided parameters
+   * from a certain Shopify store
+   */
+  def getProducts(params:Map[String,String]):List[ShopifyProduct] = {
+    getResponse("products.json", params, null, HttpMethod.GET).products
+  }
+  
+  /**
+   * A request to the Shopify's REST interface to retrieve
+   * the total number of products
+   */
+  def getProductsCount(params:Map[String,String]):Int = {
+    getResponse("products/count.json", params, null, HttpMethod.GET).count
+    
+  }
+ 
   def getProductVariant(sku:String):ShopifyProductVariant = {
     
     val params = HashMap.empty[String,String]
@@ -71,6 +116,12 @@ class ShopifyClient(configuration:ShopifyConfiguration) {
   def getProductVariant(productVariantId:Long):ShopifyProductVariant = {
     getResponse("variants/" + productVariantId + ".json", null, null, HttpMethod.GET).productVariant
   }
+
+  /**************************************************************************
+   * 
+   *                        ORDER SUPPORT
+   * 
+   *************************************************************************/
   
   /** Retrieve a single order from a Shopify store; the order must be
    *  uniquely identified by its order identifier (iod)
@@ -90,17 +141,6 @@ class ShopifyClient(configuration:ShopifyConfiguration) {
   def getOrdersCount(params:Map[String,String]):Int = {
     getResponse("orders/count.json", params, null, HttpMethod.GET).count
     
-  }
-  
-  def getProduct(pid:Long):ShopifyProduct = {
-    getResponse("products/" + pid + ".json", null, null, HttpMethod.GET).product    
-  }
-  /**
-   * Retrieve all products that match the provided parameters
-   * from a certain Shopify store
-   */
-  def getProducts(params:Map[String,String]):List[ShopifyProduct] = {
-    getResponse("products.json", params, null, HttpMethod.GET).products
   }
   
   private def getResponse(resourcePath:String,params:Map[String,String],request:ShopifyRequest,method:String):ShopifyResponse = {

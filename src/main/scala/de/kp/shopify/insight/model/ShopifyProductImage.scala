@@ -22,37 +22,22 @@ import org.codehaus.jackson.annotate.JsonProperty
 import com.fasterxml.jackson.annotation.{JsonIgnoreProperties, JsonIgnore}
 
 @JsonIgnoreProperties(ignoreUnknown = true)
-case class ShopifyProduct (
+case class ShopifyProductImage(
 
   @JsonProperty("id")
   id:Long,
 
-  @JsonProperty("html_body")
-  html_body:String,
-
-  @JsonProperty("created_at")
-  created_at:String,
-
-  @JsonProperty("product_type")
-  product_type:String,
-
-  @JsonProperty("vendor")
-  vendor:String,
-
-  @JsonProperty("title")
-  title:String,
-
-  /*
-   * 'tags' describes a comma separated list of keywords
-   * that describe a certain product
-   */
-  @JsonProperty("tags")
-  tags:String,
-
-  @JsonProperty("images")
-  images:List[ShopifyProductImage],
-
-  @JsonProperty("variants")
-  variants:List[ShopifyProductVariant]
+  @JsonProperty("position")
+  position:Int,
+  
+  @JsonProperty("product_id")
+  product_id:Long,
+  
+  @JsonProperty("variant_ids")
+  variant_ids:List[Long],
+  
+  
+  @JsonProperty("src")
+  src:String
 
 )

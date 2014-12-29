@@ -31,12 +31,36 @@ case class ShopifyCustomer(
   email:String,
 
   @JsonProperty("first_name")
-  firstName:String,
+  first_name:String,
     
   @JsonProperty("last_name")
-  lastName:String,
+  last_name:String,
 
   @JsonProperty("default_address")
-  defaultAddress:ShopifyAddress
-  
+  default_address:ShopifyAddress,
+
+  /*
+   * The customer data below are used to identify
+   * those customers that have been made an order
+   * within a certain period of time
+   */
+ 
+  @JsonProperty("accepts_marketing")
+  accepts_marketing:Boolean,
+ 
+  @JsonProperty("verified_email")
+  verified_email:Boolean,
+ 
+  @JsonProperty("state")
+  state:String,
+ 
+  @JsonProperty("last_order_id")
+  last_order_id:Long,
+ 
+  @JsonProperty("orders_count")
+  orders_count:Long,
+ 
+  @JsonProperty("total_spent")
+  total_spent:String
+
 )

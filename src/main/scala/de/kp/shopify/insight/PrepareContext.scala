@@ -103,6 +103,96 @@ class PrepareContext(
    * pipeline starts
    */
   def clearOrders = shopifyOrders.clear
+  
+  /**
+   * A public method to retrieve Shopify customers from the REST interface;
+   * this method is used to synchronize the customer base
+   */
+  def getCustomers(req_params:Map[String,String]):List[Customer] = {
+    
+    val shopifyCustomers = Buffer.empty[Customer]
+    
+    val start = new java.util.Date().getTime
+    /*
+     * Load Shopify customers from the REST interface
+     */
+    val uid = req_params(Names.REQ_UID)
+    /*
+     * STEP #1: Retrieve customers count from a certain shopify store;
+     * for further processing, we set the limit of responses to the
+     * maximum number (250) allowed by the Shopify interface
+     */
+    val count = shopifyClient.getCustomersCount(req_params)
+
+    listener ! String.format("""[UID: %s] Load total of %s customers from Shopify store.""",uid,count.toString)
+
+    val pages = Math.ceil(count / 250.0)
+    val excludes = List("limit","page")
+     
+    var page = 1
+    while (page <= pages) {
+      /*
+       * STEP #2: Retrieve customers via a paginated approach, retrieving a maximum
+       * of 250 customers per request
+       */
+      val data = req_params.filter(kv => excludes.contains(kv._1) == false) ++ Map("limit" -> "250","page" -> page.toString)
+      shopifyCustomers ++= shopifyClient.getCustomers(req_params).map(customer => new ShopifyMapper().extractCustomer(apikey,customer))
+             
+      page += 1
+              
+    }
+
+    val end = new java.util.Date().getTime
+    listener ! String.format("""[UID: %s] Customers loaded in %s milli seconds.""",uid,(end-start).toString)
+ 
+    shopifyCustomers.toList
+    
+  }
+  /**
+   * A public method to retrieve Shopify products from the REST interface;
+   * this method is used to synchronize the product base
+   */
+  def getProducts(req_params:Map[String,String]):List[Product] = {
+    
+    val shopifyProducts = Buffer.empty[Product]
+    
+    val start = new java.util.Date().getTime
+    /*
+     * Load Shopify products from the REST interface
+     */
+    val uid = req_params(Names.REQ_UID)
+    /*
+     * STEP #1: Retrieve products count from a certain shopify store;
+     * for further processing, we set the limit of responses to the
+     * maximum number (250) allowed by the Shopify interface
+     */
+    val count = shopifyClient.getProductsCount(req_params)
+
+    listener ! String.format("""[UID: %s] Load total of %s products from Shopify store.""",uid,count.toString)
+
+    val pages = Math.ceil(count / 250.0)
+    val excludes = List("limit","page")
+     
+    var page = 1
+    while (page <= pages) {
+      /*
+       * STEP #2: Retrieve products via a paginated approach, retrieving a maximum
+       * of 250 customers per request
+       */
+      val data = req_params.filter(kv => excludes.contains(kv._1) == false) ++ Map("limit" -> "250","page" -> page.toString)
+      shopifyProducts ++= shopifyClient.getProducts(req_params).map(product => new ShopifyMapper().extractProduct(apikey,product))
+             
+      page += 1
+              
+    }
+
+    val end = new java.util.Date().getTime
+    listener ! String.format("""[UID: %s] Products loaded in %s milli seconds.""",uid,(end-start).toString)
+ 
+    shopifyProducts.toList
+    
+  }
+
   /**
    * A public method to retrieve the Shopify orders of the last 30, 60 
    * or 90 days from the REST interface
@@ -137,7 +227,7 @@ class PrepareContext(
        * of 250 orders per request
        */
       val data = order_params.filter(kv => excludes.contains(kv._1) == false) ++ Map("limit" -> "250","page" -> page.toString)
-      shopifyOrders ++= shopifyClient.getOrders(order_params).map(order => new OrderBuilder().extractOrder(apikey,order))
+      shopifyOrders ++= shopifyClient.getOrders(order_params).map(order => new ShopifyMapper().extractOrder(apikey,order))
              
       page += 1
               

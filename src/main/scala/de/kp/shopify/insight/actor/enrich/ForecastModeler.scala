@@ -190,37 +190,62 @@ class ForecastModeler(prepareContext:PrepareContext) extends BaseActor {
     
     if (steps == 0) return result.toList
     
-    val record = states.head
+    val state = states.head
+    /* 
+     * The AmountHandler uses the predefined amount horizon to
+     * re-interpret the amount sub state
+     */    
+    val next_amount = AmountHandler.nextAmount(state.name, amount)
+    /*
+     * The AmountHandler uses the predefined time horizon to
+     * re-interpret the time sub state; the days period is e.g.
+     * 15, 45 or 90 days (from the last purchase)
+     */
+    val next_days = AmountHandler.nextDays(state.name)
+    val next_score = state.probability
     
-    val next_time = AmountHandler.nextDate(record.name, time)
-    val next_amount = AmountHandler.nextAmount(record.name, amount)
-   
     val source = new java.util.HashMap[String,Object]()
     
     source += Names.AMOUNT_FIELD -> next_amount.asInstanceOf[Object]
-    source += Names.TIMESTAMP_FIELD -> next_time.asInstanceOf[Object]
+    source += Names.DAYS_FIELD -> next_days.asInstanceOf[Object]
     
-    source += Names.SCORE_FIELD -> record.probability.asInstanceOf[Object]
+    source += Names.STATE_FIELD -> state.name
+    source += Names.SCORE_FIELD -> next_score.asInstanceOf[Object]
+    
     result += source
 
-    var pre_time = next_time
     var pre_amount = next_amount
+    var pre_score = next_score
     
-    for (record <- states.tail) {
+    var sum_days = next_days
+    var sum_amount = next_amount
+    
+    for (state <- states.tail) {
 
-      val next_time = AmountHandler.nextDate(record.name, pre_time)
-      val next_amount = AmountHandler.nextAmount(record.name, pre_amount)
-   
+      val next_days = AmountHandler.nextDays(state.name)
+      val next_amount = AmountHandler.nextAmount(state.name, pre_amount)
+      
+      /* Conditional probability */
+      val next_score = state.probability * pre_score
+      /*
+       * Add aggregated (sum) amount and days period to 
+       * the forecast
+       */
+      sum_days += next_days
+      sum_amount += next_amount
+
+      pre_amount = next_amount
+      pre_score = next_score
+      
       val source = new java.util.HashMap[String,Object]()
     
-      source += Names.AMOUNT_FIELD -> next_amount.asInstanceOf[Object]
-      source += Names.TIMESTAMP_FIELD -> next_time.asInstanceOf[Object]
+      source += Names.AMOUNT_FIELD -> sum_amount.asInstanceOf[Object]
+      source += Names.DAYS_FIELD -> sum_days.asInstanceOf[Object]
     
-      source += Names.SCORE_FIELD -> record.probability.asInstanceOf[Object]
+      source += Names.STATE_FIELD -> state.name
+      source += Names.SCORE_FIELD -> next_score.asInstanceOf[Object]
+      
       result += source
-
-      pre_time = next_time
-      pre_amount = next_amount
  
     }
     

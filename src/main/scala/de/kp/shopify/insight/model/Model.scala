@@ -54,6 +54,18 @@ case class SimpleResponse(uid:String,message:String)
 
 /****************************************************************************
  * 
+ *                      SUB PROCESS 'SYNCHRONIZE'
+ * 
+ ***************************************************************************/
+
+case class StartSynchronize(data:Map[String,String])
+
+case class SynchronizeFailed(data:Map[String,String])
+
+case class SynchronizeFinished(data:Map[String,String])
+
+/****************************************************************************
+ * 
  *                      SUB PROCESS 'COLLECT'
  * 
  ***************************************************************************/
@@ -111,6 +123,115 @@ case class StartProfile(data:Map[String,String])
 case class ProfileFailed(data:Map[String,String])
 
 case class ProfileFinished(data:Map[String,String])
+
+case class Customer(
+  /* 
+   * The 'apikey' of the Shopify cloud service is used as a
+   * unique identifier for the respective tenant or website
+   */
+  site:String,
+  /*
+   * Unique identifier that designates a certain Shopify
+   * store customer
+   */
+  id:String,
+  /*
+   * The first and last name of the customer to be used
+   * when visualizing computed customer information
+   */
+  firstName:String,
+  lastName:String,
+  /*
+   * The email address of a customer and a flag to indicate,
+   * whether this address is verified; this is relevant for
+   * email marketing
+   */
+  emailAddress:String,
+  emailVerified:Boolean,
+  /*
+   * A flag that indicates whether the customer accepts
+   * marketing or not
+   */
+  marketing:Boolean,
+  /*
+   * The state of the customer, e.g. 'disabled'
+   */ 
+  state:String,
+  
+  /*
+   * The identifier of the last order a certain customer
+   * has made; this is relevant for customer lifecycle
+   * management
+   */
+  lastOrder:String,
+  /*
+   * The number of orders a certain customer has made
+   * since registration
+   */
+  ordersCount:Long,
+  /*
+   * The total amount of money spent by a certain customer
+   */
+  totalSpent:Float
+
+)
+
+case class Image(
+  /* 
+   * The 'apikey' of the Shopify cloud service is used as a
+   * unique identifier for the respective tenant or website
+   */
+  site:String,
+  /*
+   * Unique identifier that designates a certain Shopify
+   * store product image
+   */
+  id:String,
+
+  position:Int,
+  src:String,
+  /*
+   * The unique identifier that assigns a certain image
+   * to a product; note, that actually, we do not need
+   * variant support
+   */
+  product:String
+    
+)
+
+case class Product(
+  /* 
+   * The 'apikey' of the Shopify cloud service is used as a
+   * unique identifier for the respective tenant or website
+   */
+  site:String,
+  /*
+   * Unique identifier that designates a certain Shopify
+   * store product
+   */
+  id:String,
+  /*
+   * The category assigned to a certain product, this field
+   * can be used to group similar products or to determine
+   * customer preferences
+   */
+  category:String,
+  /*
+   * The name of a certain product
+   */
+  name:String,
+
+  vendor:String,
+
+  /*
+   * 'tags' describes a comma separated list of keywords
+   * that describe a certain product
+   */
+  tags:String,
+
+  images:List[Image]
+
+)
 
 /**
  * OrderItem is used to describe a single order or purchase

@@ -91,6 +91,29 @@ object AmountHandler {
   
   protected def LESS_AMOUNT_THRESHOLD  = values("amount.threshold.less").toDouble
   protected def EQUAL_AMOUNT_THRESHOLD = values("amount.threshold.equal").toDouble
+
+  /*
+   * The 'scale' parameter and the state definitions for the state transition 
+   * model. A state is built from an 'amount' and a 'time' part; the 'amount' 
+   * component describes the amount spent compared to the previous transaction, 
+   * and the 'time' component specifies the time elapsed since the last transaction
+   */
+  val STM_SCALE = 1
+  val STM_STATES = Array("LS","LM","LL","ES","EM","EL","GS","GM","GL")
+
+  /*
+   * The observable and hidden state definitions for the hidden state model.
+   * Observable states are equal to the states of the state transition model,
+   * and the hidden states specify the customers loyalty:
+   * 
+   * The hidden states with respect to loyalty recognition are defined as
+   * L (low), N (normal) and H (high)
+   * 
+   */
+  val O_STATES = Array("LS","LM","LL","ES","EM","EL","GS","GM","GL")
+  val H_STATES = Array("L","N","H")
+ 
+  
   /**
    * Amount spent compared to previous transaction
    * 
@@ -129,11 +152,23 @@ object AmountHandler {
     
     lastamount * (
     
-        if (nextstate.endsWith("L")) LESS_AMOUNT_HORIZON.toFloat         
-        else if (nextstate.endsWith("E")) EQUAL_AMOUNT_HORIZON.toFloat    
+        if (nextstate.startsWith("L")) LESS_AMOUNT_HORIZON.toFloat         
+        else if (nextstate.startsWith("E")) EQUAL_AMOUNT_HORIZON.toFloat    
         else LARGE_AMOUNT_HORIZON.toFloat
     
     )
+    
+  }
+
+  def nextDays(nextstate:String):Int = {
+
+    if (nextstate == "") return -1
+    
+    if (nextstate.endsWith("S")) SMALL_TIME_HORIZON      
+    
+    else if (nextstate.endsWith("M")) MEDIUM_TIME_HORIZON   
+        
+    else LARGE_TIME_HORIZON
     
   }
 
@@ -143,8 +178,8 @@ object AmountHandler {
     
     lastdate + DAY * (
     
-        if (nextstate.startsWith("S")) SMALL_TIME_HORIZON      
-        else if (nextstate.startsWith("M")) MEDIUM_TIME_HORIZON   
+        if (nextstate.endsWith("S")) SMALL_TIME_HORIZON      
+        else if (nextstate.endsWith("M")) MEDIUM_TIME_HORIZON   
         else LARGE_TIME_HORIZON
         
     )

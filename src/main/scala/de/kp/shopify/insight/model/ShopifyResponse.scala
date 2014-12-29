@@ -29,6 +29,9 @@ case class ShopifyResponse(
   @JsonProperty("count")
   count:Int,
 
+  @JsonProperty("customers")
+  customers:List[ShopifyCustomer],
+
   @JsonProperty("products")
   products:List[ShopifyProduct],
 

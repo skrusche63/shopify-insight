@@ -61,13 +61,18 @@ class ElasticForecastBuilder {
                   .field("type", "integer")
                .endObject()//
 
+               /* state */
+               .startObject(STATE_FIELD)
+                  .field("type", "string")
+               .endObject()//
+
                /* amount */
                .startObject(AMOUNT_FIELD)
                   .field("type", "float")
                .endObject()
 
-               /* timestamp */
-               .startObject(TIMESTAMP_FIELD)
+               /* days */
+               .startObject(DAYS_FIELD)
                  .field("type", "long")
                .endObject()
                

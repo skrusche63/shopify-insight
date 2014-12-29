@@ -100,6 +100,13 @@ class RestApi(host:String,port:Int,system:ActorSystem,@transient sc:SparkContext
 	    }
 	  }
     }  ~ 
+    path("synchronize" / Segment) {subject => 
+	  post {
+	    respondWithStatus(OK) {
+	      ctx => doSynchronize(ctx,subject)
+	    }
+	  }
+    }  ~ 
     /*
      * 'product' requests focus on product specific questions. A 'product' request
      * requires the following parameters:
@@ -164,6 +171,42 @@ class RestApi(host:String,port:Int,system:ActorSystem,@transient sc:SparkContext
       pipeline ! StartPipeline(data)
 
       val message = "Data analytics started."
+      ctx.complete(SimpleResponse(uid,message))
+      
+    } else {
+      
+      val message = "This request is not supported."
+      ctx.complete(SimpleResponse("",message))
+           
+    }
+
+  }
+  private def doSynchronize[T](ctx:RequestContext,subject:String) = {
+    
+    if (List("customer","product").contains(subject)) {
+      /*
+       * A 'synchronize' request starts a processing pipeline to synchronize 
+       * the customer and product database of a Shopify store win an external
+       * Elasticsearch cluster
+       */
+      val pipeline = system.actorOf(Props(new SyncPipeline(prepareContext)))
+
+      val params = getRequest(ctx)
+      val uid = java.util.UUID.randomUUID().toString
+      /*
+       * 'uid' and 'topic' is set internally and MUST be excluded
+       * from the external request parameters
+       */
+      val excludes = List(Names.REQ_UID,Names.REQ_TOPIC)
+      val data = params.filter(kv => excludes.contains(kv._1) == false) ++ 
+        Map(Names.REQ_UID -> uid,Names.REQ_TOPIC -> subject)
+
+      /* 
+       * Delegate database synchronization to the SyncPipeline actor.
+       */
+      pipeline ! StartPipeline(data)
+
+      val message = "Database synchronization started."
       ctx.complete(SimpleResponse(uid,message))
       
     } else {

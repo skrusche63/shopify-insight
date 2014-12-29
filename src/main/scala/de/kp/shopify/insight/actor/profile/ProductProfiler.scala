@@ -18,23 +18,18 @@ package de.kp.shopify.insight.actor.profile
 * If not, see <http://www.gnu.org/licenses/>.
 */
 
+import org.elasticsearch.index.query.QueryBuilders
+import org.elasticsearch.search.SearchHits
+
 import de.kp.spark.core.Names
 import de.kp.spark.core.model._
 
-import de.kp.shopify.insight.PrepareContext
+import de.kp.shopify.insight.{FindContext,PrepareContext}
 
 import de.kp.shopify.insight.actor._
-
 import de.kp.shopify.insight.model._
-import de.kp.shopify.insight.io._
 
-import de.kp.shopify.insight.elastic._
-import de.kp.shopify.insight.source._
-
-import scala.collection.mutable.ArrayBuffer
-import scala.collection.JavaConversions._
-
-class ProductProfiler(prepareContext:PrepareContext) extends BaseActor {
+class ProductProfiler(prepareContext:PrepareContext,findContext:FindContext) extends BaseActor {
 
   override def receive = {
    
@@ -46,6 +41,8 @@ class ProductProfiler(prepareContext:PrepareContext) extends BaseActor {
       try {
       
         prepareContext.listener ! String.format("""[INFO][UID: %s] Product profile building started.""",uid)
+        
+        val rule_hits = rules(req_params)
         
       } catch {
         case e:Exception => {
@@ -62,6 +59,19 @@ class ProductProfiler(prepareContext:PrepareContext) extends BaseActor {
       }
     
     }
+    
+  }
+
+  private def rules(params:Map[String,String]):SearchHits = {
+    /*
+     * Retrieve all rule records from the 'orders/rule' index;
+     * the only parameter that is required to retrieve the data 
+     * is 'uid'
+     */
+    val qbuilder = QueryBuilders.matchQuery(Names.UID_FIELD, params(Names.REQ_UID))
+    val response = findContext.find("orders", "rules", qbuilder)
+
+    response.getHits()
     
   }
 
