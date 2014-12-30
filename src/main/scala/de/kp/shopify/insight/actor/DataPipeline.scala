@@ -22,7 +22,7 @@ import akka.actor.Props
 
 import de.kp.spark.core.Names
 
-import de.kp.shopify.insight.{FindContext,PrepareContext}
+import de.kp.shopify.insight._
 
 import de.kp.shopify.insight.actor.build._
 import de.kp.shopify.insight.actor.enrich._
@@ -36,7 +36,7 @@ import org.joda.time.format.DateTimeFormat
 
 import scala.collection.mutable.{ArrayBuffer,HashMap}
 
-class DataPipeline(prepareContext:PrepareContext,findContext:FindContext) extends BaseActor {
+class DataPipeline(requestCtx:RequestContext) extends BaseActor {
   
   private val MODELS = ArrayBuffer.empty[String]
   private val MODELS_COMPLETE = 4
@@ -68,7 +68,7 @@ class DataPipeline(prepareContext:PrepareContext,findContext:FindContext) extend
          * The data analytics pipeline retrieves Shopify orders; we therefore
          * have to make clear, that no previous orders are still available
          */
-        prepareContext.clear
+        requestCtx.clear
         
         val req_params = message.data
         createElasticIndexes(req_params)
@@ -77,7 +77,7 @@ class DataPipeline(prepareContext:PrepareContext,findContext:FindContext) extend
          * that the tracking process has been started. Error and
          * interim messages of this process are sent to the listener
          */
-        val actor = context.actorOf(Props(new DataCollector(prepareContext)))          
+        val actor = context.actorOf(Props(new DataCollector(requestCtx)))          
         actor ! StartCollect(req_params)
     
       } catch {
@@ -88,9 +88,9 @@ class DataPipeline(prepareContext:PrepareContext,findContext:FindContext) extend
            * while collecting data from a certain Shopify store and
            * stop the DataPipeline
            */
-          prepareContext.listener ! e.getMessage
+          requestCtx.listener ! e.getMessage
           
-          prepareContext.clear
+          requestCtx.clear
           context.stop(self)
           
         }
@@ -103,7 +103,7 @@ class DataPipeline(prepareContext:PrepareContext,findContext:FindContext) extend
        * The Collector actor already sent an error message to the message listener;
        * no additional notification has to be done, so just stop the pipeline
        */
-      prepareContext.clear
+      requestCtx.clear
       context.stop(self)
       
     }    
@@ -128,21 +128,21 @@ class DataPipeline(prepareContext:PrepareContext,findContext:FindContext) extend
        * The ASRBuilder is responsible for building an association rule model
        * from the data registered in the 'items' index
        */
-      val asr_builder = context.actorOf(Props(new ASRBuilder(prepareContext)))  
+      val asr_builder = context.actorOf(Props(new ASRBuilder(requestCtx)))  
       asr_builder ! StartBuild(message.data)
 
       /*
        * The STMBuilder is responsible for building a state transition model
        * from the data registered in the 'states' index
        */
-      val stm_builder = context.actorOf(Props(new STMBuilder(prepareContext)))  
+      val stm_builder = context.actorOf(Props(new STMBuilder(requestCtx)))  
       stm_builder ! StartBuild(message.data)
       
       /*
        * The HSMBuilder is responsible for building a hidden state model
        * from the data registered in the 'states' index
        */
-      val hsm_builder = context.actorOf(Props(new HSMBuilder(prepareContext)))  
+      val hsm_builder = context.actorOf(Props(new HSMBuilder(requestCtx)))  
       hsm_builder ! StartBuild(message.data)
       
     }    
@@ -151,7 +151,7 @@ class DataPipeline(prepareContext:PrepareContext,findContext:FindContext) extend
        * The Builder actors (ASR,STM and HSM) already sent an error message to the message 
        * listener; no additional notification has to be done, so just stop the pipeline
        */
-      prepareContext.clear
+      requestCtx.clear
       context.stop(self)
       
     }    
@@ -178,7 +178,7 @@ class DataPipeline(prepareContext:PrepareContext,findContext:FindContext) extend
          * 
          * ASR -> PRELAM
          */
-        val prelam_modeler = context.actorOf(Props(new RelationModeler(prepareContext)))  
+        val prelam_modeler = context.actorOf(Props(new RelationModeler(requestCtx)))  
         prelam_modeler ! StartEnrich(message.data)
         /*
          * The RecommendationModeler is responsible for building a product recommendation
@@ -186,7 +186,7 @@ class DataPipeline(prepareContext:PrepareContext,findContext:FindContext) extend
          * 
          * ASR -> URECOM
          */
-        val urecom_modeler = context.actorOf(Props(new RecommendationModeler(prepareContext)))  
+        val urecom_modeler = context.actorOf(Props(new RecommendationModeler(requestCtx)))  
         urecom_modeler ! StartEnrich(message.data)
         
       } else if (model == "STM") {
@@ -196,7 +196,7 @@ class DataPipeline(prepareContext:PrepareContext,findContext:FindContext) extend
          * 
          * STM -> UFORCM
          */
-        val uforcm_modeler = context.actorOf(Props(new ForecastModeler(prepareContext)))  
+        val uforcm_modeler = context.actorOf(Props(new ForecastModeler(requestCtx)))  
         uforcm_modeler ! StartEnrich(message.data)
         
       } else if (model == "HSM") {
@@ -206,7 +206,7 @@ class DataPipeline(prepareContext:PrepareContext,findContext:FindContext) extend
          * 
          * HSM -> ULOYAM
          */
-        val uloya_modeler = context.actorOf(Props(new LoyaltyModeler(prepareContext)))  
+        val uloya_modeler = context.actorOf(Props(new LoyaltyModeler(requestCtx)))  
         uloya_modeler ! StartEnrich(message.data)
         
       } else {
@@ -226,7 +226,7 @@ class DataPipeline(prepareContext:PrepareContext,findContext:FindContext) extend
        * to the message listener; no additional notification has to be done, so just stop 
        * the pipeline
        */
-      prepareContext.clear
+      requestCtx.clear
       context.stop(self)
 
     }
@@ -249,10 +249,10 @@ class DataPipeline(prepareContext:PrepareContext,findContext:FindContext) extend
          * 
          *******************************************************************/
          
-        val user_profiler = context.actorOf(Props(new UserProfiler(prepareContext,findContext)))  
+        val user_profiler = context.actorOf(Props(new UserProfiler(requestCtx)))
         user_profiler ! StartProfile(message.data)
          
-        val product_profiler = context.actorOf(Props(new ProductProfiler(prepareContext,findContext)))  
+        val product_profiler = context.actorOf(Props(new ProductProfiler(requestCtx)))  
         product_profiler ! StartProfile(message.data)
         
       }
@@ -296,36 +296,35 @@ class DataPipeline(prepareContext:PrepareContext,findContext:FindContext) extend
      * The 'profile' index (mapping) specifies the user profile database
      * computed by the user profiler
      */
-    val handler = new ElasticHandler()
     /*
      * SUB PROCESS 'COLLECT'
      */
-    if (handler.createIndex(params,"orders","items","item") == false)
+    if (requestCtx.createIndex(params,"orders","items","item") == false)
       throw new Exception("Index creation for 'orders/items' has been stopped due to an internal error.")
  
-    if (handler.createIndex(params,"orders","states","state") == false)
+    if (requestCtx.createIndex(params,"orders","states","state") == false)
       throw new Exception("Index creation for 'orders/states' has been stopped due to an internal error.")
     /*       
      * SUB PROCESS 'ENRICH'
      */
-    if (handler.createIndex(params,"orders","forecasts","forecast") == false)
+    if (requestCtx.createIndex(params,"orders","forecasts","forecast") == false)
       throw new Exception("Indexing has been stopped due to an internal error.")
 
-    if (handler.createIndex(params,"orders","loyalty","loyalty") == false)
+    if (requestCtx.createIndex(params,"orders","loyalty","loyalty") == false)
       throw new Exception("Indexing has been stopped due to an internal error.")
             
-    if (handler.createIndex(params,"orders","recommendations","recommendation") == false)
+    if (requestCtx.createIndex(params,"orders","recommendations","recommendation") == false)
       throw new Exception("Indexing has been stopped due to an internal error.")
             
-    if (handler.createIndex(params,"orders","rules","rule") == false)
+    if (requestCtx.createIndex(params,"orders","rules","rule") == false)
       throw new Exception("Indexing has been stopped due to an internal error.")
     /*       
      * SUB PROCESS 'PROFILE'
      */           
-    if (handler.createIndex(params,"users","profiles","profile") == false)
+    if (requestCtx.createIndex(params,"users","profiles","profile") == false)
       throw new Exception("Indexing has been stopped due to an internal error.")
   
-    prepareContext.listener ! String.format("""[INFO][UID: %s] Elasticsearch indexes created.""",uid)
+    requestCtx.listener ! String.format("""[INFO][UID: %s] Elasticsearch indexes created.""",uid)
     
   }
   

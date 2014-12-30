@@ -22,14 +22,14 @@ import akka.actor.Props
 
 import de.kp.spark.core.Names
 
-import de.kp.shopify.insight.PrepareContext
+import de.kp.shopify.insight._
 
 import de.kp.shopify.insight.model._
 import de.kp.shopify.insight.elastic._
 
 import de.kp.shopify.insight.actor.synchronize._
 
-class SyncPipeline(prepareContext:PrepareContext) extends BaseActor {
+class SyncPipeline(requestCtx:RequestContext) extends BaseActor {
 
   override def receive = {
     
@@ -45,10 +45,10 @@ class SyncPipeline(prepareContext:PrepareContext) extends BaseActor {
         val req_params = message.data
         createElasticIndexes(req_params)
        
-        val customer_sync = context.actorOf(Props(new CustomerSync(prepareContext)))  
+        val customer_sync = context.actorOf(Props(new CustomerSync(requestCtx)))  
         customer_sync ! StartSynchronize(message.data)
       
-        val product_sync = context.actorOf(Props(new ProductSync(prepareContext)))  
+        val product_sync = context.actorOf(Props(new ProductSync(requestCtx)))  
         product_sync ! StartSynchronize(message.data)
         
     
@@ -59,9 +59,9 @@ class SyncPipeline(prepareContext:PrepareContext) extends BaseActor {
            * Inform the message listener about the error that occurred while collecting 
            * data from a certain Shopify store and stop the synchronization pipeline
            */
-          prepareContext.listener ! e.getMessage
+          requestCtx.listener ! e.getMessage
           
-          prepareContext.clear
+          requestCtx.clear
           context.stop(self)
           
         }
@@ -93,7 +93,7 @@ class SyncPipeline(prepareContext:PrepareContext) extends BaseActor {
     
     val uid = params(Names.REQ_UID)
     
-    val handler = new ElasticHandler()
+    val handler = new ElasticClient()
     /*
      * SUB PROCESS 'SYNCHRONIZE'
      */

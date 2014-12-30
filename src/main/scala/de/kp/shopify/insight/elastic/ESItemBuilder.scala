@@ -128,7 +128,17 @@ class ESItemBuilder {
                 .startObject("item_quantity")
                   .field("type", "integer")
                 .endObject()
-              
+
+                /* item_category */
+                .startObject("item_category")
+                  .field("type", "string")
+                .endObject()
+ 
+                /* item_tags */
+                .startObject("item_tags")
+                  .field("type", "string")
+                .endObject()
+             
               .endObject()
               
             .endObject()

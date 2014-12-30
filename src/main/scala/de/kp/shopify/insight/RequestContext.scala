@@ -27,12 +27,19 @@ import de.kp.spark.core.model._
 import de.kp.shopify.insight.io._
 import de.kp.shopify.insight.model._
 
+import de.kp.shopify.insight.elastic._
+
 import org.joda.time.DateTime
 import org.joda.time.format.DateTimeFormat
 
 import scala.collection.mutable.{Buffer,HashMap}
 
-class PrepareContext(
+import org.elasticsearch.action.search.SearchResponse
+import org.elasticsearch.common.xcontent.XContentBuilder
+
+import org.elasticsearch.index.query.QueryBuilder
+
+class RequestContext(
   /*
    * Reference to the common SparkContext; this context can be used
    * to access HDFS based data sources or leverage the Spark machine
@@ -56,6 +63,7 @@ class PrepareContext(
    */
   private val shopifyClient = new ShopifyClient(shopifyConfig)
   
+  private val elasticClient = new ElasticClient()
   /*
    * The RemoteContext enables access to remote Akka systems and their actors;
    * this variable is used to access the engines of Predictiveworks
@@ -73,7 +81,7 @@ class PrepareContext(
   private val (heartbeat, time) = Configuration.heartbeat     
 
   /**
-   * The time interval for schedulers (e.g. MonitoredActor or StatusSupervisor) to 
+   * The time interval for schedulers (e.g. StatusSupervisor) to 
    * determine how often alive messages have to be sent
    */
   def getHeartbeat = heartbeat
@@ -103,6 +111,21 @@ class PrepareContext(
    * pipeline starts
    */
   def clearOrders = shopifyOrders.clear
+    
+  def createIndex(params:Map[String,String],index:String,mapping:String,topic:String):Boolean 
+    = elasticClient.createIndex(params,index,mapping,topic)
+
+  def find(index:String,mapping:String,query:QueryBuilder):SearchResponse 
+    = elasticClient.find(index,mapping,query)
+
+  def get(index:String,mapping:String,id:String):java.util.Map[String,Object] 
+    = elasticClient.get(index,mapping,id)
+
+  def putSources(index:String,mapping:String,sources:List[java.util.Map[String,Object]]):Boolean
+    = elasticClient.putSources(index,mapping,sources)
+  
+  def putSourcesJSON(index:String,mapping:String,sources:List[XContentBuilder]):Boolean 
+    = elasticClient.putSourcesJSON(index,mapping,sources)
   
   /**
    * A public method to retrieve Shopify customers from the REST interface;
@@ -110,7 +133,7 @@ class PrepareContext(
    */
   def getCustomers(req_params:Map[String,String]):List[Customer] = {
     
-    val shopifyCustomers = Buffer.empty[Customer]
+    val customers = Buffer.empty[Customer]
     
     val start = new java.util.Date().getTime
     /*
@@ -136,7 +159,7 @@ class PrepareContext(
        * of 250 customers per request
        */
       val data = req_params.filter(kv => excludes.contains(kv._1) == false) ++ Map("limit" -> "250","page" -> page.toString)
-      shopifyCustomers ++= shopifyClient.getCustomers(req_params).map(customer => new ShopifyMapper().extractCustomer(apikey,customer))
+      customers ++= shopifyClient.getCustomers(req_params).map(customer => new ShopifyMapper().extractCustomer(apikey,customer))
              
       page += 1
               
@@ -145,7 +168,7 @@ class PrepareContext(
     val end = new java.util.Date().getTime
     listener ! String.format("""[UID: %s] Customers loaded in %s milli seconds.""",uid,(end-start).toString)
  
-    shopifyCustomers.toList
+    customers.toList
     
   }
   /**
@@ -154,7 +177,7 @@ class PrepareContext(
    */
   def getProducts(req_params:Map[String,String]):List[Product] = {
     
-    val shopifyProducts = Buffer.empty[Product]
+    val products = Buffer.empty[Product]
     
     val start = new java.util.Date().getTime
     /*
@@ -180,7 +203,7 @@ class PrepareContext(
        * of 250 customers per request
        */
       val data = req_params.filter(kv => excludes.contains(kv._1) == false) ++ Map("limit" -> "250","page" -> page.toString)
-      shopifyProducts ++= shopifyClient.getProducts(req_params).map(product => new ShopifyMapper().extractProduct(apikey,product))
+      products ++= shopifyClient.getProducts(req_params).map(product => new ShopifyMapper().extractProduct(apikey,product))
              
       page += 1
               
@@ -189,7 +212,7 @@ class PrepareContext(
     val end = new java.util.Date().getTime
     listener ! String.format("""[UID: %s] Products loaded in %s milli seconds.""",uid,(end-start).toString)
  
-    shopifyProducts.toList
+    products.toList
     
   }
 

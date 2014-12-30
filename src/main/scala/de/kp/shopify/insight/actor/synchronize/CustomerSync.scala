@@ -23,12 +23,12 @@ import org.elasticsearch.common.xcontent.{XContentBuilder,XContentFactory}
 import de.kp.spark.core.Names
 import de.kp.spark.core.io._
 
-import de.kp.shopify.insight.PrepareContext
+import de.kp.shopify.insight._
 
 import de.kp.shopify.insight.actor._
 import de.kp.shopify.insight.model._
 
-class CustomerSync(prepareContext:PrepareContext) extends BaseActor {
+class CustomerSync(requestCtx:RequestContext) extends BaseActor {
 
   override def receive = {
     /*
@@ -47,12 +47,12 @@ class CustomerSync(prepareContext:PrepareContext) extends BaseActor {
         if (writer.open("database","customers") == false)
           throw new Exception("Customer database cannot be opened.")
       
-        prepareContext.listener ! String.format("""[INFO][UID: %s] Customer base synchronization started.""",uid)
+        requestCtx.listener ! String.format("""[INFO][UID: %s] Customer base synchronization started.""",uid)
             
         val start = new java.util.Date().getTime            
-        val customers = prepareContext.getCustomers(req_params)
+        val customers = requestCtx.getCustomers(req_params)
        
-        prepareContext.listener ! String.format("""[INFO][UID: %s] Customer base loaded.""",uid)
+        requestCtx.listener ! String.format("""[INFO][UID: %s] Customer base loaded.""",uid)
 
         val ids = customers.map(_.id)
         val sources = customers.map(toSource(_))
@@ -61,14 +61,14 @@ class CustomerSync(prepareContext:PrepareContext) extends BaseActor {
         writer.close()
         
         val end = new java.util.Date().getTime
-        prepareContext.listener ! String.format("""[INFO][UID: %s] Customer base synchronization finished in %s ms.""",uid,(end-start).toString)
+        requestCtx.listener ! String.format("""[INFO][UID: %s] Customer base synchronization finished in %s ms.""",uid,(end-start).toString)
          
         context.parent ! SynchronizeFinished(req_params)
         
       } catch {
         case e:Exception => {
 
-          prepareContext.listener ! String.format("""[ERROR][UID: %s] Customer base synchronization failed due to an internal error.""",uid)
+          requestCtx.listener ! String.format("""[ERROR][UID: %s] Customer base synchronization failed due to an internal error.""",uid)
           
           val params = Map(Names.REQ_MESSAGE -> e.getMessage) ++ message.data
 

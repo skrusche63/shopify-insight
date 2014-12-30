@@ -23,7 +23,8 @@ import akka.actor.Props
 import de.kp.spark.core.Names
 import de.kp.spark.core.model._
 
-import de.kp.shopify.insight.PrepareContext
+import de.kp.shopify.insight.RequestContext
+
 import de.kp.shopify.insight.model._
 import de.kp.shopify.insight.io._
 
@@ -37,7 +38,7 @@ import de.kp.shopify.insight.actor.{BaseActor,StatusSupervisor}
  * component of the data analytics pipeline.
  * 
  */
-class STMBuilder(prepareContext:PrepareContext) extends BaseActor {
+class STMBuilder(requestCtx:RequestContext) extends BaseActor {
   
   override def receive = {
    
@@ -56,9 +57,9 @@ class STMBuilder(prepareContext:PrepareContext) extends BaseActor {
       val req  = new ServiceRequest(service,task,data)
       
       val serialized = Serializer.serializeRequest(req)
-      val response = prepareContext.getRemoteContext.send(service,serialized).mapTo[String]  
+      val response = requestCtx.getRemoteContext.send(service,serialized).mapTo[String]  
       
-      prepareContext.listener ! String.format("""[INFO][UID: %s] State transition model building started.""",uid)
+      requestCtx.listener ! String.format("""[INFO][UID: %s] State transition model building started.""",uid)
 
       /*
        * The RemoteSupervisor actor monitors the Redis cache entries of this
@@ -80,7 +81,7 @@ class STMBuilder(prepareContext:PrepareContext) extends BaseActor {
           val res = Serializer.deserializeResponse(result)
           if (res.status == ResponseStatus.FAILURE) {
       
-            prepareContext.listener ! String.format("""[INFO][UID: %s] State transition model building failed due to an engine error.""",uid)
+            requestCtx.listener ! String.format("""[INFO][UID: %s] State transition model building failed due to an engine error.""",uid)
  
             context.parent ! BuildFailed(res.data)
             context.stop(self)
@@ -94,7 +95,7 @@ class STMBuilder(prepareContext:PrepareContext) extends BaseActor {
           
         case throwable => {
       
-          prepareContext.listener ! String.format("""[INFO][UID: %s] State transition model building failed due to an internal error.""",uid)
+          requestCtx.listener ! String.format("""[INFO][UID: %s] State transition model building failed due to an internal error.""",uid)
         
           val params = Map(Names.REQ_MESSAGE -> throwable.getMessage) ++ message.data
           context.parent ! BuildFailed(params)
@@ -109,7 +110,7 @@ class STMBuilder(prepareContext:PrepareContext) extends BaseActor {
   
     case event:StatusEvent => {
       
-      prepareContext.listener ! String.format("""[INFO][UID: %s] State transition model building finished.""",event.uid)
+      requestCtx.listener ! String.format("""[INFO][UID: %s] State transition model building finished.""",event.uid)
 
       /*
        * The StatusEvent message is sent by the RemoteSupervisor (child) and indicates

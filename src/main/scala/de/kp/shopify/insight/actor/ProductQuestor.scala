@@ -23,12 +23,12 @@ import org.elasticsearch.action.search.SearchResponse
 
 import de.kp.spark.core.Names
 
-import de.kp.shopify.insight.FindContext
+import de.kp.shopify.insight._
 import de.kp.shopify.insight.model._
 
 import scala.collection.JavaConversions._
 
-class ProductQuestor(findContext:FindContext) extends BaseActor {
+class ProductQuestor(requestCtx:RequestContext) extends BaseActor {
   
   override def receive = {
 
@@ -182,7 +182,7 @@ class ProductQuestor(findContext:FindContext) extends BaseActor {
      * the only parameter that is required to retrieve the rules is 'uid'
      */
     val qbuilder = QueryBuilders.matchQuery(Names.UID_FIELD, params(Names.REQ_UID))
-    findContext.find("orders", "rules", qbuilder)
+    requestCtx.find("orders", "rules", qbuilder)
     
   }
   

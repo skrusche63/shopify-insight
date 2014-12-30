@@ -19,9 +19,13 @@ package de.kp.shopify.insight.analytics
  */
 
 import de.kp.spark.core.Names
+
+import de.kp.shopify.insight._
 import de.kp.shopify.insight.model._
 
 import org.joda.time.DateTime
+import scala.collection.JavaConversions._
+
 import org.elasticsearch.common.xcontent.{XContentBuilder,XContentFactory}
 
 /**
@@ -32,7 +36,7 @@ import org.elasticsearch.common.xcontent.{XContentBuilder,XContentFactory}
  * subsequent data mining and model building, and concentrates on
  * the item, monetary and temporal dimension
  */
-class Analytics {
+class Analytics(requestCtx:RequestContext) {
 
   def buildITM(params:Map[String,String],rawset:List[Order]):List[XContentBuilder] = {
     
@@ -115,6 +119,16 @@ class Analytics {
         items.map(x => {
         
           val (item,quantity) = x
+          /*
+           * Determine product that refers to the 'item' identifier
+           * from the synchronized (hopefully before) product database
+           * and retrieve 'tags' and 'category'
+           */
+          val product = requestCtx.get("database","products",item.toString)
+          
+          val tags = product("tags").asInstanceOf[String]
+          val category = product("category").asInstanceOf[String]
+
           val score = user_item_pref(item)
           
           val builder = XContentFactory.jsonBuilder()
@@ -187,8 +201,13 @@ class Analytics {
 	      /* item_quantity */
 	      builder.field("item_quantity",quantity)
 	    
-	      builder.endObject()
+	      /* item_category */
+	      builder.field("item_category",category)
 	    
+	      /* item_tags */
+	      builder.field("item_tags",tags)
+
+	      builder.endObject()
 	    
 	      builder
         

@@ -28,16 +28,83 @@ import de.kp.spark.core.spec.FieldBuilder
 import de.kp.spark.core.redis.RedisCache
 
 import de.kp.shopify.insight.Configuration
-import org.elasticsearch.common.xcontent.XContentBuilder
 
-class ElasticHandler {
+import org.elasticsearch.node.NodeBuilder._
+
+import org.elasticsearch.common.xcontent.XContentBuilder
+import org.elasticsearch.action.search.SearchResponse
+
+import org.elasticsearch.common.logging.Loggers
+import org.elasticsearch.index.query.QueryBuilder
+
+import java.util.concurrent.locks.ReentrantLock
+
+class ElasticClient {
 
   private val (host,port) = Configuration.redis
   protected val cache = new RedisCache(host,port.toInt)
+  /*
+   * Create an Elasticsearch node by interacting with
+   * the Elasticsearch server on the local machine
+   */
+  private val node = nodeBuilder().node()
+  private val client = node.client()
+  
+  private val logger = Loggers.getLogger(getClass())
+  private val indexCreationLock = new ReentrantLock()  
+  
+  private def create(index:String,mapping:String,builder:XContentBuilder) {
+        
+    try {
+      
+      indexCreationLock.lock()
+      val indices = client.admin().indices
+      /*
+       * Check whether referenced index exists; if index does not
+       * exist, create one
+       */
+      val existsRes = indices.prepareExists(index).execute().actionGet()            
+      if (existsRes.isExists() == false) {
+        
+        val createRes = indices.prepareCreate(index).execute().actionGet()            
+        if (createRes.isAcknowledged() == false) {
+          new Exception("Failed to create " + index)
+        }
+            
+      }
+
+      /*
+       * Check whether the referenced mapping exists; if mapping
+       * does not exist, create one
+       */
+      val prepareRes = indices.prepareGetMappings(index).setTypes(mapping).execute().actionGet()
+      if (prepareRes.mappings().isEmpty) {
+
+        val mappingRes = indices.preparePutMapping(index).setType(mapping).setSource(builder).execute().actionGet()
+            
+        if (mappingRes.isAcknowledged() == false) {
+          new Exception("Failed to create mapping for " + index + "/" + mapping)
+        }            
+
+      }
+
+    } catch {
+      case e:Exception => {
+        logger.error(e.getMessage())
+
+      }
+       
+    } finally {
+     indexCreationLock.unlock()
+    }
+    
+  }
+
+  def close() {
+    if (node != null) node.close()
+  }
     
   def createIndex(params:Map[String,String],index:String,mapping:String,topic:String):Boolean = {
-
-    val indexer = new ElasticIndexer()
     
     try {
       
@@ -48,12 +115,12 @@ class ElasticHandler {
          * predictive engine
          */
         val builder = new ESCustomerBuilder().createBuilder(mapping)
-        indexer.create(index,mapping,builder)
+        create(index,mapping,builder)
       
       } else if (topic == "item") {
         
         val builder = new ESItemBuilder().createBuilder(mapping)
-        indexer.create(index,mapping,builder)
+        create(index,mapping,builder)
         /*
          * Topics 'item' is prepared by the collector actor and the respective index
          * must be shared with Predictiveworks' Association Analysis engine; due to
@@ -79,7 +146,7 @@ class ElasticHandler {
          * engines
          */
         val builder = new ElasticForecastBuilder().createBuilder(mapping)
-        indexer.create(index,mapping,builder)
+        create(index,mapping,builder)
         
       } else if (topic == "loyalty") {
         /*
@@ -88,7 +155,7 @@ class ElasticHandler {
          * engines
          */
         val builder = new ElasticLoyaltyBuilder().createBuilder(mapping)
-        indexer.create(index,mapping,builder)
+        create(index,mapping,builder)
        
       } else if (topic == "product") {
         /*
@@ -97,7 +164,7 @@ class ElasticHandler {
          * predictive engine
          */
         val builder = new ESProductBuilder().createBuilder(mapping)
-        indexer.create(index,mapping,builder)
+        create(index,mapping,builder)
        
       } else if (topic == "profile") {
         /*
@@ -106,7 +173,7 @@ class ElasticHandler {
          * engines
          */
         val builder = new ElasticProfileBuilder().createBuilder(mapping)
-        indexer.create(index,mapping,builder)
+        create(index,mapping,builder)
           
       } else if (topic == "recommendation") {
         /*
@@ -115,7 +182,7 @@ class ElasticHandler {
          * predictive engines
          */
         val builder = new ElasticRecommendationBuilder().createBuilder(mapping)
-        indexer.create(index,mapping,builder)
+        create(index,mapping,builder)
        
       } else if (topic == "rule") {
         /*
@@ -124,7 +191,7 @@ class ElasticHandler {
          * engines
          */
         val builder = new ElasticRuleBuilder().createBuilder(mapping)
-        indexer.create(index,mapping,builder)
+        create(index,mapping,builder)
        
       } else if (topic == "state") {
         /*
@@ -134,7 +201,7 @@ class ElasticHandler {
          * enable this engine to access the Elasticsearch index
          */
         val builder = new ESStateBuilder().createBuilder(mapping)    
-        indexer.create(index,mapping,builder)
+        create(index,mapping,builder)
         /*
          * Topics 'item' and 'state' are prepared by the collector and used
          * by the Association Analysis and Intent Recognition engine; due to
@@ -152,16 +219,23 @@ class ElasticHandler {
         val data = Map(Names.REQ_NAME -> mapping) ++  params.filter(kv => excludes.contains(kv._1) == false)  
      
         if (fields.isEmpty == false) cache.addFields(data, fields.toList)
-          
+       
+      } else if (topic == "task") {
+        /*
+         * Topic 'task' is indexed by either the synchronization or data analytics
+         * pipeline and does not require a metadata specification as these data are 
+         * not shared with predictive engines
+         */
+        val builder = new ElasticRuleBuilder().createBuilder(mapping)
+        create(index,mapping,builder)
+           
       }
       
       true
     
     } catch {
       case e:Exception => false
-    
-    } finally {
-      indexer.close()
+
     }
     
   }
@@ -228,6 +302,26 @@ class ElasticHandler {
       case e:Exception => false
     }
    
+  }
+
+  def find(index:String,mapping:String,query:QueryBuilder):SearchResponse = {
+    
+    /*
+     * Prepare search request: note, that we may have to introduce
+     * a size restriction with .setSize method 
+     */
+    val response = client.prepareSearch(index).setTypes(mapping).setQuery(query)
+                     .execute().actionGet()
+
+    response
+    
+  }
+
+  def get(index:String,mapping:String,id:String):java.util.Map[String,Object] = {
+    
+    val response = client.prepareGet(index,mapping,id).execute().actionGet()
+    if (response.isExists()) response.getSource() else null
+    
   }
 
 }

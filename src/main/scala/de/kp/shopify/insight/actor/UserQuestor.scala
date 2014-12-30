@@ -4,13 +4,13 @@ import org.elasticsearch.index.query.QueryBuilders
 
 import de.kp.spark.core.Names
 
-import de.kp.shopify.insight.FindContext
+import de.kp.shopify.insight._
 import de.kp.shopify.insight.model._
 
 import scala.collection.mutable.ArrayBuffer
 import scala.collection.JavaConversions._
 
-class UserQuestor(findContext:FindContext) extends BaseActor {
+class UserQuestor(requestCtx:RequestContext) extends BaseActor {
         
   protected val DAY = 24 * 60 * 60 * 1000 // day in milliseconds
 
@@ -26,7 +26,7 @@ class UserQuestor(findContext:FindContext) extends BaseActor {
          * the only parameter that is required to retrieve the rules is 'uid'
          */
         val qbuilder = QueryBuilders.matchQuery(Names.UID_FIELD, query.data(Names.REQ_UID))
-        val response = findContext.find("orders", "forecasts", qbuilder)
+        val response = requestCtx.find("orders", "forecasts", qbuilder)
         /*
          * Transform search result list of frequent items 
          */

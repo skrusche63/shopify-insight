@@ -21,7 +21,7 @@ import akka.actor.ActorRef
 
 import de.kp.spark.core.Names
 
-import de.kp.shopify.insight.PrepareContext
+import de.kp.shopify.insight._
 
 import de.kp.shopify.insight.analytics._
 import de.kp.shopify.insight.elastic._
@@ -39,7 +39,7 @@ import de.kp.shopify.insight.model._
  *                +----> State index (orders/states)
  * 
  */
-class DataCollector(prepareContext:PrepareContext) extends BaseActor {
+class DataCollector(requestCtx:RequestContext) extends BaseActor {
   
   override def receive = {
     
@@ -60,29 +60,29 @@ class DataCollector(prepareContext:PrepareContext) extends BaseActor {
            */
           case "order" => {
             
-            prepareContext.listener ! String.format("""[INFO][UID: %s] Order indexing started.""",uid)
+            requestCtx.listener ! String.format("""[INFO][UID: %s] Order indexing started.""",uid)
             
             val start = new java.util.Date().getTime            
-            val handler = new ElasticHandler()
+            val handler = new ElasticClient()
 
             /*
              * STEP #1: Retrieve orders from a certain shopify store; this request takes
              * into account that the Shopify REST interface returns maximally 250 orders
              */
-            val orders = prepareContext.getOrders(req_params)
+            val orders = requestCtx.getOrders(req_params)
             /*
              * STEP #2: Index 'items' and 'states' to enable remote Predictiveworks 
              * engines to access these data; note, that 'items' are used by Association
              * Analysis and 'states' by Intent Recognition
              */
-            val analytics = new Analytics()
+            val analytics = new Analytics(requestCtx)
 
             val items = analytics.buildITM(req_params,orders)
             
             if (handler.putSourcesJSON("orders","items",items) == false)
               throw new Exception("Indexing for 'orders/items' has been stopped due to an internal error.")
           
-            prepareContext.listener ! String.format("""[INFO][UID: %s] Item perspective registered in Elasticsearch index.""",uid)
+            requestCtx.listener ! String.format("""[INFO][UID: %s] Item perspective registered in Elasticsearch index.""",uid)
 
             /*
              * The RFM model has a focus on the monetary and temporal dimension
@@ -95,10 +95,10 @@ class DataCollector(prepareContext:PrepareContext) extends BaseActor {
             if (handler.putSourcesJSON("orders","states",states) == false)
               throw new Exception("Indexing for 'orders/states' has been stopped due to an internal error.")
           
-            prepareContext.listener ! String.format("""[INFO][UID: %s] State perspective registered in Elasticsearch index.""",uid)
+            requestCtx.listener ! String.format("""[INFO][UID: %s] State perspective registered in Elasticsearch index.""",uid)
 
             val end = new java.util.Date().getTime
-            prepareContext.listener ! String.format("""[INFO][UID: %s] Order indexing finished in %s ms.""",uid,(end-start).toString)
+            requestCtx.listener ! String.format("""[INFO][UID: %s] Order indexing finished in %s ms.""",uid,(end-start).toString)
          
             /*
              * Finally the pipeline gets informed, that the collection 
@@ -120,7 +120,7 @@ class DataCollector(prepareContext:PrepareContext) extends BaseActor {
            * In case of an error the message listener gets informed, and also
            * the data processing pipeline in order to stop further sub processes 
            */
-          prepareContext.listener ! String.format("""[ERROR][UID: %s] Collection exception: %s.""",uid,e.getMessage)
+          requestCtx.listener ! String.format("""[ERROR][UID: %s] Collection exception: %s.""",uid,e.getMessage)
           context.parent ! CollectFailed(req_params)
         
         }

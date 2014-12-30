@@ -21,7 +21,7 @@ package de.kp.shopify.insight.actor.enrich
 import de.kp.spark.core.Names
 import de.kp.spark.core.model._
 
-import de.kp.shopify.insight.PrepareContext
+import de.kp.shopify.insight.RequestContext
 
 import de.kp.shopify.insight.actor.BaseActor
 import de.kp.shopify.insight.model._
@@ -34,7 +34,7 @@ import de.kp.shopify.insight.analytics._
 import scala.collection.mutable.ArrayBuffer
 import scala.collection.JavaConversions._
 
-class LoyaltyModeler(prepareContext:PrepareContext) extends BaseActor {
+class LoyaltyModeler(requestCtx:RequestContext) extends BaseActor {
 
   override def receive = {
    
@@ -45,16 +45,16 @@ class LoyaltyModeler(prepareContext:PrepareContext) extends BaseActor {
       
       try {
       
-        prepareContext.listener ! String.format("""[INFO][UID: %s] User loyalty model building started.""",uid)
+        requestCtx.listener ! String.format("""[INFO][UID: %s] User loyalty model building started.""",uid)
        
         /*
          * STEP #1: Transform Shopify orders into sequences of observed states; 
          * these observations are then used to determine the assigned hidden 
          * loyalty states
          */
-        val observations = transform(prepareContext.getPurchases(req_params))
+        val observations = transform(requestCtx.getPurchases(req_params))
       
-        prepareContext.listener ! String.format("""[INFO][UID: %s] Purchases successfully transformed into observations.""",uid)
+        requestCtx.listener ! String.format("""[INFO][UID: %s] Purchases successfully transformed into observations.""",uid)
 
         /*
          * STEP #2: Retrieve hidden Markon states from Intent Recognition engine, 
@@ -62,7 +62,7 @@ class LoyaltyModeler(prepareContext:PrepareContext) extends BaseActor {
          * 
          */
         val (service,req) = buildRemoteRequest(req_params,observations)
-        val response = prepareContext.getRemoteContext.send(service,req).mapTo[String]     
+        val response = requestCtx.getRemoteContext.send(service,req).mapTo[String]     
         
         response.onSuccess {
         
@@ -71,7 +71,7 @@ class LoyaltyModeler(prepareContext:PrepareContext) extends BaseActor {
             val res = Serializer.deserializeResponse(result)
             if (res.status == ResponseStatus.FAILURE) {
                     
-              prepareContext.listener ! String.format("""[ERROR][UID: %s] Retrieval of hidden Markov states failed due to an engine error.""",uid)
+              requestCtx.listener ! String.format("""[ERROR][UID: %s] Retrieval of hidden Markov states failed due to an engine error.""",uid)
  
               context.parent ! EnrichFailed(res.data)
               context.stop(self)
@@ -83,12 +83,12 @@ class LoyaltyModeler(prepareContext:PrepareContext) extends BaseActor {
               /*
                * STEP #3: Register the trajectories derived from the hidden state model
                */
-              val handler = new ElasticHandler()
+              val handler = new ElasticClient()
  
               if (handler.putSources("orders","loyalty",trajectories) == false)
                 throw new Exception("Indexing processing has been stopped due to an internal error.")
 
-              prepareContext.listener ! String.format("""[INFO][UID: %s] User loyalty model building finished.""",uid)
+              requestCtx.listener ! String.format("""[INFO][UID: %s] User loyalty model building finished.""",uid)
 
               val data = Map(Names.REQ_UID -> uid,Names.REQ_MODEL -> "ULOYAM")            
               context.parent ! EnrichFinished(data)           
@@ -106,7 +106,7 @@ class LoyaltyModeler(prepareContext:PrepareContext) extends BaseActor {
         response.onFailure {
           case throwable => {
                     
-            prepareContext.listener ! String.format("""[ERROR][UID: %s] Retrieval of hidden Markov states failed due to an internal error.""",uid)
+            requestCtx.listener ! String.format("""[ERROR][UID: %s] Retrieval of hidden Markov states failed due to an internal error.""",uid)
            
             val params = Map(Names.REQ_MESSAGE -> throwable.getMessage) ++ message.data
           
@@ -120,7 +120,7 @@ class LoyaltyModeler(prepareContext:PrepareContext) extends BaseActor {
       } catch {
         case e:Exception => {
                     
-          prepareContext.listener ! String.format("""[ERROR][UID: %s] Retrieval of hidden Markov states failed due to an internal error.""",uid)
+          requestCtx.listener ! String.format("""[ERROR][UID: %s] Retrieval of hidden Markov states failed due to an internal error.""",uid)
           
           val params = Map(Names.REQ_MESSAGE -> e.getMessage) ++ message.data
 

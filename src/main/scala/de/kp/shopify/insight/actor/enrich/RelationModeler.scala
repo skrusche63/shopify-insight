@@ -21,7 +21,7 @@ package de.kp.shopify.insight.actor.enrich
 import de.kp.spark.core.Names
 import de.kp.spark.core.model._
 
-import de.kp.shopify.insight.PrepareContext
+import de.kp.shopify.insight.RequestContext
 
 import de.kp.shopify.insight.actor._
 import de.kp.shopify.insight.model._
@@ -41,7 +41,7 @@ import scala.collection.JavaConversions._
  * the data analytics pipeline.
  * 
  */
-class RelationModeler(prepareContext:PrepareContext) extends BaseActor {
+class RelationModeler(requestCtx:RequestContext) extends BaseActor {
 
   override def receive = {
    
@@ -52,11 +52,11 @@ class RelationModeler(prepareContext:PrepareContext) extends BaseActor {
       
       try {
         
-        prepareContext.listener ! String.format("""[INFO][UID: %s] Product relation model building started.""",uid)
+        requestCtx.listener ! String.format("""[INFO][UID: %s] Product relation model building started.""",uid)
         
         val (service,request) = buildRemoteRequest(req_params)
 
-        val response = prepareContext.getRemoteContext.send(service,request).mapTo[String]            
+        val response = requestCtx.getRemoteContext.send(service,request).mapTo[String]            
         response.onSuccess {
         
           case result => {
@@ -64,7 +64,7 @@ class RelationModeler(prepareContext:PrepareContext) extends BaseActor {
             val res = Serializer.deserializeResponse(result)
             if (res.status == ResponseStatus.FAILURE) {
                     
-              prepareContext.listener ! String.format("""[ERROR][UID: %s] Retrieval of Association rules failed due to an engine error.""",uid)
+              requestCtx.listener ! String.format("""[ERROR][UID: %s] Retrieval of Association rules failed due to an engine error.""",uid)
  
               context.parent ! EnrichFailed(res.data)
               context.stop(self)
@@ -73,11 +73,11 @@ class RelationModeler(prepareContext:PrepareContext) extends BaseActor {
 
               val rules = buildProductRules(res)
 
-              val handler = new ElasticHandler()
+              val handler = new ElasticClient()
               if (handler.putSources("orders","rules",rules) == false)
                 throw new Exception("Indexing processing has been stopped due to an internal error.")
 
-              prepareContext.listener ! String.format("""[INFO][UID: %s] Product relation model building finished.""",uid)
+              requestCtx.listener ! String.format("""[INFO][UID: %s] Product relation model building finished.""",uid)
 
               val data = Map(Names.REQ_UID -> uid,Names.REQ_MODEL -> "PRELAM")            
               context.parent ! EnrichFinished(data)           
@@ -95,7 +95,7 @@ class RelationModeler(prepareContext:PrepareContext) extends BaseActor {
         response.onFailure {
           case throwable => {
                     
-            prepareContext.listener ! String.format("""[ERROR][UID: %s] Retrieval of Association rules failed due to an internal error.""",uid)
+            requestCtx.listener ! String.format("""[ERROR][UID: %s] Retrieval of Association rules failed due to an internal error.""",uid)
           
             val params = Map(Names.REQ_MESSAGE -> throwable.getMessage) ++ message.data
           
@@ -109,7 +109,7 @@ class RelationModeler(prepareContext:PrepareContext) extends BaseActor {
       } catch {
         case e:Exception => {
                     
-          prepareContext.listener ! String.format("""[ERROR][UID: %s] Retrieval of Association rules failed due to an internal error.""",uid)
+          requestCtx.listener ! String.format("""[ERROR][UID: %s] Retrieval of Association rules failed due to an internal error.""",uid)
           
           val params = Map(Names.REQ_MESSAGE -> e.getMessage) ++ message.data
 

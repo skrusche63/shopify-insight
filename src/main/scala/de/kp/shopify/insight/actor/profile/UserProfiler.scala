@@ -26,7 +26,7 @@ import org.elasticsearch.common.xcontent.{XContentBuilder,XContentFactory}
 import de.kp.spark.core.Names
 import de.kp.spark.core.model._
 
-import de.kp.shopify.insight.{FindContext,PrepareContext}
+import de.kp.shopify.insight._
 
 import de.kp.shopify.insight.actor._
 import de.kp.shopify.insight.model._
@@ -35,7 +35,7 @@ import de.kp.shopify.insight.preference._
 
 import scala.collection.JavaConversions._
 
-class UserProfiler(prepareContext:PrepareContext,findContext:FindContext) extends BaseActor {
+class UserProfiler(requestCtx:RequestContext) extends BaseActor {
 
   override def receive = {
    
@@ -46,14 +46,14 @@ class UserProfiler(prepareContext:PrepareContext,findContext:FindContext) extend
       
       try {
       
-        prepareContext.listener ! String.format("""[INFO][UID: %s] User profile building started.""",uid)
+        requestCtx.listener ! String.format("""[INFO][UID: %s] User profile building started.""",uid)
 
         /*
          * Retrieve the customer base from the Shopify store
          */
-        val customers = prepareContext.getCustomers(req_params)
+        val customers = requestCtx.getCustomers(req_params)
        
-        prepareContext.listener ! String.format("""[INFO][UID: %s] Customer base loaded.""",uid)
+        requestCtx.listener ! String.format("""[INFO][UID: %s] Customer base loaded.""",uid)
        
         /*
          * Retrieve order items from the 'orders/items' index and determine 
@@ -83,7 +83,7 @@ class UserProfiler(prepareContext:PrepareContext,findContext:FindContext) extend
          */
         val recommendation_hits = recommendations(req_params).hits().map(recommendation(_)).groupBy(x => (x._1,x._2))
         
-        prepareContext.listener ! String.format("""[INFO][UID: %s] Raw data for user profile building retrieved.""",uid)
+        requestCtx.listener ! String.format("""[INFO][UID: %s] Raw data for user profile building retrieved.""",uid)
 
         /*
          * Join the datasets into a single profile; to this end, we start
@@ -210,7 +210,7 @@ class UserProfiler(prepareContext:PrepareContext,findContext:FindContext) extend
       } catch {
         case e:Exception => {
 
-          prepareContext.listener ! String.format("""[ERROR][UID: %s] User profile building failed due to an internal error.""",uid)
+          requestCtx.listener ! String.format("""[ERROR][UID: %s] User profile building failed due to an internal error.""",uid)
           
           val params = Map(Names.REQ_MESSAGE -> e.getMessage) ++ message.data
 
@@ -231,7 +231,7 @@ class UserProfiler(prepareContext:PrepareContext,findContext:FindContext) extend
      * the only parameter that is required to retrieve the data is 'uid'
      */
     val qbuilder = QueryBuilders.matchQuery(Names.UID_FIELD, params(Names.REQ_UID))
-    val response = findContext.find("orders", "forecasts", qbuilder)
+    val response = requestCtx.find("orders", "forecasts", qbuilder)
 
     response.getHits()
     
@@ -262,7 +262,7 @@ class UserProfiler(prepareContext:PrepareContext,findContext:FindContext) extend
      * the only parameter that is required to retrieve the data is 'uid'
      */
     val qbuilder = QueryBuilders.matchQuery(Names.UID_FIELD, params(Names.REQ_UID))
-    val response = findContext.find("orders", "items", qbuilder)
+    val response = requestCtx.find("orders", "items", qbuilder)
 
     response.getHits()
     
@@ -290,7 +290,7 @@ class UserProfiler(prepareContext:PrepareContext,findContext:FindContext) extend
      * the only parameter that is required to retrieve the data is 'uid'
      */
     val qbuilder = QueryBuilders.matchQuery(Names.UID_FIELD, params(Names.REQ_UID))
-    val response = findContext.find("orders", "loyalty", qbuilder)
+    val response = requestCtx.find("orders", "loyalty", qbuilder)
 
     response.getHits()
     
@@ -327,7 +327,7 @@ class UserProfiler(prepareContext:PrepareContext,findContext:FindContext) extend
      * the only parameter that is required to retrieve the data is 'uid'
      */
     val qbuilder = QueryBuilders.matchQuery(Names.UID_FIELD, params(Names.REQ_UID))
-    val response = findContext.find("orders", "recommendations", qbuilder)
+    val response = requestCtx.find("orders", "recommendations", qbuilder)
 
     response.getHits()
     

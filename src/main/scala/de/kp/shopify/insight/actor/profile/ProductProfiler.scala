@@ -24,12 +24,12 @@ import org.elasticsearch.search.SearchHits
 import de.kp.spark.core.Names
 import de.kp.spark.core.model._
 
-import de.kp.shopify.insight.{FindContext,PrepareContext}
+import de.kp.shopify.insight._
 
 import de.kp.shopify.insight.actor._
 import de.kp.shopify.insight.model._
 
-class ProductProfiler(prepareContext:PrepareContext,findContext:FindContext) extends BaseActor {
+class ProductProfiler(requestCtx:RequestContext) extends BaseActor {
 
   override def receive = {
    
@@ -40,14 +40,14 @@ class ProductProfiler(prepareContext:PrepareContext,findContext:FindContext) ext
       
       try {
       
-        prepareContext.listener ! String.format("""[INFO][UID: %s] Product profile building started.""",uid)
+        requestCtx.listener ! String.format("""[INFO][UID: %s] Product profile building started.""",uid)
         
         val rule_hits = rules(req_params)
         
       } catch {
         case e:Exception => {
 
-          prepareContext.listener ! String.format("""[ERROR][UID: %s] Product profile building failed due to an internal error.""",uid)
+          requestCtx.listener ! String.format("""[ERROR][UID: %s] Product profile building failed due to an internal error.""",uid)
           
           val params = Map(Names.REQ_MESSAGE -> e.getMessage) ++ message.data
 
@@ -69,7 +69,7 @@ class ProductProfiler(prepareContext:PrepareContext,findContext:FindContext) ext
      * is 'uid'
      */
     val qbuilder = QueryBuilders.matchQuery(Names.UID_FIELD, params(Names.REQ_UID))
-    val response = findContext.find("orders", "rules", qbuilder)
+    val response = requestCtx.find("orders", "rules", qbuilder)
 
     response.getHits()
     

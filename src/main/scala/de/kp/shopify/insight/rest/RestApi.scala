@@ -45,7 +45,7 @@ import de.kp.spark.core.model._
 import de.kp.spark.core.rest.RestService
 
 import de.kp.shopify.insight.actor._
-import de.kp.shopify.insight.{FindContext,PrepareContext}
+import de.kp.shopify.insight.{RequestContext => RequestCtx}
 
 import de.kp.shopify.insight.model._
 /**
@@ -70,9 +70,7 @@ class RestApi(host:String,port:Int,system:ActorSystem,@transient sc:SparkContext
    * interim messages from all the other actors
    */
   private val listener = system.actorOf(Props(new MessageListener()))
-  private val prepareContext = new PrepareContext(sc,listener)
-  
-  private val findContext = new FindContext()
+  private val requestCtx = new RequestCtx(sc,listener)
   
   def start() {
     RestService.start(routes,system,host,port)
@@ -155,7 +153,7 @@ class RestApi(host:String,port:Int,system:ActorSystem,@transient sc:SparkContext
        * by the DataPipeline actor that is responsible for controlling the analytics 
        * pipeline
        */
-      val pipeline = system.actorOf(Props(new DataPipeline(prepareContext,findContext)))
+      val pipeline = system.actorOf(Props(new DataPipeline(requestCtx)))
 
       val params = getRequest(ctx)
       val uid = java.util.UUID.randomUUID().toString
@@ -193,7 +191,7 @@ class RestApi(host:String,port:Int,system:ActorSystem,@transient sc:SparkContext
        * the customer and product database of a Shopify store with an external
        * Elasticsearch cluster
        */
-      val pipeline = system.actorOf(Props(new SyncPipeline(prepareContext)))
+      val pipeline = system.actorOf(Props(new SyncPipeline(requestCtx)))
 
       val params = getRequest(ctx)
       val uid = java.util.UUID.randomUUID().toString
@@ -247,9 +245,9 @@ class RestApi(host:String,port:Int,system:ActorSystem,@transient sc:SparkContext
    */
   private def doProduct[T](ctx:RequestContext,subject:String) = {
 
-    implicit val timeout:Timeout = DurationInt(prepareContext.getTimeout).second      
+    implicit val timeout:Timeout = DurationInt(requestCtx.getTimeout).second      
  
-    val actor = system.actorOf(Props(new ProductQuestor(findContext)))
+    val actor = system.actorOf(Props(new ProductQuestor(requestCtx)))
     val params = getRequest(ctx)
     
     val request = subject match {
@@ -311,9 +309,9 @@ class RestApi(host:String,port:Int,system:ActorSystem,@transient sc:SparkContext
   
   private def doUser[T](ctx:RequestContext,subject:String) = {
 
-    implicit val timeout:Timeout = DurationInt(prepareContext.getTimeout).second      
+    implicit val timeout:Timeout = DurationInt(requestCtx.getTimeout).second      
 
-    val actor = system.actorOf(Props(new UserQuestor(findContext)))
+    val actor = system.actorOf(Props(new UserQuestor(requestCtx)))
     val params = getRequest(ctx)
     
     val request = subject match {

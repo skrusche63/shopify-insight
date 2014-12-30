@@ -21,7 +21,7 @@ package de.kp.shopify.insight.actor.enrich
 import de.kp.spark.core.Names
 import de.kp.spark.core.model._
 
-import de.kp.shopify.insight.PrepareContext
+import de.kp.shopify.insight.RequestContext
 
 import de.kp.shopify.insight.actor._
 
@@ -42,7 +42,7 @@ import scala.collection.JavaConversions._
  * of the data analytics pipeline.
  * 
  */
-class RecommendationModeler(prepareContext:PrepareContext) extends BaseActor {
+class RecommendationModeler(requestCtx:RequestContext) extends BaseActor {
 
   override def receive = {
    
@@ -53,20 +53,20 @@ class RecommendationModeler(prepareContext:PrepareContext) extends BaseActor {
       
       try {
         
-        prepareContext.listener ! String.format("""[INFO][UID: %s] User recommendation model building started.""",uid)
+        requestCtx.listener ! String.format("""[INFO][UID: %s] User recommendation model building started.""",uid)
         /*
          * STEP #1: Transform Shopify orders into last transaction itemsets; these
          * itemsets are then used as antecedents to filter those association rules
          * that match the antecedents
          */
-        val itemsets = transform(prepareContext.getOrders(req_params))
+        val itemsets = transform(requestCtx.getOrders(req_params))
          
         /*
          * STEP #2: Retrieve association rules from the Association Analysis engine
          */      
         val (service,request) = buildRemoteRequest(req_params)
 
-        val response = prepareContext.getRemoteContext.send(service,request).mapTo[String]            
+        val response = requestCtx.getRemoteContext.send(service,request).mapTo[String]            
         response.onSuccess {
         
           case result => {
@@ -74,7 +74,7 @@ class RecommendationModeler(prepareContext:PrepareContext) extends BaseActor {
             val res = Serializer.deserializeResponse(result)
             if (res.status == ResponseStatus.FAILURE) {
                     
-              prepareContext.listener ! String.format("""[ERROR][UID: %s] Retrieval of Association rules failed due to an engine error.""",uid)
+              requestCtx.listener ! String.format("""[ERROR][UID: %s] Retrieval of Association rules failed due to an engine error.""",uid)
  
               context.parent ! EnrichFailed(res.data)
               context.stop(self)
@@ -90,12 +90,12 @@ class RecommendationModeler(prepareContext:PrepareContext) extends BaseActor {
                * the index is used to register the recommendations derived 
                * from the association rule model
                */
-              val handler = new ElasticHandler()
+              val handler = new ElasticClient()
 
               if (handler.putSources("orders","recommendations",recommendations) == false)
                 throw new Exception("Indexing processing has been stopped due to an internal error.")
 
-              prepareContext.listener ! String.format("""[INFO][UID: %s] User recommendation model building finished.""",uid)
+              requestCtx.listener ! String.format("""[INFO][UID: %s] User recommendation model building finished.""",uid)
 
               val data = Map(Names.REQ_UID -> uid,Names.REQ_MODEL -> "URECOM")            
               context.parent ! EnrichFinished(data)           
@@ -113,7 +113,7 @@ class RecommendationModeler(prepareContext:PrepareContext) extends BaseActor {
         response.onFailure {
           case throwable => {
                     
-            prepareContext.listener ! String.format("""[ERROR][UID: %s] Retrieval of Association rules failed due to an internal error.""",uid)
+            requestCtx.listener ! String.format("""[ERROR][UID: %s] Retrieval of Association rules failed due to an internal error.""",uid)
           
             val params = Map(Names.REQ_MESSAGE -> throwable.getMessage) ++ message.data
           
@@ -127,7 +127,7 @@ class RecommendationModeler(prepareContext:PrepareContext) extends BaseActor {
       } catch {
         case e:Exception => {
                     
-          prepareContext.listener ! String.format("""[ERROR][UID: %s] Retrieval of Association rules failed due to an internal error.""",uid)
+          requestCtx.listener ! String.format("""[ERROR][UID: %s] Retrieval of Association rules failed due to an internal error.""",uid)
           
           val params = Map(Names.REQ_MESSAGE -> e.getMessage) ++ message.data
 

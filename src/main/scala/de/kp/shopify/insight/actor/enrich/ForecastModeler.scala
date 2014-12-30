@@ -21,7 +21,7 @@ package de.kp.shopify.insight.actor.enrich
 import de.kp.spark.core.Names
 import de.kp.spark.core.model._
 
-import de.kp.shopify.insight.PrepareContext
+import de.kp.shopify.insight.RequestContext
 
 import de.kp.shopify.insight.actor._
 import de.kp.shopify.insight.model._
@@ -43,7 +43,7 @@ import scala.collection.JavaConversions._
  * the data analytics pipeline.
  * 
  */
-class ForecastModeler(prepareContext:PrepareContext) extends BaseActor {
+class ForecastModeler(requestCtx:RequestContext) extends BaseActor {
 
   override def receive = {
    
@@ -54,15 +54,15 @@ class ForecastModeler(prepareContext:PrepareContext) extends BaseActor {
       
       try {
       
-        prepareContext.listener ! String.format("""[INFO][UID: %s] Purchase forecast model building started.""",uid)
+        requestCtx.listener ! String.format("""[INFO][UID: %s] Purchase forecast model building started.""",uid)
         
         /*
          * STEP #1: Transform Shopify orders into purchases; these purchases are used 
          * to compute n-step ahead forecasts with respect to purchase amount and time
          */
-        val purchases = transform(prepareContext.getPurchases(req_params))
+        val purchases = transform(requestCtx.getPurchases(req_params))
       
-        prepareContext.listener ! String.format("""[INFO][UID: %s] Orders successfully transformed into purchases.""",uid)
+        requestCtx.listener ! String.format("""[INFO][UID: %s] Orders successfully transformed into purchases.""",uid)
 
         /*
          * STEP #2: Retrieve Markovian rules from Intent Recognition engine, combine
@@ -70,7 +70,7 @@ class ForecastModeler(prepareContext:PrepareContext) extends BaseActor {
          * 
          */
         val (service,req) = buildRemoteRequest(req_params,purchases.map(_._5))
-        val response = prepareContext.getRemoteContext.send(service,req).mapTo[String]     
+        val response = requestCtx.getRemoteContext.send(service,req).mapTo[String]     
         
         response.onSuccess {
         
@@ -79,7 +79,7 @@ class ForecastModeler(prepareContext:PrepareContext) extends BaseActor {
             val res = Serializer.deserializeResponse(result)
             if (res.status == ResponseStatus.FAILURE) {
                     
-              prepareContext.listener ! String.format("""[ERROR][UID: %s] Retrieval of Markovian rules failed due to an engine error.""",uid)
+              requestCtx.listener ! String.format("""[ERROR][UID: %s] Retrieval of Markovian rules failed due to an engine error.""",uid)
  
               context.parent ! EnrichFailed(res.data)
               context.stop(self)
@@ -88,12 +88,12 @@ class ForecastModeler(prepareContext:PrepareContext) extends BaseActor {
 
               val forecasts = buildForecasts(res,purchases)
             
-              val handler = new ElasticHandler()
+              val handler = new ElasticClient()
 
               if (handler.putSources("orders","forecasts",forecasts) == false)
                 throw new Exception("Indexing processing has been stopped due to an internal error.")
 
-              prepareContext.listener ! String.format("""[INFO][UID: %s] Purchase forecast model building finished.""",uid)
+              requestCtx.listener ! String.format("""[INFO][UID: %s] Purchase forecast model building finished.""",uid)
 
               val data = Map(Names.REQ_UID -> uid,Names.REQ_MODEL -> "UFORCM")            
               context.parent ! EnrichFinished(data)           
@@ -108,7 +108,7 @@ class ForecastModeler(prepareContext:PrepareContext) extends BaseActor {
         response.onFailure {
           case throwable => {
 
-            prepareContext.listener ! String.format("""[ERROR][UID: %s] Retrieval of Markovian rules failed due to an internal error.""",uid)
+            requestCtx.listener ! String.format("""[ERROR][UID: %s] Retrieval of Markovian rules failed due to an internal error.""",uid)
           
             val params = Map(Names.REQ_MESSAGE -> throwable.getMessage) ++ message.data
           
@@ -122,7 +122,7 @@ class ForecastModeler(prepareContext:PrepareContext) extends BaseActor {
       } catch {
         case e:Exception => {
 
-          prepareContext.listener ! String.format("""[ERROR][UID: %s] Retrieval of Markovian rules failed due to an internal error.""",uid)
+          requestCtx.listener ! String.format("""[ERROR][UID: %s] Retrieval of Markovian rules failed due to an internal error.""",uid)
           
           val params = Map(Names.REQ_MESSAGE -> e.getMessage) ++ message.data
 
