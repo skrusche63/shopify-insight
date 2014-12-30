@@ -28,13 +28,8 @@ import de.kp.shopify.insight.elastic._
 
 import de.kp.shopify.insight.model._
 
-import org.elasticsearch.common.xcontent.{XContentBuilder,XContentFactory}
-import scala.collection.mutable.ArrayBuffer
-
-import scala.collection.JavaConversions._
-
 /**
- * The ElasticCollector retrieves orders or products from a Shopify store and
+ * The DataCollector retrieves orders or products from a Shopify store and
  * registers them in an Elasticsearch index for subsequent processing. From
  * orders the following indexes are built:
  * 
@@ -44,7 +39,7 @@ import scala.collection.JavaConversions._
  *                +----> State index (orders/states)
  * 
  */
-class ElasticCollector(prepareContext:PrepareContext) extends BaseActor {
+class DataCollector(prepareContext:PrepareContext) extends BaseActor {
   
   override def receive = {
     
@@ -82,9 +77,9 @@ class ElasticCollector(prepareContext:PrepareContext) extends BaseActor {
              */
             val analytics = new Analytics()
 
-            val items = toItems(req_params,orders)
+            val items = analytics.buildITM(req_params,orders)
             
-            if (handler.putSources("orders","items",items) == false)
+            if (handler.putSourcesJSON("orders","items",items) == false)
               throw new Exception("Indexing for 'orders/items' has been stopped due to an internal error.")
           
             prepareContext.listener ! String.format("""[INFO][UID: %s] Item perspective registered in Elasticsearch index.""",uid)
@@ -138,33 +133,6 @@ class ElasticCollector(prepareContext:PrepareContext) extends BaseActor {
       
     }
   
-  }
-  private def toItems(params:Map[String,String],orders:List[Order]):List[java.util.Map[String,Object]] = {
-
-    orders.flatMap(order => {
-      
-      val items = order.items.map(_.item)
-      items.map(item => {
-    
-        val data = new java.util.HashMap[String,Object]()
-
-        data += Names.UID_FIELD -> params(Names.UID_FIELD)
-        
-        data += Names.SITE_FIELD -> order.site
-        data += Names.SITE_FIELD -> order.user
-        
-        data += Names.TIMESTAMP_FIELD -> order.timestamp.asInstanceOf[Object]
-        data += Names.GROUP_FIELD -> order.group
-
-        data += Names.ITEM_FIELD -> item.asInstanceOf[Object]
-        data += Names.SCORE_FIELD -> 0.0.asInstanceOf[Object]
-      
-        data
-      
-      })    
-      
-    }).toList
-    
   }
 
 }

@@ -160,12 +160,12 @@ class RestApi(host:String,port:Int,system:ActorSystem,@transient sc:SparkContext
       val params = getRequest(ctx)
       val uid = java.util.UUID.randomUUID().toString
       /*
-       * 'uid', 'name', 'topic' and 'sink' is set internally and MUST be excluded
+       * 'uid', 'name' and 'topic' is set internally and MUST be excluded
        * from the external request parameters
        */
-      val excludes = List(Names.REQ_UID,Names.REQ_NAME,Names.REQ_SINK,Names.REQ_TOPIC)
+      val excludes = List(Names.REQ_UID,Names.REQ_NAME,Names.REQ_TOPIC)
       val data = params.filter(kv => excludes.contains(kv._1) == false) ++ 
-        Map(Names.REQ_UID -> uid,Names.REQ_SINK -> Sinks.ELASTIC,Names.REQ_TOPIC -> subject)
+        Map(Names.REQ_UID -> uid,Names.REQ_TOPIC -> subject)
 
       /* 
        * Delegate data preparation and model building to the DataPipeline actor. Note, that 

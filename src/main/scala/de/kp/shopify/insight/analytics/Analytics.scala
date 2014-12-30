@@ -35,8 +35,168 @@ import org.elasticsearch.common.xcontent.{XContentBuilder,XContentFactory}
 class Analytics {
 
   def buildITM(params:Map[String,String],rawset:List[Order]):List[XContentBuilder] = {
-    // TODO
-    null
+    
+    val uid = params(Names.REQ_UID)
+    /*
+     * Extract the item dimension from the raw dataset
+     */
+    val orders = rawset.map(order => {
+      
+      val items = order.items.map(x => (x.item,x.quantity))
+      (order.site,order.user,order.group,order.timestamp,items)
+      
+    })
+
+    val total = orders.size
+    /*
+     * Compute the preferred items of the orders, which is:
+     * 
+     * pref = Math.log(1 + supp.toDouble / total.toDouble)
+     * 
+     */
+    val total_item_supp = orders.flatMap(_._5).groupBy(x => x._1).map(x => {
+      
+      val item = x._1
+      val supp = x._2.map(_._2).foldLeft(0.toInt)(_ + _)
+      
+      (item,supp)
+    })
+
+    val total_item_pref = total_item_supp.map(x => {
+       
+       val (item,supp) = x 
+       val pref = Math.log(1 + supp.toDouble / total.toDouble)    
+       
+       (item,pref)
+       
+    })
+     
+    orders.groupBy(x => (x._1,x._2)).flatMap(p => {
+       
+      val (site,user) = p._1
+       
+      /* Compute time ordered list of (group,timestamp,items) */
+      val user_orders = p._2.map(x => (x._3,x._4,x._5)).toList.sortBy(_._1)      
+      val user_total = user_orders.size
+       
+      /*
+       * Compute the preferred items of the orders, which is:
+       * 
+       * pref = Math.log(1 + supp.toDouble / total.toDouble)
+       * 
+       */
+      val user_item_supp = user_orders.flatMap(_._3).groupBy(x => x._1).map(x => {
+      
+        val item = x._1
+        val supp = x._2.map(_._2).foldLeft(0.toInt)(_ + _)
+      
+        (item,supp)
+    
+      })
+
+      val user_item_pref = user_item_supp.map(x => {
+       
+        val (item,supp) = x 
+        val pref = Math.log(1 + supp.toDouble / total.toDouble)    
+        /*
+         * Normalize the user preference with respect to the
+         * total item preference
+         */
+        val gpref = total_item_pref(item)
+        val npref = pref.toDouble / gpref.toDouble
+       
+        (item,npref)
+       
+      })
+    
+      user_orders.flatMap(x => {
+        
+        val (group,timestamp,items) = x
+        items.map(x => {
+        
+          val (item,quantity) = x
+          val score = user_item_pref(item)
+          
+          val builder = XContentFactory.jsonBuilder()
+	      builder.startObject()
+        
+	      /*
+	       * The subsequent fields are shared with Predictiveworks'
+	       * Intent Recognition engine and must also be described 
+	       * by a field or metadata specification
+	       */
+	      
+	      /* uid */
+	      builder.field(Names.UID_FIELD,uid)
+	      
+	      /* site */
+	      builder.field(Names.SITE_FIELD,site)
+	    
+	      /* user */
+	      builder.field(Names.USER_FIELD,user)
+	    
+	      /* timestamp */
+	      builder.field(Names.TIMESTAMP_FIELD,timestamp)
+	    
+	      /* group */
+	      builder.field(Names.GROUP_FIELD,group)
+	    
+	      /* item */
+	      builder.field(Names.ITEM_FIELD,item)
+	      
+	      /* score */
+	      builder.field(Names.SCORE_FIELD,score)
+
+	      /*
+	       * The subsequent fields are used for evaluation within
+	       * the Shopify insight server
+	       */
+
+	      /* created_at_min */
+	      builder.field("created_at_min",params("created_at_min"))
+
+	      /* created_at_max */
+	      builder.field("created_at_max",params("created_at_max"))
+	    
+	      /* total_orders */
+	      builder.field("total_orders",total)
+	    
+	      /*
+	       * Denormalized description of the ITEM data retrieved
+	       * from all transactions taken into account, i.e. from 
+	       * the 30, 60 or 90 days
+	       */
+
+	      /* total_item_pref */
+	      builder.startArray("total_item_pref")
+	      for (rec <- total_item_pref) {
+
+	        builder.startObject()
+          
+	        builder.field("item", rec._1)
+            builder.field("score",rec._2)
+              
+            builder.endObject()
+          }
+
+          builder.endArray()
+	    
+	      /* user_total */
+	      builder.field("user_total",user_total)
+
+	      /* item_quantity */
+	      builder.field("item_quantity",quantity)
+	    
+	      builder.endObject()
+	    
+	    
+	      builder
+        
+        })
+      })
+    
+    }).toList 
+
   }
 
   /**

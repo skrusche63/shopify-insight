@@ -41,9 +41,18 @@ class ElasticHandler {
     
     try {
       
-      if (topic == "item") {
+      if (topic == "customer") {
+        /*
+         * Topic 'customer' is indexed by the customer synchronizer and does not 
+         * require a metadata specification as these data are not shared with any 
+         * predictive engine
+         */
+        val builder = new ESCustomerBuilder().createBuilder(mapping)
+        indexer.create(index,mapping,builder)
+      
+      } else if (topic == "item") {
         
-        val builder = new ElasticItemBuilder().createBuilder(mapping)
+        val builder = new ESItemBuilder().createBuilder(mapping)
         indexer.create(index,mapping,builder)
         /*
          * Topics 'item' is prepared by the collector actor and the respective index
@@ -62,15 +71,6 @@ class ElasticHandler {
         val data = Map(Names.REQ_NAME -> mapping) ++  params.filter(kv => excludes.contains(kv._1) == false)  
      
         if (fields.isEmpty == false) cache.addFields(data, fields.toList)
-      
-      } else if (topic == "customer") {
-        /*
-         * Topic 'customer' is indexed by the customer synchronizer and does not 
-         * require a metadata specification as these data are not shared with any 
-         * predictive engine
-         */
-        val builder = new ESCustomerBuilder().createBuilder(mapping)
-        indexer.create(index,mapping,builder)
      
       } else if (topic == "forecast") {
         /*
@@ -89,6 +89,24 @@ class ElasticHandler {
          */
         val builder = new ElasticLoyaltyBuilder().createBuilder(mapping)
         indexer.create(index,mapping,builder)
+       
+      } else if (topic == "product") {
+        /*
+         * Topic 'product' is indexed by the product synchronizer and does not 
+         * require a metadata specification as these data are not shared with any 
+         * predictive engine
+         */
+        val builder = new ESProductBuilder().createBuilder(mapping)
+        indexer.create(index,mapping,builder)
+       
+      } else if (topic == "profile") {
+        /*
+         * Topic 'profile' is indexed by user profiler and does not require a
+         * metadata specification as these data are not shared with predictive
+         * engines
+         */
+        val builder = new ElasticProfileBuilder().createBuilder(mapping)
+        indexer.create(index,mapping,builder)
           
       } else if (topic == "recommendation") {
         /*
@@ -106,15 +124,6 @@ class ElasticHandler {
          * engines
          */
         val builder = new ElasticRuleBuilder().createBuilder(mapping)
-        indexer.create(index,mapping,builder)
-       
-      } else if (topic == "profile") {
-        /*
-         * Topic 'profile' is indexed by user profiler and does not require a
-         * metadata specification as these data are not shared with predictive
-         * engines
-         */
-        val builder = new ElasticProfileBuilder().createBuilder(mapping)
         indexer.create(index,mapping,builder)
        
       } else if (topic == "state") {

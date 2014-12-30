@@ -23,7 +23,9 @@ import akka.actor.Props
 import de.kp.spark.core.Names
 
 import de.kp.shopify.insight.PrepareContext
+
 import de.kp.shopify.insight.model._
+import de.kp.shopify.insight.elastic._
 
 import de.kp.shopify.insight.actor.synchronize._
 
@@ -38,8 +40,11 @@ class SyncPipeline(prepareContext:PrepareContext) extends BaseActor {
        *                       SUB PROCESS 'SYNCHRONIZE'
        * 
        *********************************************************************/
-      try {    
-      
+      try { 
+        
+        val req_params = message.data
+        createElasticIndexes(req_params)
+       
         val customer_sync = context.actorOf(Props(new CustomerSync(prepareContext)))  
         customer_sync ! StartSynchronize(message.data)
       
@@ -74,7 +79,30 @@ class SyncPipeline(prepareContext:PrepareContext) extends BaseActor {
     }
     case message:SynchronizeFinished => {
       // TODO
+      context.stop(self)
+
     }
     
   }
+  
+  /**
+   * A helper method to prepare all Elasticsearch indexes used by the 
+   * Shopify Analytics (or Insight) Server
+   */
+  private def createElasticIndexes(params:Map[String,String]) {
+    
+    val uid = params(Names.REQ_UID)
+    
+    val handler = new ElasticHandler()
+    /*
+     * SUB PROCESS 'SYNCHRONIZE'
+     */
+    if (handler.createIndex(params,"database","customers","customer") == false)
+      throw new Exception("Index creation for 'database/customers' has been stopped due to an internal error.")
+ 
+    if (handler.createIndex(params,"database","products","product") == false)
+      throw new Exception("Index creation for 'database/products' has been stopped due to an internal error.")
+    
+  }
+  
 }

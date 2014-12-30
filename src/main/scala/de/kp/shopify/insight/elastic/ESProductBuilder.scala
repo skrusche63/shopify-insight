@@ -29,12 +29,19 @@ class ESProductBuilder {
     val builder = XContentFactory.jsonBuilder()
           .startObject()
             .startObject(mapping)
+              
               .startObject("_id")
                 .field("path","id")
               .endObject()
+              
               .startObject("properties")
-                    
-                /* site */
+               
+                /* 
+                 * site:
+                 * 
+                 * The 'apikey' of the Shopify cloud service is used as a
+                 * unique identifier for the respective tenant or website
+                 */
                 .startObject(SITE_FIELD)
                    .field("type", "string")
                    .field("index", "not_analyzed")
@@ -44,9 +51,58 @@ class ESProductBuilder {
                 .startObject("id")
                    .field("type", "string")
                    .field("index", "not_analyzed")
-                .endObject()//
+                .endObject()
               
+                /* name */
+                .startObject("name")
+                   .field("type", "string")
+                .endObject()
+              
+                /* 
+                 * category:
+                 * 
+                 * The category assigned to a certain product, this field
+                 * can be used to group similar products or to determine
+                 * customer preferences
+                 */
+                .startObject("category")
+                   .field("type", "string")
+                .endObject()
+
+                /* tags:
+                 * 
+                 * 'tags' describes a comma separated list of keywords
+                 * that describe a certain product
+                 */
+                .startObject("tags")
+                   .field("type", "string")
+                .endObject()
+
+                /* images */
+                .startObject("images")
+                  .startObject("properties")
+
+                    .startObject("id")
+                      .field("type","string")
+                    .endObject
+
+                    .startObject("position")
+                      .field("type","integer")
+                    .endObject
+
+                    .startObject("source")
+                      .field("type","string")
+                    .endObject
+                    
+                .endObject()
+              
+                /* vendor */
+                .startObject("vendor")
+                   .field("type", "string")
+                .endObject()
+                
               .endObject()
+              
             .endObject()
           .endObject()
     

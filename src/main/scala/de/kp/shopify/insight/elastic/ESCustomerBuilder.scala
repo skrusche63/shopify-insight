@@ -127,12 +127,5 @@ class ESCustomerBuilder {
     builder
   
   }
-/*
- * 
-case class Customer(
-  
 
-)
- * 
- */
 }

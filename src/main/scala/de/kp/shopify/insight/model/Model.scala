@@ -355,28 +355,9 @@ object Sources {
     
 }
 
-object Sinks {
-  
-  val ELASTIC:String = "ELASTIC"
-    
-}
 
-object Statuses {
-  
-  val OPEN:String = "open"
-  val CLOSED:String = "closed"
-  
-  val CANCELLED:String = "cancelled"
-  val ANY:String = "any"
-
-  private val statuses = List(OPEN,CLOSED,CANCELLED,ANY)
-  def isStatus(status:String):Boolean = statuses.contains(status)
-  
-}
 object Serializer extends BaseSerializer {
-
   def serializeActorsStatus(statuses:ActorsStatus):String = write(statuses) 
-
 }
 
 object Messages extends BaseMessages

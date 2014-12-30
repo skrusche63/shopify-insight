@@ -71,31 +71,14 @@ class DataPipeline(prepareContext:PrepareContext,findContext:FindContext) extend
         prepareContext.clear
         
         val req_params = message.data
-      
-        val uid = req_params(Names.REQ_UID)      
-        val sink = req_params(Names.REQ_SINK)
+        createElasticIndexes(req_params)
         /*
-         * The Pipeline actor is responsible for creating an appropriate
-         * actor that executes the collection request
+         * Send request to DataCollector actor and inform requestor
+         * that the tracking process has been started. Error and
+         * interim messages of this process are sent to the listener
          */
-        sink match {
-        
-          case Sinks.ELASTIC => {
-            
-            createElasticIndexes(req_params)
-            /*
-             * Send request to ElasticCollector actor and inform requestor
-             * that the tracking process has been started. Error and
-             * interim messages of this process are sent to the listener
-             */
-            val actor = context.actorOf(Props(new ElasticCollector(prepareContext)))          
-            actor ! StartCollect(req_params)
-          
-          }
-        
-          case _ => throw new Exception(String.format("""[ERROR][UID: %s] The sink '%s' is not supported.""",uid,sink))
-      
-        }
+        val actor = context.actorOf(Props(new DataCollector(prepareContext)))          
+        actor ! StartCollect(req_params)
     
       } catch {
         

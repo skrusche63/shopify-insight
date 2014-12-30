@@ -142,6 +142,7 @@ class ESStateBuilder {
                       .field("type","double")
                     .endObject
                     
+                  .endObject()
                 .endObject()
 
                 /* total_time_pref */
@@ -156,6 +157,7 @@ class ESStateBuilder {
                       .field("type","double")
                     .endObject
                     
+                  .endObject()   
                 .endObject()
 	            
                 /*
@@ -221,6 +223,7 @@ class ESStateBuilder {
                       .field("type","double")
                     .endObject
                     
+                  .endObject()    
                 .endObject()
 
                 /* user_time_pref */
@@ -235,6 +238,7 @@ class ESStateBuilder {
                       .field("type","double")
                     .endObject
                     
+                  .endObject()
                 .endObject()
               
               .endObject()

@@ -37,7 +37,7 @@ class HSMHandler {
      * The subsequent set of parameters is mandatory for training
      * an association model and must be provided by the requestor
      */
-    val com_mandatory = List(Names.REQ_SITE,Names.REQ_UID,Names.REQ_NAME,Names.REQ_SOURCE)
+    val com_mandatory = List(Names.REQ_SITE,Names.REQ_UID,Names.REQ_NAME)
     val data = HashMap.empty[String,String]
     
     for (field <- com_mandatory) data += field -> params(field)
@@ -49,25 +49,18 @@ class HSMHandler {
     data += Names.REQ_ALGORITHM -> "HIDDEN_MARKOV"
     data += Names.REQ_INTENT    -> "STATE"
     
+    
+    data += Names.REQ_SOURCE -> "ELASTIC"
     /*
-     * The following parameters depend on the source & sink selected
+     * Add index & mapping internally as the requestor does not
+     * know the Elasticsearch index structure; the index MUST be
+     * identical to that index, that has been created during the
+     * 'collection' phase
      */
-    val source = data(Names.REQ_SOURCE)
-    if (source == Sources.ELASTIC) {
-      /*
-       * Add index & mapping internally as the requestor does not
-       * know the Elasticsearch index structure; the index MUST be
-       * identical to that index, that has been created during the
-       * 'collection' phase
-       */
-      data += Names.REQ_SOURCE_INDEX -> "orders"
-      data += Names.REQ_SOURCE_TYPE  -> "states"
+    data += Names.REQ_SOURCE_INDEX -> "orders"
+    data += Names.REQ_SOURCE_TYPE  -> "states"
       
-      data += Names.REQ_QUERY -> QueryBuilder.get(source,"state")
-      
-    } else {
-      throw new Exception(String.format("""[UID: %s] The source '%s' is not supported.""",data(Names.REQ_UID),source))
-    }
+    data += Names.REQ_QUERY -> QueryBuilder.get("ELASTIC","state")
     
     /*
      * The subsequent parameters are model specific parameters
