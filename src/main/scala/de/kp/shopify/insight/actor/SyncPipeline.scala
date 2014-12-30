@@ -25,6 +25,8 @@ import de.kp.spark.core.Names
 import de.kp.shopify.insight.PrepareContext
 import de.kp.shopify.insight.model._
 
+import de.kp.shopify.insight.actor.synchronize._
+
 class SyncPipeline(prepareContext:PrepareContext) extends BaseActor {
 
   override def receive = {
@@ -37,15 +39,20 @@ class SyncPipeline(prepareContext:PrepareContext) extends BaseActor {
        * 
        *********************************************************************/
       try {    
+      
+        val customer_sync = context.actorOf(Props(new CustomerSync(prepareContext)))  
+        customer_sync ! StartSynchronize(message.data)
+      
+        val product_sync = context.actorOf(Props(new ProductSync(prepareContext)))  
+        product_sync ! StartSynchronize(message.data)
         
     
       } catch {
         
         case e:Exception => {
           /*
-           * Inform the message listener about the error that occurred
-           * while collecting data from a certain Shopify store and
-           * stop the DataPipeline
+           * Inform the message listener about the error that occurred while collecting 
+           * data from a certain Shopify store and stop the synchronization pipeline
            */
           prepareContext.listener ! e.getMessage
           
@@ -57,6 +64,17 @@ class SyncPipeline(prepareContext:PrepareContext) extends BaseActor {
       } 
       
     }
-  
+    case message:SynchronizeFailed => {
+      /*
+       * The synchronizer actors already sent an error message to the message listener;
+       * no additional notification has to be done, so just stop the pipeline
+       */
+      context.stop(self)
+      
+    }
+    case message:SynchronizeFinished => {
+      // TODO
+    }
+    
   }
 }

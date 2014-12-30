@@ -153,7 +153,7 @@ class TimePreference {
        * pref = Math.log(1 + supp.toDouble / total.toDouble)
        * 
        */
-      val userDayPref = globalDaySupp.map(x => {
+      val userDayPref = userDaySupp.map(x => {
        
         val (day,supp) = x 
         val pref = Math.log(1 + supp.toDouble / total.toDouble)    
@@ -170,7 +170,7 @@ class TimePreference {
        
       }).toList
      
-      val userTimePref = globalTimeSupp.map(x => {
+      val userTimePref = userTimeSupp.map(x => {
        
         val (time,supp) = x 
         val pref = Math.log(1 + supp.toDouble / total.toDouble)    

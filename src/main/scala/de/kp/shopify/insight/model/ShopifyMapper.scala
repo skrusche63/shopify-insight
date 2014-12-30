@@ -156,25 +156,7 @@ class ShopifyMapper {
     AmountObject(site,user,timestamp,amount)
   
   }
-   
-  def toAmountTuple(order:Order):(String,String,Long,Float) = {
-    (order.site,order.user,order.timestamp,order.amount)
-  }
- 
-  def toAmountMap(order:Order):java.util.Map[String,Object] = {
-        
-    val data = new java.util.HashMap[String,Object]()
-        
-    data += Names.SITE_FIELD -> order.site
-    data += "user" -> order.user
-        
-    data += "timestamp" -> order.timestamp.asInstanceOf[Object]
-    data += "amount" -> order.amount.asInstanceOf[Object]
-
-    data
-    
-  }
-  
+      
   def toItemMap(order:Order):List[java.util.Map[String,Object]] = {
 
     val items = order.items.map(_.item)

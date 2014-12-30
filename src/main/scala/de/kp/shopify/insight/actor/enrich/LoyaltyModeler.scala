@@ -22,13 +22,14 @@ import de.kp.spark.core.Names
 import de.kp.spark.core.model._
 
 import de.kp.shopify.insight.PrepareContext
+
 import de.kp.shopify.insight.actor.BaseActor
-
 import de.kp.shopify.insight.model._
-import de.kp.shopify.insight.io._
 
+import de.kp.shopify.insight.io._
 import de.kp.shopify.insight.elastic._
-import de.kp.shopify.insight.source._
+
+import de.kp.shopify.insight.analytics._
 
 import scala.collection.mutable.ArrayBuffer
 import scala.collection.JavaConversions._
@@ -201,12 +202,12 @@ class LoyaltyModeler(prepareContext:PrepareContext) extends BaseActor {
       for ((time,amount) <- orders.tail) {
         
         /* Determine state from amount */
-        val astate = AmountHandler.stateByAmount(amount,pre_amount)
+        val astate = StateHandler.stateByAmount(amount,pre_amount)
      
         /* Determine state from time elapsed between
          * subsequent orders or transactions
          */
-        val tstate = AmountHandler.stateByTime(time,pre_time)
+        val tstate = StateHandler.stateByTime(time,pre_time)
       
         val state = astate + tstate
         states += state

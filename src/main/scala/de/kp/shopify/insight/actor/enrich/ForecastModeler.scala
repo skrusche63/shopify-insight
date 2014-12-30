@@ -24,12 +24,12 @@ import de.kp.spark.core.model._
 import de.kp.shopify.insight.PrepareContext
 
 import de.kp.shopify.insight.actor._
-
 import de.kp.shopify.insight.model._
-import de.kp.shopify.insight.io._
 
+import de.kp.shopify.insight.io._
 import de.kp.shopify.insight.elastic._
-import de.kp.shopify.insight.source._
+
+import de.kp.shopify.insight.analytics._
 
 import scala.collection.mutable.ArrayBuffer
 import scala.collection.JavaConversions._
@@ -195,13 +195,13 @@ class ForecastModeler(prepareContext:PrepareContext) extends BaseActor {
      * The AmountHandler uses the predefined amount horizon to
      * re-interpret the amount sub state
      */    
-    val next_amount = AmountHandler.nextAmount(state.name, amount)
+    val next_amount = StateHandler.nextAmount(state.name, amount)
     /*
      * The AmountHandler uses the predefined time horizon to
      * re-interpret the time sub state; the days period is e.g.
      * 15, 45 or 90 days (from the last purchase)
      */
-    val next_days = AmountHandler.nextDays(state.name)
+    val next_days = StateHandler.nextDays(state.name)
     val next_score = state.probability
     
     val source = new java.util.HashMap[String,Object]()
@@ -222,8 +222,8 @@ class ForecastModeler(prepareContext:PrepareContext) extends BaseActor {
     
     for (state <- states.tail) {
 
-      val next_days = AmountHandler.nextDays(state.name)
-      val next_amount = AmountHandler.nextAmount(state.name, pre_amount)
+      val next_days = StateHandler.nextDays(state.name)
+      val next_amount = StateHandler.nextAmount(state.name, pre_amount)
       
       /* Conditional probability */
       val next_score = state.probability * pre_score
@@ -289,8 +289,8 @@ class ForecastModeler(prepareContext:PrepareContext) extends BaseActor {
        * Determine first sub state from amount and second
        * sub state from time elapsed between these orders
        * */
-      val astate = AmountHandler.stateByAmount(last_amount,prev_amount)
-      val tstate = AmountHandler.stateByTime(last_time,prev_time)
+      val astate = StateHandler.stateByAmount(last_amount,prev_amount)
+      val tstate = StateHandler.stateByTime(last_time,prev_time)
       
       val last_state = astate + tstate
       (site,user,last_amount,last_time,last_state)

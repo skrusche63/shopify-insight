@@ -23,25 +23,22 @@ import de.kp.spark.core.Names
 
 import de.kp.shopify.insight.PrepareContext
 
+import de.kp.shopify.insight.analytics._
 import de.kp.shopify.insight.elastic._
+
 import de.kp.shopify.insight.model._
 
-import de.kp.shopify.insight.source._
-
+import org.elasticsearch.common.xcontent.{XContentBuilder,XContentFactory}
 import scala.collection.mutable.ArrayBuffer
-import scala.collection.JavaConversions._
 
-private case class Pair(time:Long,state:String)
+import scala.collection.JavaConversions._
 
 /**
  * The ElasticCollector retrieves orders or products from a Shopify store and
  * registers them in an Elasticsearch index for subsequent processing. From
  * orders the following indexes are built:
  * 
- * Store:orders --+----> Amount index (orders/amount)
- *                :
- *                :
- *                +----> Item index (orders/items)
+ * Store:orders --+----> Item index (orders/items)
  *                :
  *                :
  *                +----> State index (orders/states)
@@ -68,7 +65,7 @@ class ElasticCollector(prepareContext:PrepareContext) extends BaseActor {
            */
           case "order" => {
             
-            prepareContext.listener ! String.format("""[INFO][UID: %s] Request to register orders received.""",uid)
+            prepareContext.listener ! String.format("""[INFO][UID: %s] Order indexing started.""",uid)
             
             val start = new java.util.Date().getTime            
             val handler = new ElasticHandler()
@@ -83,6 +80,8 @@ class ElasticCollector(prepareContext:PrepareContext) extends BaseActor {
              * engines to access these data; note, that 'items' are used by Association
              * Analysis and 'states' by Intent Recognition
              */
+            val analytics = new Analytics()
+
             val items = toItems(req_params,orders)
             
             if (handler.putSources("orders","items",items) == false)
@@ -90,10 +89,15 @@ class ElasticCollector(prepareContext:PrepareContext) extends BaseActor {
           
             prepareContext.listener ! String.format("""[INFO][UID: %s] Item perspective registered in Elasticsearch index.""",uid)
 
-            val mapper = new ShopifyMapper()
-            val states = toStates(orders.map(mapper.toAmountTuple(_)))
+            /*
+             * The RFM model has a focus on the monetary and temporal dimension
+             * of purchase transactions (orders), and, besides static data such
+             * as averages, minimums and maximums, specifies the transition from
+             * one transaction to another
+             */
+            val states = analytics.buildRFM(req_params,orders)
             
-            if (handler.putSources("orders","states",states) == false)
+            if (handler.putSourcesJSON("orders","states",states) == false)
               throw new Exception("Indexing for 'orders/states' has been stopped due to an internal error.")
           
             prepareContext.listener ! String.format("""[INFO][UID: %s] State perspective registered in Elasticsearch index.""",uid)
@@ -158,51 +162,6 @@ class ElasticCollector(prepareContext:PrepareContext) extends BaseActor {
         data
       
       })    
-      
-    }).toList
-    
-  }
-
-  private def toStates(amounts:List[(String,String,Long,Float)]):List[java.util.Map[String,Object]] = {
-    /*
-     * Group amounts by site & user and restrict to those
-     * users with more than one purchase
-     */
-    amounts.groupBy(x => (x._1,x._2)).filter(_._2.size > 1).flatMap(p => {
-
-      val (site,user) = p._1
-      val orders = p._2.map(v => (v._3,v._4)).toList.sortBy(_._1)
-      
-      /* Extract first order */
-      var (pre_time,pre_amount) = orders.head
-      val states = ArrayBuffer.empty[Pair]
-
-      for ((time,amount) <- orders.tail) {
-        
-        val astate = AmountHandler.stateByAmount(amount,pre_amount)
-        val tstate = AmountHandler.stateByTime(time,pre_time)
-      
-        val state = astate + tstate
-        states += Pair(time,state)
-        
-        pre_amount = amount
-        pre_time   = time
-        
-      }
-      
-      states.map(x => {
-        
-        val data = new java.util.HashMap[String,Object]()
-        
-        data += Names.SITE_FIELD -> site
-        data += Names.USER_FIELD -> user
-          
-        data += Names.STATE_FIELD -> x.state
-        data += Names.TIMESTAMP_FIELD -> x.time.asInstanceOf[Object]
-        
-        data
-        
-      })
       
     }).toList
     

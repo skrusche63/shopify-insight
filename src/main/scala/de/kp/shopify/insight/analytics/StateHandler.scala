@@ -1,4 +1,4 @@
-package de.kp.shopify.insight.source
+package de.kp.shopify.insight.analytics
 /* Copyright (c) 2014 Dr. Krusche & Partner PartG
 * 
 * This file is part of the Shopify-Insight project
@@ -21,7 +21,7 @@ package de.kp.shopify.insight.source
 import scala.xml._
 import scala.collection.mutable.HashMap
 
-object AmountHandler {
+object StateHandler {
   
   private val path = "amount.xml"
   private val root:Elem = XML.load(getClass.getClassLoader.getResource(path))  

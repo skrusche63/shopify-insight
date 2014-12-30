@@ -29,34 +29,110 @@ class ESCustomerBuilder {
     val builder = XContentFactory.jsonBuilder()
           .startObject()
             .startObject(mapping)
-              /* 
-               * The mapping uses the user identifier
-               * also as a unique identifier of the 
-               * document
-               */
+              
               .startObject("_id")
-                .field("path",USER_FIELD)
+                .field("path","id")
               .endObject()
+              
               .startObject("properties")
-                    
-                /* site */
+               
+                /* 
+                 * site:
+                 * 
+                 * The 'apikey' of the Shopify cloud service is used as a
+                 * unique identifier for the respective tenant or website
+                 */
                 .startObject(SITE_FIELD)
                    .field("type", "string")
                    .field("index", "not_analyzed")
                 .endObject()
 
-                /* user */
-                .startObject(USER_FIELD)
+                /* 
+                 * id:
+                 * 
+                 * Unique identifier that designates a certain Shopify
+                 * store customer
+                 */
+                .startObject("id")
                    .field("type", "string")
                    .field("index", "not_analyzed")
-                .endObject()//
+                .endObject()
               
-              .endObject()
+                /* first_name */
+                .startObject("first_name")
+                   .field("type", "string")
+                .endObject()
+
+                /* last_name */
+                .startObject("last_name")
+                   .field("type", "string")
+                .endObject()
+
+                /* email */
+                .startObject("email")
+                   .field("type", "string")
+                .endObject()
+
+                /* email_verified */
+                .startObject("email_verified")
+                   .field("type", "boolean")
+                .endObject()
+
+                /* accepts_marketing */
+                .startObject("accepts_marketing")
+                   .field("type", "boolean")
+                .endObject()
+
+                /* operational_state */
+                .startObject("operational_state")
+                   .field("type", "string")
+                .endObject()
+
+                /* 
+                 * last_order: 
+                 * 
+                 * The identifier of the last order a certain customer
+                 * has made; this is relevant for customer lifecycle
+                 * management
+                 */
+                .startObject("last_order")
+                   .field("type", "string")
+                .endObject()
+
+                /*
+                 * orders_count:
+                 * 
+                 * The number of orders a certain customer has made
+                 * since registration
+                 */
+                .startObject("orders_count")
+                   .field("type", "long")
+                .endObject()
+                
+                /*
+                 * amount_spent:
+                 * 
+                 * The total amount of money spent by a certain customer
+                 */
+                 .startObject("amount_spent")
+                   .field("type", "float")
+                .endObject()
+
+              .endObject() // properties
+            
             .endObject()
+          
           .endObject()
     
     builder
   
   }
+/*
+ * 
+case class Customer(
+  
 
+)
+ * 
+ */
 }

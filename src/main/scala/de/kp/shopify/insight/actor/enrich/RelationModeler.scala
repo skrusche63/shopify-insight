@@ -29,7 +29,6 @@ import de.kp.shopify.insight.model._
 import de.kp.shopify.insight.io._
 
 import de.kp.shopify.insight.elastic._
-import de.kp.shopify.insight.source._
 
 import scala.collection.JavaConversions._
 

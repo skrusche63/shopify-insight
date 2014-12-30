@@ -100,6 +100,11 @@ class RestApi(host:String,port:Int,system:ActorSystem,@transient sc:SparkContext
 	    }
 	  }
     }  ~ 
+    /*
+     * A 'synchronize' request supports the creation or update of the customer and 
+     * product database as respective Elasticsearch indexes, and represents copies
+     * of the customer and product data of a certain Shopify store
+     */
     path("synchronize" / Segment) {subject => 
 	  post {
 	    respondWithStatus(OK) {
@@ -146,7 +151,7 @@ class RestApi(host:String,port:Int,system:ActorSystem,@transient sc:SparkContext
     
     if (List("order","product").contains(subject)) {
       /*
-       * A 'collect' request starts a data processing pipeline and is accompanied 
+       * A 'prepare' request starts a data processing pipeline and is accompanied 
        * by the DataPipeline actor that is responsible for controlling the analytics 
        * pipeline
        */
@@ -163,10 +168,9 @@ class RestApi(host:String,port:Int,system:ActorSystem,@transient sc:SparkContext
         Map(Names.REQ_UID -> uid,Names.REQ_SINK -> Sinks.ELASTIC,Names.REQ_TOPIC -> subject)
 
       /* 
-       * Delegate data collection to the DataPipeline actor. Note, that this actor is
-       * created for each 'prepare' request and stops itself either after having 
-       * executed all data processing tasks or after having detected a processing
-       * failure.
+       * Delegate data preparation and model building to the DataPipeline actor. Note, that 
+       * this actor is created for each 'prepare' request and stops itself either after having 
+       * executed all data processing tasks or after having detected a processing failure.
        */
       pipeline ! StartPipeline(data)
 
@@ -186,7 +190,7 @@ class RestApi(host:String,port:Int,system:ActorSystem,@transient sc:SparkContext
     if (List("customer","product").contains(subject)) {
       /*
        * A 'synchronize' request starts a processing pipeline to synchronize 
-       * the customer and product database of a Shopify store win an external
+       * the customer and product database of a Shopify store with an external
        * Elasticsearch cluster
        */
       val pipeline = system.actorOf(Props(new SyncPipeline(prepareContext)))
@@ -278,7 +282,7 @@ class RestApi(host:String,port:Int,system:ActorSystem,@transient sc:SparkContext
             
           } else if (result.isInstanceOf[Products]) {
             /*
-             * Products is a list of Shhopify products that are
+             * Products is a list of Shopify products that are
              * related to set of selected products; this result
              * is provided by 'cross-sell' & 'promotion' requests
              */
