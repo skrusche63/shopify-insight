@@ -28,6 +28,7 @@ import de.kp.shopify.insight.model._
 import de.kp.shopify.insight.elastic._
 
 import de.kp.shopify.insight.actor.synchronize._
+import org.elasticsearch.common.xcontent.{XContentBuilder,XContentFactory}
 
 class SyncPipeline(requestCtx:RequestContext) extends BaseActor {
 
@@ -45,6 +46,16 @@ class SyncPipeline(requestCtx:RequestContext) extends BaseActor {
         val req_params = message.data
         createElasticIndexes(req_params)
        
+        /*
+         * Register this synchronization task in the respective
+         * 'database/tasks' index
+         */
+        registerTask(req_params)
+        
+        /*
+         * Synchronize customer and product database with the 
+         * current entries assigned to s specific Shopify store
+         */
         val customer_sync = context.actorOf(Props(new CustomerSync(requestCtx)))  
         customer_sync ! StartSynchronize(message.data)
       
@@ -84,6 +95,41 @@ class SyncPipeline(requestCtx:RequestContext) extends BaseActor {
     }
     
   }
+  /**
+   * This method registers the synchronization task in the respective
+   * Elasticsearch index; this information supports administrative
+   * tasks such as the monitoring of this insight server
+   */
+  private def registerTask(params:Map[String,String]) = {
+    
+    val uid = params(Names.REQ_UID)
+    val key = "synchronize:" + uid
+    
+    val task = "database synchronization"
+    val timestamp = new java.util.Date().getTime
+    /*
+     * Note, that we do not specify additional
+     * payload data here
+     */
+    val builder = XContentFactory.jsonBuilder()
+	builder.startObject()
+	
+	/* key */
+	builder.field("key",key)
+	
+	/* task */
+	builder.field("task",task)
+	
+	/* timestamp */
+	builder.field("timestamp",timestamp)
+	
+	builder.endObject()
+	/*
+	 * Register data in the 'database/tasks' index
+	 */
+	requestCtx.putSource("database","tasks",builder)
+
+  }
   
   /**
    * A helper method to prepare all Elasticsearch indexes used by the 
@@ -92,15 +138,30 @@ class SyncPipeline(requestCtx:RequestContext) extends BaseActor {
   private def createElasticIndexes(params:Map[String,String]) {
     
     val uid = params(Names.REQ_UID)
+    /*
+     * Create search indexes (if not already present)
+     * 
+     * The 'tasks' index (mapping) specified an administrative database
+     * where all steps of a certain synchronization or data analytics
+     * task are registered
+     * 
+     * The 'customers' index (mapping) specifies a customer database that
+     * holds synchronized customer data relevant for the insight server
+     * 
+     * The 'products' index (mapping) specifies a product database that
+     * holds synchronized product data relevant for the insight server
+     */
     
-    val handler = new ElasticClient()
+    if (requestCtx.createIndex(params,"database","tasks","task") == false)
+      throw new Exception("Index creation for 'database/tasks' has been stopped due to an internal error.")
+    
     /*
      * SUB PROCESS 'SYNCHRONIZE'
      */
-    if (handler.createIndex(params,"database","customers","customer") == false)
+    if (requestCtx.createIndex(params,"database","customers","customer") == false)
       throw new Exception("Index creation for 'database/customers' has been stopped due to an internal error.")
  
-    if (handler.createIndex(params,"database","products","product") == false)
+    if (requestCtx.createIndex(params,"database","products","product") == false)
       throw new Exception("Index creation for 'database/products' has been stopped due to an internal error.")
     
   }

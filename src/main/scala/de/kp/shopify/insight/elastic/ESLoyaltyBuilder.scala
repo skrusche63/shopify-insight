@@ -25,7 +25,7 @@ import de.kp.spark.core.Names
 import scala.collection.JavaConversions._
 import scala.collection.mutable.HashMap
 
-class ElasticLoyaltyBuilder {
+class ESLoyaltyBuilder {
 
   import de.kp.spark.core.Names._
   
@@ -37,6 +37,24 @@ class ElasticLoyaltyBuilder {
           .startObject()
             .startObject(mapping)
                .startObject("properties")
+
+               /* uid */
+               .startObject(UID_FIELD)
+                 .field("type", "string")
+                 .field("index", "not_analyzed")
+               .endObject()
+
+                /* created_at_min */
+                .startObject("created_at_min")
+                  .field("type", "string")
+                  .field("index", "not_analyzed")
+                .endObject()
+
+                /* created_at_max */
+                .startObject("created_at_max")
+                  .field("type", "string")
+                  .field("index", "not_analyzed")
+                .endObject()
                     
                /* site */
                .startObject(SITE_FIELD)
@@ -49,17 +67,26 @@ class ElasticLoyaltyBuilder {
                   .field("type", "string")
                   .field("index", "not_analyzed")
                .endObject()
-
-               /* uid */
-               .startObject(UID_FIELD)
-                 .field("type", "string")
-                 .field("index", "not_analyzed")
-               .endObject()
                
                /* trajectory */
                .startObject(TRAJECTORY_FIELD)
                   .field("type", "string")
-               .endObject()//
+               .endObject()
+               
+               /* low */
+               .startObject("low")
+                  .field("type", "double")
+               .endObject()
+               
+               /* norm */
+               .startObject("norm")
+                  .field("type", "double")
+               .endObject()
+               
+               /* high */
+               .startObject("high")
+                  .field("type", "double")
+               .endObject()
 
                .endObject() // properties
             .endObject()   // mapping
@@ -68,4 +95,5 @@ class ElasticLoyaltyBuilder {
     builder
 
   }
+
 }

@@ -143,7 +143,18 @@ class ShopifyClient(configuration:ShopifyConfiguration) {
     
   }
   
-  private def getResponse(resourcePath:String,params:Map[String,String],request:ShopifyRequest,method:String):ShopifyResponse = {
+  /**************************************************************************
+   * 
+   *                        COLLECTION SUPPORT
+   * 
+   *************************************************************************/
+ 
+  def createCollection(params:Map[String,String],collection:String):ShopifyCollection = {
+    getResponse("custom_collections.json", params, null, HttpMethod.POST).custom_collection
+   
+  }
+
+  private def getResponse(resourcePath:String,params:Map[String,String],body:String,method:String):ShopifyResponse = {
        
     try {
       
@@ -154,22 +165,12 @@ class ShopifyClient(configuration:ShopifyConfiguration) {
         queryTarget = queryTarget.queryParam(k,v)
       }
 
-      val message = String.format("""Request parameters: %s %s""",resourcePath,params)
-      
+      val message = String.format("""Request parameters: %s %s""",resourcePath,params)      
       LOG.info(message)
 
-      val jsonRequest:String = if (request != null) {
-         
-        val body = JSON_MAPPER.writeValueAsString(request)         
-        LOG.info(String.format("""Request body: %s""", body))
-         
-         body
-         
-      } else null
-
-
-      val jsonResponse = queryTarget.request(MediaType.APPLICATION_JSON_TYPE)
-                           .method(method, if (jsonRequest == null) null else Entity.json(jsonRequest), classOf[String])
+      val jsonResponse = queryTarget
+                           .request(MediaType.APPLICATION_JSON_TYPE)
+                           .method(method, if (body == null) null else Entity.json(body), classOf[String])
 
       LOG.info("Response body: " + jsonResponse)
 

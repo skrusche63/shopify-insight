@@ -92,32 +92,6 @@ class ESItemBuilder {
                   .field("type", "string")
                   .field("index", "not_analyzed")
                 .endObject()
-                
-                /*
-	             * Denormalized description of the ITEM data retrieved
-	             * from all transactions taken into account, i.e. from 
-	             * the 30, 60 or 90 days
-	             */
-
-                /* total_orders */
-                .startObject("total_orders")
-                  .field("type", "integer")
-                .endObject()
-
-                /* total_item_pref */
-                .startObject("total_item_pref")
-                  .startObject("properties")
-
-                    .startObject("item")
-                      .field("type","integer")
-                    .endObject
-
-                    .startObject("score")
-                      .field("type","double")
-                    .endObject
-                
-                  .endObject()
-                .endObject()
 
                 /* user_total */
                 .startObject("user_total")

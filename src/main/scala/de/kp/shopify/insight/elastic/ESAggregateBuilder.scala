@@ -20,56 +20,17 @@ package de.kp.shopify.insight.elastic
 
 import org.elasticsearch.common.xcontent.{XContentBuilder,XContentFactory}
 
-class ESStateBuilder {
+class ESAggregateBuilder {
 
   import de.kp.spark.core.Names._
   
   def createBuilder(mapping:String):XContentBuilder = {
-    /*
-     * We build a denormalized description of the monetary and temporal
-     * dimension of the customers' purchase transactions for a certain
-     * period of time (created_at_min -> created_at_max).
-     * 
-     * Automatic identifier creation is required here as a customer holds
-     * multiple records and cannot be used for identifying the documents
-     */
+    
     val builder = XContentFactory.jsonBuilder()
           .startObject()
             .startObject(mapping)
               
               .startObject("properties")
-	            /*
-	             * The subsequent fields are shared with Predictiveworks'
-	             * Intent Recognition engine and must also be described 
-	             * by a field or metadata specification
-	             */
-                    
-                /* site */
-                .startObject(SITE_FIELD)
-                  .field("type", "string")
-                  .field("index", "not_analyzed")
-                .endObject()
-
-                /* user */
-                .startObject(USER_FIELD)
-                  .field("type", "string")
-                  .field("index", "not_analyzed")
-                .endObject()
-
-                /* timestamp */
-                .startObject(TIMESTAMP_FIELD)
-                  .field("type", "long")
-                .endObject()
-
-                /* state */
-                .startObject(STATE_FIELD)
-                  .field("type", "string")
-                .endObject()
-
-	            /*
-	             * The subsequent fields are used for evaluation within
-	             * the Shopify insight server
-	             */
 
                 /* uid */
                 .startObject(UID_FIELD)
@@ -88,60 +49,64 @@ class ESStateBuilder {
                   .field("type", "string")
                   .field("index", "not_analyzed")
                 .endObject()
-                
-                /*
-	             * Denormalized description of the RFM data retrieved
-	             * from all user transactions taken into account, i.e. 
-	             * from the 30, 60 or 90 days
-	             */
 
-                /* user_total */
-                .startObject("user_total")
+                /* total_orders */
+                .startObject("total_orders")
                   .field("type", "integer")
                 .endObject()
 
-                /* user_total_spent */
-                .startObject("user_total_spent")
+                /* total_amount */
+                .startObject("total_amount")
                   .field("type", "float")
                 .endObject()
 
-                /* user_avg_amount */
-                .startObject("user_avg_amount")
+                /* total_avg_amount */
+                .startObject("total_avg_amount")
                   .field("type", "float")
                 .endObject()
 
-                /* user_max_amount */
-                .startObject("user_max_amount")
+                /* total_max_amount */
+                .startObject("total_max_amount")
                   .field("type", "float")
                 .endObject()
 
-                /* user_min_amount */
-                .startObject("user_min_amount")
+                /* total_min_amount */
+                .startObject("total_min_amount")
                   .field("type", "float")
                 .endObject()
 
-                /* user_avg_timespan */
-                .startObject("user_avg_timespan")
+                /* total_avg_timespan */
+                .startObject("total_avg_timespan")
                   .field("type", "long")
                 .endObject()
 
-                /* user_max_timespan */
-                .startObject("user_max_timespan")
+                /* total_max_timespan */
+                .startObject("total_max_timespan")
                   .field("type", "long")
                 .endObject()
 
-                /* user_min_timespan */
-                .startObject("user_min_timespan")
-                  .field("type", "long")
-                .endObject()
-
-                /* user_recency */
-                .startObject("user_recency")
+                /* total_min_timespan */
+                .startObject("total_min_timespan")
                   .field("type", "long")
                 .endObject()
                 
-                /* user_day_pref */
-                .startObject("user_day_pref")
+                /* total_day_supp */
+                .startObject("total_day_supp")
+                  .startObject("properties")
+
+                    .startObject("day")
+                      .field("type","integer")
+                    .endObject
+
+                    .startObject("supp")
+                      .field("type","integer")
+                    .endObject
+                    
+                  .endObject()    
+                .endObject()
+                
+                /* total_day_pref */
+                .startObject("total_day_pref")
                   .startObject("properties")
 
                     .startObject("day")
@@ -155,8 +120,23 @@ class ESStateBuilder {
                   .endObject()    
                 .endObject()
 
-                /* user_time_pref */
-                .startObject("user_time_pref")
+                /* total_time_supp */
+                .startObject("total_time_supp")
+                  .startObject("properties")
+
+                    .startObject("time")
+                      .field("type","integer")
+                    .endObject
+
+                    .startObject("supp")
+                      .field("type","integer")
+                    .endObject
+                    
+                  .endObject()
+                .endObject()
+
+                /* total_time_pref */
+                .startObject("total_time_pref")
                   .startObject("properties")
 
                     .startObject("time")
@@ -169,13 +149,44 @@ class ESStateBuilder {
                     
                   .endObject()
                 .endObject()
-              
+
+                /* total_item_supp */
+                .startObject("total_item_supp")
+                  .startObject("properties")
+
+                    .startObject("item")
+                      .field("type","integer")
+                    .endObject
+
+                    .startObject("supp")
+                      .field("type","integer")
+                    .endObject
+                    
+                  .endObject()
+                .endObject()
+
+                /* total_item_pref */
+                .startObject("total_item_pref")
+                  .startObject("properties")
+
+                    .startObject("item")
+                      .field("type","integer")
+                    .endObject
+
+                    .startObject("score")
+                      .field("type","double")
+                    .endObject
+                    
+                  .endObject()
+                .endObject()
+                 
               .endObject()
+              
             .endObject()
           .endObject()
-    
+          
     builder
-
+  
   }
 
 }

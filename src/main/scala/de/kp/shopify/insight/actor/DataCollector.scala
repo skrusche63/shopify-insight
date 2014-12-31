@@ -77,6 +77,13 @@ class DataCollector(requestCtx:RequestContext) extends BaseActor {
              */
             val analytics = new Analytics(requestCtx)
 
+            val aggregate = analytics.buildSUM(req_params,orders)
+            
+            if (handler.putSource("orders","aggregates",aggregate) == false)
+              throw new Exception("Indexing for 'orders/aggregates' has been stopped due to an internal error.")
+          
+            requestCtx.listener ! String.format("""[INFO][UID: %s] Item perspective registered in Elasticsearch index.""",uid)
+
             val items = analytics.buildITM(req_params,orders)
             
             if (handler.putSourcesJSON("orders","items",items) == false)

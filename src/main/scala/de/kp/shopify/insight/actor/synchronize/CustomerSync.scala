@@ -88,10 +88,43 @@ class CustomerSync(requestCtx:RequestContext) extends BaseActor {
     val builder = XContentFactory.jsonBuilder()
 	builder.startObject()
 	
-	// TODO
+	/* site */
+	builder.field(Names.SITE_FIELD,customer.site)
+	
+	/* id */
+	builder.field("id",customer.id)
+	
+	/* first_name */
+	builder.field("first_name",customer.firstName)
+	
+	/* last_name */
+	builder.field("last_name",customer.lastName)
+	
+	/* email */
+	builder.field("email",customer.emailAddress)
+	
+	/* email_verified */
+	builder.field("email_verified",customer.emailVerified)
+	
+	/* accepts_marketing */
+	builder.field("accepts_marketing",customer.marketing)
+	
+	/* operational_state */
+	builder.field("operational_state",customer.state)
+	
+	/* last_order */
+	builder.field("last_order",customer.lastOrder)
+	
+	/* orders_count */
+	builder.field("orders_count",customer.ordersCount)
+	
+	/* amount_spent */
+	builder.field("amount_spent",customer.totalSpent)
+	
 	builder.endObject()
    
     builder
     
   }
+
 }

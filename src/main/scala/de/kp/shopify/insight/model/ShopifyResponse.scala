@@ -49,6 +49,9 @@ case class ShopifyResponse(
 
   @JsonProperty("orders")
   orders:List[ShopifyOrder],
+
+  @JsonProperty("custom_collection")
+  custom_collection:ShopifyCollection,
     
   @JsonProperty("errors")
   errors:String

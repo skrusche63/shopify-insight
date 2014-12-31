@@ -111,7 +111,11 @@ class RequestContext(
    * pipeline starts
    */
   def clearOrders = shopifyOrders.clear
-    
+  /**
+   * The subsequent methods wrap the respective methods from the Elasticsearch
+   * client and makes access to the multiple search indexes available from the
+   * request context
+   */  
   def createIndex(params:Map[String,String],index:String,mapping:String,topic:String):Boolean 
     = elasticClient.createIndex(params,index,mapping,topic)
 
@@ -120,6 +124,9 @@ class RequestContext(
 
   def get(index:String,mapping:String,id:String):java.util.Map[String,Object] 
     = elasticClient.get(index,mapping,id)
+
+  def putSource(index:String,mapping:String,source:XContentBuilder):Boolean 
+    = elasticClient.putSource(index,mapping,source)
 
   def putSources(index:String,mapping:String,sources:List[java.util.Map[String,Object]]):Boolean
     = elasticClient.putSources(index,mapping,sources)

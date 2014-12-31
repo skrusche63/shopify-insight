@@ -34,6 +34,8 @@ import de.kp.shopify.insight.analytics._
 import scala.collection.mutable.ArrayBuffer
 import scala.collection.JavaConversions._
 
+import org.elasticsearch.common.xcontent.{XContentBuilder,XContentFactory}
+
 class LoyaltyModeler(requestCtx:RequestContext) extends BaseActor {
 
   override def receive = {
@@ -52,9 +54,9 @@ class LoyaltyModeler(requestCtx:RequestContext) extends BaseActor {
          * these observations are then used to determine the assigned hidden 
          * loyalty states
          */
-        val observations = transform(requestCtx.getPurchases(req_params))
+        val observations = transform(requestCtx.getOrders(req_params))
       
-        requestCtx.listener ! String.format("""[INFO][UID: %s] Purchases successfully transformed into observations.""",uid)
+        requestCtx.listener ! String.format("""[INFO][UID: %s] Orders successfully transformed into observations.""",uid)
 
         /*
          * STEP #2: Retrieve hidden Markon states from Intent Recognition engine, 
@@ -78,14 +80,12 @@ class LoyaltyModeler(requestCtx:RequestContext) extends BaseActor {
 
             } else {
             
-              val trajectories = buildTrajectories(res,observations)
+              val trajectories = toSources(req_params,res,observations)
             
               /*
                * STEP #3: Register the trajectories derived from the hidden state model
                */
-              val handler = new ElasticClient()
- 
-              if (handler.putSources("orders","loyalty",trajectories) == false)
+              if (requestCtx.putSourcesJSON("orders","loyalty",trajectories) == false)
                 throw new Exception("Indexing processing has been stopped due to an internal error.")
 
               requestCtx.listener ! String.format("""[INFO][UID: %s] User loyalty model building finished.""",uid)
@@ -137,12 +137,10 @@ class LoyaltyModeler(requestCtx:RequestContext) extends BaseActor {
   /**
    * Buid user loyalty trajectories
    */
-  private def buildTrajectories(response:ServiceResponse,observations:List[(String,String,List[String])]):List[java.util.Map[String,Object]] = {
-
-    val uid = response.data(Names.REQ_UID)
-   
-    val states_list = response.data(Names.REQ_RESPONSE).split(";").map(x => x.split(","))
-    val trajectories = ArrayBuffer.empty[java.util.Map[String,Object]]
+  private def toSources(params:Map[String,String],response:ServiceResponse,observations:List[(String,String,List[String])]):List[XContentBuilder] = {
+    
+    val states_list = response.data(Names.REQ_RESPONSE).split(";").map(x => x.split(","))    
+    val sources = ArrayBuffer.empty[XContentBuilder]
     
     val len = observations.size
     (0 until len).foreach(i => {
@@ -151,18 +149,54 @@ class LoyaltyModeler(requestCtx:RequestContext) extends BaseActor {
       
       val (site,user,observation) = observations(i)
       val states = states_list(i)
+      /*
+       * From the states, we also derive the percentage of the different 
+       * loyalty states. Note, that these loyalty rates are the counterpart 
+       * to  Sentiment Analysis, when content is considered
+       */
+      val rates = states.groupBy(x => x).map(x => (x._1, x._2.length.toDouble / states.length))    
+    
+      val low  = if (rates.contains("L")) rates("L") else 0.0 
+      val norm = if (rates.contains("N")) rates("N") else 0.0 
+
+      val high = if (rates.contains("H")) rates("H") else 0.0 
+          
+      val builder = XContentFactory.jsonBuilder()
+      builder.startObject()
       
-      data += Names.SITE_FIELD -> site
-      data += Names.USER_FIELD -> user
+      /* uid */
+      builder.field(Names.UID_FIELD,params(Names.REQ_UID))
+
+	  /* created_at_min */
+	  builder.field("created_at_min",params("created_at_min"))
+
+	  /* created_at_max */
+	  builder.field("created_at_max",params("created_at_max"))
       
-      data += Names.UID_FIELD -> uid
-      data += Names.TRAJECTORY_FIELD -> states.toList.asInstanceOf[Object]
+      /* site */
+      builder.field(Names.SITE_FIELD,site)
       
-      trajectories += data
+      /* user */
+      builder.field(Names.USER_FIELD,user)
+      
+      /* trajectory */
+      builder.field(Names.TRAJECTORY_FIELD,states.toList)
+      
+      /* low */
+      builder.field("low",low)
+      
+      /* norm */
+      builder.field("norm",norm)
+      
+      /* high */
+      builder.field("high",high)
+      
+      builder.endObject()
+      sources += builder
       
     })
     
-    trajectories.toList    
+    sources.toList    
   
   }
   
@@ -184,43 +218,49 @@ class LoyaltyModeler(requestCtx:RequestContext) extends BaseActor {
 
   }
 
-  private def transform(purchases:List[AmountObject]):List[(String,String,List[String])] = {
-        
+  private def transform(rawset:List[Order]):List[(String,String,List[String])] = {
+
     /*
-     * Group purchases by site & user and restrict to those
+     * Extract the temporal and monetary dimension from the raw dataset
+     */
+    val orders = rawset.map(order => (order.site,order.user,order.timestamp,order.amount))    
+    /*
+     * Group orders by site & user and restrict to those
      * users with more than one purchase
      */
-    purchases.groupBy(p => (p.site,p.user)).filter(_._2.size > 1).map(p => {
+    orders.groupBy(x => (x._1,x._2)).filter(_._2.size > 1).map(p => {
 
-      val (site,user) = p._1
-      val orders      = p._2.map(v => (v.timestamp,v.amount)).toList.sortBy(_._1)
+      val (site,user) = p._1  
       
-      /* Extract first order */
-      var (pre_time,pre_amount) = orders.head
-          
-      val states = ArrayBuffer.empty[String]
-      for ((time,amount) <- orders.tail) {
-        
-        /* Determine state from amount */
-        val astate = StateHandler.stateByAmount(amount,pre_amount)
+      /* Compute time ordered list of (timestamp,amount) */
+      val user_orders = p._2.map(x => (x._3,x._4)).toList.sortBy(_._1)      
+      
+      /******************** MONETARY DIMENSION *******************/
+      
+      /*
+       * Compute the amount sub states from the subsequent pairs 
+       * of user amounts; the amount handler holds a predefined
+       * configuration to map a pair onto a state
+       */
+      val user_amounts = user_orders.map(_._2)
+      val user_amount_states = user_amounts.zip(user_amounts.tail).map(x => StateHandler.stateByAmount(x._2,x._1))
      
-        /* Determine state from time elapsed between
-         * subsequent orders or transactions
-         */
-        val tstate = StateHandler.stateByTime(time,pre_time)
+      /******************** TEMPORAL DIMENSION *******************/
+       
+      /*
+       * Compute the timespan sub states from the subsequent pairs 
+       * of user timestamps; the amount handler holds a predefined
+       * configuration to map a pair onto a state
+       */
+      val user_timestamps = user_orders.map(_._1)
+      val user_time_states = user_timestamps.zip(user_timestamps.tail).map(x => StateHandler.stateByTime(x._2,x._1))
+
+     
+      /********************* STATES DIMENSION ********************/
+
+      val user_states = user_amount_states.zip(user_time_states).map(x => x._1 + x._2)
+      (site,user,user_states)
       
-        val state = astate + tstate
-        states += state
-        
-        pre_amount = amount
-        pre_time   = time
-        
-      }
-      
-      val observations = states.toList
-      (site,user,observations)
-      
-    
     }).toList
    
   }

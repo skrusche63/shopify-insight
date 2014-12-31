@@ -35,6 +35,7 @@ import org.joda.time.DateTime
 import org.joda.time.format.DateTimeFormat
 
 import scala.collection.mutable.{ArrayBuffer,HashMap}
+import org.elasticsearch.common.xcontent.{XContentBuilder,XContentFactory}
 
 class DataPipeline(requestCtx:RequestContext) extends BaseActor {
   
@@ -72,6 +73,12 @@ class DataPipeline(requestCtx:RequestContext) extends BaseActor {
         
         val req_params = message.data
         createElasticIndexes(req_params)
+       
+        /*
+         * Register this data preparation task in the respective
+         * 'database/tasks' index
+         */
+        registerTask(req_params)
         /*
          * Send request to DataCollector actor and inform requestor
          * that the tracking process has been started. Error and
@@ -259,14 +266,50 @@ class DataPipeline(requestCtx:RequestContext) extends BaseActor {
       
     }
     case message:ProfileFailed => {
-      
+      // TODO
     }
     case message:ProfileFinished => {
-      
+      // TODO
     }
     case _ => {/* do nothing */}
     
   }
+  /**
+   * This method registers the data preparation task in the respective
+   * Elasticsearch index; this information supports administrative
+   * tasks such as the monitoring of this insight server
+   */
+  private def registerTask(params:Map[String,String]) = {
+    
+    val uid = params(Names.REQ_UID)
+    val key = "prepare:" + uid
+    
+    val task = "data preparation"
+    val timestamp = new java.util.Date().getTime
+    /*
+     * Note, that we do not specify additional
+     * payload data here
+     */
+    val builder = XContentFactory.jsonBuilder()
+	builder.startObject()
+	
+	/* key */
+	builder.field("key",key)
+	
+	/* task */
+	builder.field("task",task)
+	
+	/* timestamp */
+	builder.field("timestamp",timestamp)
+	
+	builder.endObject()
+	/*
+	 * Register data in the 'database/tasks' index
+	 */
+	requestCtx.putSource("database","tasks",builder)
+
+  }
+  
   /**
    * A helper method to prepare all Elasticsearch indexes used by the 
    * Shopify Analytics (or Insight) Server
@@ -276,6 +319,13 @@ class DataPipeline(requestCtx:RequestContext) extends BaseActor {
     val uid = params(Names.REQ_UID)
     /*
      * Create search indexes (if not already present)
+     * 
+     * The 'tasks' index (mapping) specified an administrative database
+     * where all steps of a certain synchronization or data analytics
+     * task are registered
+     * 
+     * The 'aggregates' index (mapping) specifies a database with aggregated
+     * data from all orders or transactions of a certain time span
      * 
      * The 'items' index (mapping) specifies a transaction database and
      * is used by Association Analysis, Series Analysis and other engines
@@ -287,6 +337,10 @@ class DataPipeline(requestCtx:RequestContext) extends BaseActor {
      * derived from the Markovian rules built by the Intent Recognition
      * engine
      * 
+     * The 'loyalty' index (mapping) specifies a user loyalty database
+     * derived from the Markovian hidden states built by the Intent Recognition
+     * engine
+     * 
      * The 'recommendation' index (mapping) specifies a product recommendation
      * database derived from the Association rules and the last items purchased
      * 
@@ -296,9 +350,16 @@ class DataPipeline(requestCtx:RequestContext) extends BaseActor {
      * The 'profile' index (mapping) specifies the user profile database
      * computed by the user profiler
      */
+    
+    if (requestCtx.createIndex(params,"database","tasks","task") == false)
+      throw new Exception("Index creation for 'database/tasks' has been stopped due to an internal error.")
+    
     /*
      * SUB PROCESS 'COLLECT'
      */
+    if (requestCtx.createIndex(params,"orders","aggregates","aggregate") == false)
+      throw new Exception("Index creation for 'orders/aggregates' has been stopped due to an internal error.")
+
     if (requestCtx.createIndex(params,"orders","items","item") == false)
       throw new Exception("Index creation for 'orders/items' has been stopped due to an internal error.")
  
@@ -307,13 +368,13 @@ class DataPipeline(requestCtx:RequestContext) extends BaseActor {
     /*       
      * SUB PROCESS 'ENRICH'
      */
-    if (requestCtx.createIndex(params,"orders","forecasts","forecast") == false)
+    if (requestCtx.createIndex(params,"users","forecasts","forecast") == false)
       throw new Exception("Indexing has been stopped due to an internal error.")
 
-    if (requestCtx.createIndex(params,"orders","loyalty","loyalty") == false)
+    if (requestCtx.createIndex(params,"users","loyalty","loyalty") == false)
       throw new Exception("Indexing has been stopped due to an internal error.")
             
-    if (requestCtx.createIndex(params,"orders","recommendations","recommendation") == false)
+    if (requestCtx.createIndex(params,"users","recommendations","recommendation") == false)
       throw new Exception("Indexing has been stopped due to an internal error.")
             
     if (requestCtx.createIndex(params,"orders","rules","rule") == false)

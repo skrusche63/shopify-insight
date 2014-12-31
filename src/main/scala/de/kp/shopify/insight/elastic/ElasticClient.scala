@@ -107,8 +107,17 @@ class ElasticClient {
   def createIndex(params:Map[String,String],index:String,mapping:String,topic:String):Boolean = {
     
     try {
+
+      if (topic == "aggregate") {
+        /*
+         * Topic 'aggreagte' is indexed by the collector actor and does not 
+         * require a metadata specification as these data are not shared with 
+         * any predictive engine
+         */
+        val builder = new ESAggregateBuilder().createBuilder(mapping)
+        create(index,mapping,builder)
       
-      if (topic == "customer") {
+      } else if (topic == "customer") {
         /*
          * Topic 'customer' is indexed by the customer synchronizer and does not 
          * require a metadata specification as these data are not shared with any 
@@ -154,7 +163,7 @@ class ElasticClient {
          * a metadata specification as these data are not shared with predictive
          * engines
          */
-        val builder = new ElasticLoyaltyBuilder().createBuilder(mapping)
+        val builder = new ESLoyaltyBuilder().createBuilder(mapping)
         create(index,mapping,builder)
        
       } else if (topic == "product") {
@@ -238,6 +247,38 @@ class ElasticClient {
 
     }
     
+  }
+  
+  def putSource(index:String,mapping:String,source:XContentBuilder):Boolean = {
+     
+    try {
+    
+      val writer = new ElasticWriter()
+        
+      val readyToWrite = writer.open(index,mapping)
+      if (readyToWrite == false) {
+      
+        writer.close()
+      
+        val msg = String.format("""Opening index '%s' and mapping '%s' for write failed.""",index,mapping)
+        throw new Exception(msg)
+      
+      } else {
+      
+        /*
+         * Writing the sources to the respective index throws an
+         * exception in case of an error; note, that the writer is
+         * automatically closed 
+         */
+        writer.writeJSON(index, mapping, source)      
+        true
+      
+      }
+    
+    } catch {
+      case e:Exception => false
+    }
+   
   }
   
   def putSources(index:String,mapping:String,sources:List[java.util.Map[String,Object]]):Boolean = {

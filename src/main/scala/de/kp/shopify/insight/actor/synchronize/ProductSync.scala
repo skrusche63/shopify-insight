@@ -88,10 +88,50 @@ class ProductSync(requestCtx:RequestContext) extends BaseActor {
     val builder = XContentFactory.jsonBuilder()
 	builder.startObject()
 	
-	// TODO
+	/* site */
+	builder.field(Names.SITE_FIELD,product.site)
+	
+	/* id */
+	builder.field("id",product.id)
+	
+	/* name */
+	builder.field("name",product.name)
+	
+	/* category */
+	builder.field("category",product.category)
+	
+	/* tags */
+	builder.field("tags",product.tags)
+	
+	/* images */
+	builder.startArray("images")
+	
+	for (image <- product.images) {
+	  
+	  builder.startObject()
+	  
+	  /* id */
+	  builder.field("id",image.id)
+	  
+	  /* position */
+	  builder.field("position",image.position)
+	  
+	  /* source */
+	  builder.field("source",image.src)
+
+	  builder.endObject()
+	
+	}
+	
+    builder.endArray()
+	
+	/* vendor */
+	builder.field("vendor",product.vendor)
+	
 	builder.endObject()
    
     builder
     
   }
+
 }

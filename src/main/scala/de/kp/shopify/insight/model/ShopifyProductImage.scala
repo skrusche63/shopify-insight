@@ -27,6 +27,9 @@ case class ShopifyProductImage(
   @JsonProperty("id")
   id:Long,
 
+  @JsonProperty("created_at")
+  created_at:String,
+
   @JsonProperty("position")
   position:Int,
   
