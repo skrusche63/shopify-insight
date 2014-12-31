@@ -154,7 +154,7 @@ class ElasticClient {
          * a metadata specification as these data are not shared with predictive
          * engines
          */
-        val builder = new ElasticForecastBuilder().createBuilder(mapping)
+        val builder = new ESForecastBuilder().createBuilder(mapping)
         create(index,mapping,builder)
         
       } else if (topic == "loyalty") {

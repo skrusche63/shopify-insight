@@ -31,8 +31,8 @@ import de.kp.shopify.insight.elastic._
 
 import de.kp.shopify.insight.analytics._
 
-import scala.collection.mutable.ArrayBuffer
-import scala.collection.JavaConversions._
+import scala.collection.mutable.{ArrayBuffer,HashMap}
+import org.elasticsearch.common.xcontent.{XContentBuilder,XContentFactory}
 
 /**
  * ForecastModeler is an actor that analyzes Shopify orders of a certain time interval 
@@ -60,7 +60,7 @@ class ForecastModeler(requestCtx:RequestContext) extends BaseActor {
          * STEP #1: Transform Shopify orders into purchases; these purchases are used 
          * to compute n-step ahead forecasts with respect to purchase amount and time
          */
-        val purchases = transform(requestCtx.getPurchases(req_params))
+        val purchases = transform(requestCtx.getOrders(req_params))
       
         requestCtx.listener ! String.format("""[INFO][UID: %s] Orders successfully transformed into purchases.""",uid)
 
@@ -86,11 +86,9 @@ class ForecastModeler(requestCtx:RequestContext) extends BaseActor {
 
             } else {
 
-              val forecasts = buildForecasts(res,purchases)
-            
-              val handler = new ElasticClient()
+              val sources = toSources(req_params,res,purchases)
 
-              if (handler.putSources("orders","forecasts",forecasts) == false)
+              if (requestCtx.putSourcesJSON("users","forecasts",sources) == false)
                 throw new Exception("Indexing processing has been stopped due to an internal error.")
 
               requestCtx.listener ! String.format("""[INFO][UID: %s] Purchase forecast model building finished.""",uid)
@@ -137,7 +135,7 @@ class ForecastModeler(requestCtx:RequestContext) extends BaseActor {
 
   }  
 
-  private def buildForecasts(response:ServiceResponse,purchases:List[(String,String,Float,Long,String)]):List[java.util.Map[String,Object]] = {
+  private def toSources(params:Map[String,String],response:ServiceResponse,purchases:List[(String,String,Float,Long,String)]):List[XContentBuilder] = {
 
     val uid = response.data(Names.REQ_UID)
     
@@ -162,17 +160,32 @@ class ForecastModeler(requestCtx:RequestContext) extends BaseActor {
       
       val forecasts = buildForecasts(amount,time,lookup(state)).zipWithIndex
       forecasts.map(x => {
+          
+        val builder = XContentFactory.jsonBuilder()
+        builder.startObject()
+       
+        /* uid */
+        builder.field(Names.UID_FIELD,params(Names.REQ_UID))
+
+	    /* created_at_min */
+	    builder.field("created_at_min",params("created_at_min"))
+
+	    /* created_at_max */
+	    builder.field("created_at_max",params("created_at_max"))
+      
+        /* site */
+        builder.field(Names.SITE_FIELD,site)
+      
+        /* user */
+        builder.field(Names.USER_FIELD,user)
         
-        val source = new java.util.HashMap[String,Object]()
+        /* step */
+        builder.field(Names.STEP_FIELD,(x._2 + 1))
         
-        source += Names.SITE_FIELD -> site
-        source += Names.USER_FIELD -> user
+        x._1.foreach(entry => builder.field(entry._1,entry._2))       
         
-        source += Names.UID_FIELD -> uid
-        source += Names.STEP_FIELD -> (x._2 + 1).asInstanceOf[Object]
-        
-        x._1.foreach(entry => source += entry._1 -> entry._2)       
-        source
+        builder.endObject()
+        builder
         
       })
     
@@ -183,9 +196,9 @@ class ForecastModeler(requestCtx:RequestContext) extends BaseActor {
    * The Intent Recognition engine returns a list of Markovian states; the ordering
    * of these states reflects the number of steps looked ahead
    */
-  private def buildForecasts(amount:Float,time:Long,states:List[MarkovState]):List[java.util.Map[String,Object]] = {
+  private def buildForecasts(amount:Float,time:Long,states:List[MarkovState]):List[Map[String,Any]] = {
     
-    val result = ArrayBuffer.empty[java.util.Map[String,Object]]
+    val result = ArrayBuffer.empty[Map[String,Any]]
     val steps = states.size
     
     if (steps == 0) return result.toList
@@ -204,15 +217,15 @@ class ForecastModeler(requestCtx:RequestContext) extends BaseActor {
     val next_days = StateHandler.nextDays(state.name)
     val next_score = state.probability
     
-    val source = new java.util.HashMap[String,Object]()
+    val source = HashMap.empty[String,Any]
     
-    source += Names.AMOUNT_FIELD -> next_amount.asInstanceOf[Object]
-    source += Names.DAYS_FIELD -> next_days.asInstanceOf[Object]
+    source += Names.AMOUNT_FIELD -> next_amount
+    source += Names.DAYS_FIELD -> next_days
     
     source += Names.STATE_FIELD -> state.name
-    source += Names.SCORE_FIELD -> next_score.asInstanceOf[Object]
+    source += Names.SCORE_FIELD -> next_score
     
-    result += source
+    result += source.toMap
 
     var pre_amount = next_amount
     var pre_score = next_score
@@ -237,7 +250,7 @@ class ForecastModeler(requestCtx:RequestContext) extends BaseActor {
       pre_amount = next_amount
       pre_score = next_score
       
-      val source = new java.util.HashMap[String,Object]()
+      val source = HashMap.empty[String,Any]
     
       source += Names.AMOUNT_FIELD -> sum_amount.asInstanceOf[Object]
       source += Names.DAYS_FIELD -> sum_days.asInstanceOf[Object]
@@ -245,7 +258,7 @@ class ForecastModeler(requestCtx:RequestContext) extends BaseActor {
       source += Names.STATE_FIELD -> state.name
       source += Names.SCORE_FIELD -> next_score.asInstanceOf[Object]
       
-      result += source
+      result += source.toMap
  
     }
     
@@ -271,16 +284,17 @@ class ForecastModeler(requestCtx:RequestContext) extends BaseActor {
 
   }
   
-  private def transform(purchases:List[AmountObject]):List[(String,String,Float,Long,String)] = {
+  private def transform(rawset:List[Order]):List[(String,String,Float,Long,String)] = {
     
     /*
      * Group purchases by site & user and restrict to those
      * users with more than one purchase
      */
-    val result = purchases.groupBy(p => (p.site,p.user)).filter(_._2.size > 1).map(p => {
+    val orders = rawset.map(order => (order.site,order.user,order.timestamp,order.amount))    
+    orders.groupBy(x => (x._1,x._2)).filter(_._2.size > 1).map(p => {
 
       val (site,user) = p._1
-      val orders = p._2.map(v => (v.timestamp,v.amount)).toList.sortBy(_._1).reverse.take(2)
+      val orders = p._2.map(x => (x._3,x._4)).toList.sortBy(_._1).reverse.take(2)
       
       val (last_time,last_amount) = orders.head
       val (prev_time,prev_amount) = orders.last
@@ -295,9 +309,7 @@ class ForecastModeler(requestCtx:RequestContext) extends BaseActor {
       val last_state = astate + tstate
       (site,user,last_amount,last_time,last_state)
       
-    })
-    
-    result.toList 
+    }).toList
     
   }
   

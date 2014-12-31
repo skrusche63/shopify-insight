@@ -85,7 +85,7 @@ class LoyaltyModeler(requestCtx:RequestContext) extends BaseActor {
               /*
                * STEP #3: Register the trajectories derived from the hidden state model
                */
-              if (requestCtx.putSourcesJSON("orders","loyalty",trajectories) == false)
+              if (requestCtx.putSourcesJSON("users","loyalty",trajectories) == false)
                 throw new Exception("Indexing processing has been stopped due to an internal error.")
 
               requestCtx.listener ! String.format("""[INFO][UID: %s] User loyalty model building finished.""",uid)

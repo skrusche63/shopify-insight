@@ -25,63 +25,73 @@ import de.kp.spark.core.Names
 import scala.collection.JavaConversions._
 import scala.collection.mutable.HashMap
 
-class ElasticForecastBuilder {
+class ESForecastBuilder {
 
   import de.kp.spark.core.Names._
   
   def createBuilder(mapping:String):XContentBuilder = {
-    /*
-     * Define mapping schema for index 'index' and 'type'
-     */
+
     val builder = XContentFactory.jsonBuilder()
           .startObject()
             .startObject(mapping)
-               .startObject("properties")
+              .startObject("properties")
+
+                /* uid */
+                .startObject(UID_FIELD)
+                  .field("type", "string")
+                  .field("index", "not_analyzed")
+                .endObject()
+
+                /* created_at_min */
+                .startObject("created_at_min")
+                  .field("type", "string")
+                  .field("index", "not_analyzed")
+                .endObject()
+
+                /* created_at_max */
+                .startObject("created_at_max")
+                  .field("type", "string")
+                  .field("index", "not_analyzed")
+                .endObject()
                     
-               /* site */
-               .startObject(SITE_FIELD)
+                /* site */
+                .startObject(SITE_FIELD)
                   .field("type", "string")
                   .field("index", "not_analyzed")
-               .endObject()
+                .endObject()
 
-               /* user */
-               .startObject(USER_FIELD)
+                /* user */
+                .startObject(USER_FIELD)
                   .field("type", "string")
                   .field("index", "not_analyzed")
-               .endObject()
-
-               /* uid */
-               .startObject(UID_FIELD)
-                 .field("type", "string")
-                 .field("index", "not_analyzed")
-               .endObject()
+                .endObject()
                
-               /* step */
-               .startObject(STEP_FIELD)
+                /* step */
+                .startObject(STEP_FIELD)
                   .field("type", "integer")
-               .endObject()//
+                .endObject()//
 
-               /* state */
-               .startObject(STATE_FIELD)
+                /* state */
+                .startObject(STATE_FIELD)
                   .field("type", "string")
-               .endObject()//
+                .endObject()
 
-               /* amount */
-               .startObject(AMOUNT_FIELD)
+                /* amount */
+                .startObject(AMOUNT_FIELD)
                   .field("type", "float")
-               .endObject()
+                .endObject()
 
-               /* days */
-               .startObject(DAYS_FIELD)
-                 .field("type", "long")
-               .endObject()
+                /* days */
+                .startObject(DAYS_FIELD)
+                  .field("type", "long")
+                .endObject()
                
-               /* score */
-               .startObject(SCORE_FIELD)
-                 .field("type", "double")
-               .endObject()
+                /* score */
+                .startObject(SCORE_FIELD)
+                  .field("type", "double")
+                .endObject()
 
-               .endObject() // properties
+              .endObject() // properties
             .endObject()   // mapping
           .endObject()
                     
