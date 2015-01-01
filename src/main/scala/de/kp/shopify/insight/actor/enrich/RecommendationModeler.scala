@@ -29,9 +29,7 @@ import de.kp.shopify.insight.model._
 import de.kp.shopify.insight.io._
 
 import de.kp.shopify.insight.elastic._
-
-import scala.collection.JavaConversions._
-
+import org.elasticsearch.common.xcontent.{XContentBuilder,XContentFactory}
 
 /**
  * RecommendationModeler is an actor that uses an association rule model, 
@@ -84,7 +82,7 @@ class RecommendationModeler(requestCtx:RequestContext) extends BaseActor {
                * STEP #3: Build product recommendations by merging the association
                * rules and the last transaction itemsets
                */            
-              val recommendations = buildProductRecommendations(res,itemsets)
+              val sources = toSources(req_params,res,itemsets)
               /*
                * STEP #2: Create search index (if not already present);
                * the index is used to register the recommendations derived 
@@ -92,7 +90,7 @@ class RecommendationModeler(requestCtx:RequestContext) extends BaseActor {
                */
               val handler = new ElasticClient()
 
-              if (handler.putSources("orders","recommendations",recommendations) == false)
+              if (handler.putSources("users","recommendations",sources) == false)
                 throw new Exception("Indexing processing has been stopped due to an internal error.")
 
               requestCtx.listener ! String.format("""[INFO][UID: %s] User recommendation model building finished.""",uid)
@@ -156,7 +154,7 @@ class RecommendationModeler(requestCtx:RequestContext) extends BaseActor {
 
   }
   
-  private def buildProductRecommendations(response:ServiceResponse,itemsets:List[(String,String,List[Int])]):List[java.util.Map[String,Object]] = {
+  private def toSources(params:Map[String,String],response:ServiceResponse,itemsets:List[(String,String,List[Int])]):List[XContentBuilder] = {
             
     val uid = response.data(Names.REQ_UID)
     val rules = Serializer.deserializeRules(response.data(Names.REQ_RESPONSE))
@@ -183,23 +181,42 @@ class RecommendationModeler(requestCtx:RequestContext) extends BaseActor {
       }).filter(r => (r._1.intersect(r._2).size == 0))
       
       val best_rule = new_rules.sortBy(x => (-x._6, -x._5, -x._3)).head
-      val source = new java.util.HashMap[String,Object]()    
+          
+      val builder = XContentFactory.jsonBuilder()
+      builder.startObject()
+      
+      /* uid */
+      builder.field(Names.UID_FIELD,params(Names.REQ_UID))
 
-      source += Names.SITE_FIELD -> site
-      source += Names.USER_FIELD -> user
+	  /* created_at_min */
+	  builder.field("created_at_min",params("created_at_min"))
+
+	  /* created_at_max */
+	  builder.field("created_at_max",params("created_at_max"))
       
-      source += Names.UID_FIELD -> uid
-      source += Names.TIMESTAMP_FIELD -> timestamp.asInstanceOf[Object]
-        
-      source += Names.CONSEQUENT_FIELD -> best_rule._2
-        
-      source += Names.SUPPORT_FIELD -> best_rule._3.asInstanceOf[Object]
-      source += Names.TOTAL_FIELD -> best_rule._4.asInstanceOf[Object]
+      /* site */
+      builder.field(Names.SITE_FIELD,site)
       
-      source += Names.CONFIDENCE_FIELD -> best_rule._5.asInstanceOf[Object]        
-      source += Names.WEIGHT_FIELD -> best_rule._6.asInstanceOf[Object]
-        
-      source
+      /* user */
+      builder.field(Names.USER_FIELD,user)
+      
+      /* consequent */
+      builder.field(Names.CONSEQUENT_FIELD,best_rule._2)
+      
+      /* support */
+      builder.field(Names.SUPPORT_FIELD,best_rule._3)
+      
+      /* total */
+      builder.field(Names.TOTAL_FIELD,best_rule._4)
+      
+      /* confidence */
+      builder.field(Names.CONFIDENCE_FIELD,best_rule._5)  
+      
+      /* weight */
+      builder.field(Names.WEIGHT_FIELD,best_rule._6)
+      
+      builder.endObject()        
+      builder
 
     })
  

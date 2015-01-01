@@ -122,6 +122,12 @@ class SyncPipeline(requestCtx:RequestContext) extends BaseActor {
 	
 	/* timestamp */
 	builder.field("timestamp",timestamp)
+
+    /* created_at_min */
+	builder.field("created_at_min",params("created_at_min"))
+	
+    /* created_at_max */
+	builder.field("created_at_max",params("created_at_max"))
 	
 	builder.endObject()
 	/*

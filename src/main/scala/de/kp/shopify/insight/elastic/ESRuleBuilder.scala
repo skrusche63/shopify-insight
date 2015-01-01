@@ -20,23 +20,17 @@ package de.kp.shopify.insight.elastic
 
 import org.elasticsearch.common.xcontent.{XContentBuilder,XContentFactory}
 
-import de.kp.spark.core.Names
-
-import scala.collection.JavaConversions._
-import scala.collection.mutable.HashMap
-
-class ESLoyaltyBuilder {
+class ESRuleBuilder {
 
   import de.kp.spark.core.Names._
   
   def createBuilder(mapping:String):XContentBuilder = {
-    /*
-     * Define mapping schema for index 'index' and 'type'
-     */
+  
     val builder = XContentFactory.jsonBuilder()
           .startObject()
             .startObject(mapping)
-               .startObject("properties")
+              
+              .startObject("properties")
 
                /* uid */
                .startObject(UID_FIELD)
@@ -55,50 +49,39 @@ class ESLoyaltyBuilder {
                   .field("type", "string")
                   .field("index", "not_analyzed")
                 .endObject()
-                    
-               /* site */
-               .startObject(SITE_FIELD)
-                  .field("type", "string")
-                  .field("index", "not_analyzed")
-               .endObject()
 
-               /* user */
-               .startObject(USER_FIELD)
-                  .field("type", "string")
-                  .field("index", "not_analyzed")
-               .endObject()
-               
-               /* trajectory */
-               .startObject(TRAJECTORY_FIELD)
-                  .field("type", "string")
-               .endObject()
-               
-               /* low */
-               .startObject("low")
-                  .field("type", "double")
-               .endObject()
-               
-               /* norm */
-               .startObject("norm")
-                  .field("type", "double")
-               .endObject()
-               
-               /* high */
-               .startObject("high")
-                  .field("type", "double")
-               .endObject()
-               
-               /* rating */
-               .startObject("rating")
+                /* antecedent */
+                .startObject(ANTECEDENT_FIELD)
                   .field("type", "integer")
-               .endObject()
+                .endObject()
 
-               .endObject() // properties
-            .endObject()   // mapping
+                /* consequent */
+                .startObject(CONSEQUENT_FIELD)
+                  .field("type", "integer")
+                .endObject()
+
+                /* support */
+                .startObject(SUPPORT_FIELD)
+                  .field("type", "integer")
+                .endObject()
+
+                /* total */
+                .startObject(TOTAL_FIELD)
+                  .field("type", "integer")
+                .endObject()
+
+                /* confidence */
+                .startObject(CONFIDENCE_FIELD)
+                  .field("type", "double")
+                .endObject()
+             
+              .endObject()
+            
+            .endObject()
           .endObject()
-                    
+          
     builder
-
+    
   }
 
 }

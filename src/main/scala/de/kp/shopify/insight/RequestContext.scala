@@ -119,20 +119,23 @@ class RequestContext(
   def createIndex(params:Map[String,String],index:String,mapping:String,topic:String):Boolean 
     = elasticClient.createIndex(params,index,mapping,topic)
 
+  def count(index:String,mapping:String,query:QueryBuilder):Int 
+    = elasticClient.count(index,mapping,query)
+
   def find(index:String,mapping:String,query:QueryBuilder):SearchResponse 
     = elasticClient.find(index,mapping,query)
+
+  def find(index:String,mapping:String,query:QueryBuilder,size:Int):SearchResponse 
+    = elasticClient.find(index,mapping,query,size)
 
   def get(index:String,mapping:String,id:String):java.util.Map[String,Object] 
     = elasticClient.get(index,mapping,id)
 
   def putSource(index:String,mapping:String,source:XContentBuilder):Boolean 
     = elasticClient.putSource(index,mapping,source)
-
-  def putSources(index:String,mapping:String,sources:List[java.util.Map[String,Object]]):Boolean
-    = elasticClient.putSources(index,mapping,sources)
   
-  def putSourcesJSON(index:String,mapping:String,sources:List[XContentBuilder]):Boolean 
-    = elasticClient.putSourcesJSON(index,mapping,sources)
+  def putSources(index:String,mapping:String,sources:List[XContentBuilder]):Boolean 
+    = elasticClient.putSources(index,mapping,sources)
   
   /**
    * A public method to retrieve Shopify customers from the REST interface;

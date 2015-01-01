@@ -32,8 +32,6 @@ import de.kp.shopify.insight.elastic._
 import de.kp.shopify.insight.analytics._
 
 import scala.collection.mutable.ArrayBuffer
-import scala.collection.JavaConversions._
-
 import org.elasticsearch.common.xcontent.{XContentBuilder,XContentFactory}
 
 class LoyaltyModeler(requestCtx:RequestContext) extends BaseActor {
@@ -85,7 +83,7 @@ class LoyaltyModeler(requestCtx:RequestContext) extends BaseActor {
               /*
                * STEP #3: Register the trajectories derived from the hidden state model
                */
-              if (requestCtx.putSourcesJSON("users","loyalty",trajectories) == false)
+              if (requestCtx.putSources("users","loyalty",trajectories) == false)
                 throw new Exception("Indexing processing has been stopped due to an internal error.")
 
               requestCtx.listener ! String.format("""[INFO][UID: %s] User loyalty model building finished.""",uid)
@@ -160,7 +158,14 @@ class LoyaltyModeler(requestCtx:RequestContext) extends BaseActor {
       val norm = if (rates.contains("N")) rates("N") else 0.0 
 
       val high = if (rates.contains("H")) rates("H") else 0.0 
-          
+      
+      /*
+       * From the loyalty states build an overall score, where "L" = 0,
+       * "N" = 1 and "H" = 2
+       */
+      val ratio = states.map(x => if (x == "L") 0 else if (x == "N") 1 else 2).sum.toDouble / (2 * states.size).toDouble
+      val rating = Math.round(5 * ratio).toInt
+      
       val builder = XContentFactory.jsonBuilder()
       builder.startObject()
       
@@ -190,6 +195,9 @@ class LoyaltyModeler(requestCtx:RequestContext) extends BaseActor {
       
       /* high */
       builder.field("high",high)
+      
+      /* rating */
+      builder.field("rating",rating)
       
       builder.endObject()
       sources += builder

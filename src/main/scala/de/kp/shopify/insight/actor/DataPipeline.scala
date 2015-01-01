@@ -301,6 +301,12 @@ class DataPipeline(requestCtx:RequestContext) extends BaseActor {
 	
 	/* timestamp */
 	builder.field("timestamp",timestamp)
+
+    /* created_at_min */
+	builder.field("created_at_min",params("created_at_min"))
+	
+    /* created_at_max */
+	builder.field("created_at_max",params("created_at_max"))
 	
 	builder.endObject()
 	/*
@@ -377,7 +383,7 @@ class DataPipeline(requestCtx:RequestContext) extends BaseActor {
     if (requestCtx.createIndex(params,"users","recommendations","recommendation") == false)
       throw new Exception("Indexing has been stopped due to an internal error.")
             
-    if (requestCtx.createIndex(params,"orders","rules","rule") == false)
+    if (requestCtx.createIndex(params,"products","rules","rule") == false)
       throw new Exception("Indexing has been stopped due to an internal error.")
     /*       
      * SUB PROCESS 'PROFILE'

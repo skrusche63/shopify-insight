@@ -22,7 +22,6 @@ import de.kp.spark.core.Names
 import de.kp.spark.core.model._
 
 import de.kp.spark.core.io._
-import de.kp.spark.core.elastic._
 
 import de.kp.spark.core.spec.FieldBuilder
 import de.kp.spark.core.redis.RedisCache
@@ -190,7 +189,7 @@ class ElasticClient {
          * require a metadata specification as these data are not shared with 
          * predictive engines
          */
-        val builder = new ElasticRecommendationBuilder().createBuilder(mapping)
+        val builder = new ESRecommendationBuilder().createBuilder(mapping)
         create(index,mapping,builder)
        
       } else if (topic == "rule") {
@@ -199,7 +198,7 @@ class ElasticClient {
          * metadata specification as these data are not shared with predictive
          * engines
          */
-        val builder = new ElasticRuleBuilder().createBuilder(mapping)
+        val builder = new ESRuleBuilder().createBuilder(mapping)
         create(index,mapping,builder)
        
       } else if (topic == "state") {
@@ -235,7 +234,7 @@ class ElasticClient {
          * pipeline and does not require a metadata specification as these data are 
          * not shared with predictive engines
          */
-        val builder = new ElasticRuleBuilder().createBuilder(mapping)
+        val builder = new ESTaskBuilder().createBuilder(mapping)
         create(index,mapping,builder)
            
       }
@@ -280,40 +279,8 @@ class ElasticClient {
     }
    
   }
-  
-  def putSources(index:String,mapping:String,sources:List[java.util.Map[String,Object]]):Boolean = {
-     
-    try {
     
-      val writer = new ElasticWriter()
-        
-      val readyToWrite = writer.open(index,mapping)
-      if (readyToWrite == false) {
-      
-        writer.close()
-      
-        val msg = String.format("""Opening index '%s' and mapping '%s' for write failed.""",index,mapping)
-        throw new Exception(msg)
-      
-      } else {
-      
-        /*
-         * Writing the sources to the respective index throws an
-         * exception in case of an error; note, that the writer is
-         * automatically closed 
-         */
-        writer.writeBulk(index, mapping, sources)      
-        true
-      
-      }
-    
-    } catch {
-      case e:Exception => false
-    }
-   
-  }
-  
-  def putSourcesJSON(index:String,mapping:String,sources:List[XContentBuilder]):Boolean = {
+  def putSources(index:String,mapping:String,sources:List[XContentBuilder]):Boolean = {
      
     try {
     
@@ -345,6 +312,18 @@ class ElasticClient {
    
   }
 
+  def count(index:String,mapping:String,query:QueryBuilder):Int = {
+    
+    val response = client.prepareCount(index).setTypes(mapping).setQuery(query)
+                     .execute().actionGet()
+    /*
+     * We restrict the count to an integer, as we use the result 
+     * as the predefined size of a search request
+     */                 
+    response.getCount().toInt
+
+  }
+  
   def find(index:String,mapping:String,query:QueryBuilder):SearchResponse = {
     
     /*
@@ -352,6 +331,19 @@ class ElasticClient {
      * a size restriction with .setSize method 
      */
     val response = client.prepareSearch(index).setTypes(mapping).setQuery(query)
+                     .execute().actionGet()
+
+    response
+    
+  }
+
+  def find(index:String,mapping:String,query:QueryBuilder,size:Int):SearchResponse = {
+    
+    /*
+     * Prepare search request: note, that we may have to introduce
+     * a size restriction with .setSize method 
+     */
+    val response = client.prepareSearch(index).setTypes(mapping).setQuery(query).setSize(size)
                      .execute().actionGet()
 
     response

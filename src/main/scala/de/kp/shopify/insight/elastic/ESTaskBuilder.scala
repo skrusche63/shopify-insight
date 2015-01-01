@@ -48,20 +48,14 @@ class ESTaskBuilder {
                    .field("type","long")
                    .field("index","not_analyzed")
                 .endObject()
-              
-                .startObject("payload")
-                  .startObject("properties")
-                  
-                    .startObject("name")
-                      .field("type","string")
-                    .endObject
-                  
-                    .startObject("value")
-                      .field("type","string")
-                    .endObject
-                    
-                  .endObject
-                .endObject
+
+                .startObject("created_at_min")
+                   .field("type","string")
+                .endObject()
+
+                .startObject("created_at_max")
+                   .field("type","string")
+                .endObject()
                 
               .endObject()
               

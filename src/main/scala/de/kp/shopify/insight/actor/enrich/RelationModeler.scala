@@ -27,10 +27,9 @@ import de.kp.shopify.insight.actor._
 import de.kp.shopify.insight.model._
 
 import de.kp.shopify.insight.io._
-
 import de.kp.shopify.insight.elastic._
 
-import scala.collection.JavaConversions._
+import org.elasticsearch.common.xcontent.{XContentBuilder,XContentFactory}
 
 /**
  * RelationModeler is an actor that uses an association rule model, transforms
@@ -71,10 +70,9 @@ class RelationModeler(requestCtx:RequestContext) extends BaseActor {
 
             } else {
 
-              val rules = buildProductRules(res)
+              val sources = toSources(req_params,res)
 
-              val handler = new ElasticClient()
-              if (handler.putSources("orders","rules",rules) == false)
+              if (requestCtx.putSources("products","rules",sources) == false)
                 throw new Exception("Indexing processing has been stopped due to an internal error.")
 
               requestCtx.listener ! String.format("""[INFO][UID: %s] Product relation model building finished.""",uid)
@@ -135,7 +133,7 @@ class RelationModeler(requestCtx:RequestContext) extends BaseActor {
 
   }
   
-  private def buildProductRules(response:ServiceResponse):List[java.util.Map[String,Object]] = {
+  private def toSources(params:Map[String,String],response:ServiceResponse):List[XContentBuilder] = {
             
     val uid = response.data(Names.REQ_UID)
     val rules = Serializer.deserializeRules(response.data(Names.REQ_RESPONSE))
@@ -148,20 +146,39 @@ class RelationModeler(requestCtx:RequestContext) extends BaseActor {
     
     rules.items.map(rule => {
       
-      val source = new java.util.HashMap[String,Object]()    
+      val builder = XContentFactory.jsonBuilder()
+      builder.startObject()
       
-      source += Names.TIMESTAMP_FIELD -> timestamp.asInstanceOf[Object]
-      source += Names.UID_FIELD -> uid
-      
-      source += Names.ANTECEDENT_FIELD -> rule.antecedent
-      source += Names.CONSEQUENT_FIELD -> rule.consequent
-        
-      source += Names.SUPPORT_FIELD -> rule.support.asInstanceOf[Object]
-      source += Names.CONFIDENCE_FIELD -> rule.confidence.asInstanceOf[Object]
+      /* uid */
+      builder.field(Names.UID_FIELD,params(Names.REQ_UID))
 
-      source += Names.TOTAL_FIELD -> rule.total.asInstanceOf[Object]
-        
-      source
+	  /* created_at_min */
+	  builder.field("created_at_min",params("created_at_min"))
+
+	  /* created_at_max */
+	  builder.field("created_at_max",params("created_at_max"))
+	  
+	  /* antecedent */
+	  builder.startArray("antecedent")
+	  rule.antecedent.foreach(v => builder.value(v))
+	  builder.endArray()
+	  
+	  /* consequent */
+	  builder.startArray("consequent")
+	  rule.antecedent.foreach(v => builder.value(v))
+	  builder.endArray()
+
+	  /* support */
+	  builder.field("support",rule.support)
+	  
+	  /* total */
+	  builder.field("total",rule.total)
+	  
+	  /* confidence */
+	  builder.field("confidence",rule.confidence)
+	  
+	  builder.endObject()
+      builder
       
     })
     

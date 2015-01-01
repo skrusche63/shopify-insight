@@ -88,7 +88,7 @@ class ForecastModeler(requestCtx:RequestContext) extends BaseActor {
 
               val sources = toSources(req_params,res,purchases)
 
-              if (requestCtx.putSourcesJSON("users","forecasts",sources) == false)
+              if (requestCtx.putSources("users","forecasts",sources) == false)
                 throw new Exception("Indexing processing has been stopped due to an internal error.")
 
               requestCtx.listener ! String.format("""[INFO][UID: %s] Purchase forecast model building finished.""",uid)

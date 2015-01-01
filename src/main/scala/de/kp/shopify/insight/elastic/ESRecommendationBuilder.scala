@@ -25,68 +25,61 @@ import de.kp.spark.core.Names
 import scala.collection.JavaConversions._
 import scala.collection.mutable.HashMap
 
-class ElasticRecommendationBuilder {
+class ESRecommendationBuilder {
 
   import de.kp.spark.core.Names._
   
   def createBuilder(mapping:String):XContentBuilder = {
-    /*
-     * Define mapping schema for index 'index' and 'type'
-     */
+
     val builder = XContentFactory.jsonBuilder()
           .startObject()
             .startObject(mapping)
-               .startObject("properties")
-                    
-               /* site */
-               .startObject(SITE_FIELD)
+              .startObject("properties")
+
+                /* uid */
+                .startObject(UID_FIELD)
                   .field("type", "string")
                   .field("index", "not_analyzed")
-               .endObject()
+                .endObject()
 
-               /* user */
-               .startObject(USER_FIELD)
+                /* created_at_min */
+                .startObject("created_at_min")
                   .field("type", "string")
                   .field("index", "not_analyzed")
-               .endObject()
+                .endObject()
 
-               /* timestamp */
-               .startObject(TIMESTAMP_FIELD)
-                 .field("type", "long")
-               .endObject()
+                /* created_at_max */
+                .startObject("created_at_max")
+                  .field("type", "string")
+                  .field("index", "not_analyzed")
+                .endObject()
 
-               /* uid */
-               .startObject(UID_FIELD)
-                 .field("type", "string")
-                 .field("index", "not_analyzed")
-               .endObject()
+                /* consequent */
+                .startObject(CONSEQUENT_FIELD)
+                  .field("type", "integer")
+                .endObject()
 
-               /* consequent */
-               .startObject(CONSEQUENT_FIELD)
-                 .field("type", "integer")
-               .endObject()//
-
-               /* support */
-               .startObject(SUPPORT_FIELD)
-                 .field("type", "integer")
-               .endObject()
+                /* support */
+                .startObject(SUPPORT_FIELD)
+                  .field("type", "integer")
+                .endObject()
                     
-               /* total */
-               .startObject(TOTAL_FIELD)
-                 .field("type", "long")
-               .endObject()
+                /* total */
+                .startObject(TOTAL_FIELD)
+                  .field("type", "long")
+                .endObject()
 
-               /* confidence */
-               .startObject(CONFIDENCE_FIELD)
-                 .field("type", "double")
-               .endObject()
+                /* confidence */
+                .startObject(CONFIDENCE_FIELD)
+                  .field("type", "double")
+                .endObject()
                           
-               /* weight */
-               .startObject(WEIGHT_FIELD)
-                 .field("type", "double")
-               .endObject()
+                /* weight */
+                .startObject(WEIGHT_FIELD)
+                  .field("type", "double")
+                .endObject()
 
-               .endObject() // properties
+              .endObject() // properties
             .endObject()   // mapping
           .endObject()
                     

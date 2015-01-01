@@ -63,7 +63,6 @@ class DataCollector(requestCtx:RequestContext) extends BaseActor {
             requestCtx.listener ! String.format("""[INFO][UID: %s] Order indexing started.""",uid)
             
             val start = new java.util.Date().getTime            
-            val handler = new ElasticClient()
 
             /*
              * STEP #1: Retrieve orders from a certain shopify store; this request takes
@@ -79,14 +78,14 @@ class DataCollector(requestCtx:RequestContext) extends BaseActor {
 
             val aggregate = analytics.buildSUM(req_params,orders)
             
-            if (handler.putSource("orders","aggregates",aggregate) == false)
+            if (requestCtx.putSource("orders","aggregates",aggregate) == false)
               throw new Exception("Indexing for 'orders/aggregates' has been stopped due to an internal error.")
           
             requestCtx.listener ! String.format("""[INFO][UID: %s] Item perspective registered in Elasticsearch index.""",uid)
 
             val items = analytics.buildITM(req_params,orders)
             
-            if (handler.putSourcesJSON("orders","items",items) == false)
+            if (requestCtx.putSources("orders","items",items) == false)
               throw new Exception("Indexing for 'orders/items' has been stopped due to an internal error.")
           
             requestCtx.listener ! String.format("""[INFO][UID: %s] Item perspective registered in Elasticsearch index.""",uid)
@@ -99,7 +98,7 @@ class DataCollector(requestCtx:RequestContext) extends BaseActor {
              */
             val states = analytics.buildRFM(req_params,orders)
             
-            if (handler.putSourcesJSON("orders","states",states) == false)
+            if (requestCtx.putSources("orders","states",states) == false)
               throw new Exception("Indexing for 'orders/states' has been stopped due to an internal error.")
           
             requestCtx.listener ! String.format("""[INFO][UID: %s] State perspective registered in Elasticsearch index.""",uid)
