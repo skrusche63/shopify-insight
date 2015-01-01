@@ -56,7 +56,7 @@ class STMHandler {
      * identical to that index, that has been created during the
      * 'collection' phase
      */
-    data += Names.REQ_SOURCE_INDEX -> "orders"
+    data += Names.REQ_SOURCE_INDEX -> "users"
     data += Names.REQ_SOURCE_TYPE  -> "states"
       
     data += Names.REQ_QUERY -> QueryBuilder.get("ELASTIC","state")   

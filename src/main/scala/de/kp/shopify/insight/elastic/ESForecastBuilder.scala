@@ -41,6 +41,12 @@ class ESForecastBuilder {
                   .field("type", "string")
                   .field("index", "not_analyzed")
                 .endObject()
+                
+                /* timestamp */
+                .startObject(TIMESTAMP_FIELD)
+                  .field("type", "long")
+                  .field("index", "not_analyzed")
+                .endObject()
 
                 /* created_at_min */
                 .startObject("created_at_min")

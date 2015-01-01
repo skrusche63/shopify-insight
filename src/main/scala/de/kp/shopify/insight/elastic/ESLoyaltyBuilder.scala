@@ -44,6 +44,12 @@ class ESLoyaltyBuilder {
                  .field("index", "not_analyzed")
                .endObject()
 
+               /* timestamp */
+               .startObject(TIMESTAMP_FIELD)
+                 .field("type", "long")
+                 .field("index", "not_analyzed")
+               .endObject()
+
                 /* created_at_min */
                 .startObject("created_at_min")
                   .field("type", "string")

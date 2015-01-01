@@ -85,8 +85,8 @@ class DataCollector(requestCtx:RequestContext) extends BaseActor {
 
             val items = analytics.buildITM(req_params,orders)
             
-            if (requestCtx.putSources("orders","items",items) == false)
-              throw new Exception("Indexing for 'orders/items' has been stopped due to an internal error.")
+            if (requestCtx.putSources("users","items",items) == false)
+              throw new Exception("Indexing for 'users/items' has been stopped due to an internal error.")
           
             requestCtx.listener ! String.format("""[INFO][UID: %s] Item perspective registered in Elasticsearch index.""",uid)
 
@@ -98,8 +98,8 @@ class DataCollector(requestCtx:RequestContext) extends BaseActor {
              */
             val states = analytics.buildRFM(req_params,orders)
             
-            if (requestCtx.putSources("orders","states",states) == false)
-              throw new Exception("Indexing for 'orders/states' has been stopped due to an internal error.")
+            if (requestCtx.putSources("users","states",states) == false)
+              throw new Exception("Indexing for 'users/states' has been stopped due to an internal error.")
           
             requestCtx.listener ! String.format("""[INFO][UID: %s] State perspective registered in Elasticsearch index.""",uid)
 

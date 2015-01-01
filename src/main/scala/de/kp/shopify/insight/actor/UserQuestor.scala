@@ -22,11 +22,11 @@ class UserQuestor(requestCtx:RequestContext) extends BaseActor {
       try {
       
         /*
-         * Retrieve the forecasts built before from the Elasticsearch 'orders/forecasts' index;
-         * the only parameter that is required to retrieve the rules is 'uid'
+         * Retrieve the forecasts built before from the Elasticsearch 'users/forecasts' index;
+         * the only parameter that is required to retrieve the data is 'uid'
          */
         val qbuilder = QueryBuilders.matchQuery(Names.UID_FIELD, query.data(Names.REQ_UID))
-        val response = requestCtx.find("orders", "forecasts", qbuilder)
+        val response = requestCtx.find("users", "forecasts", qbuilder)
         /*
          * Transform search result list of frequent items 
          */

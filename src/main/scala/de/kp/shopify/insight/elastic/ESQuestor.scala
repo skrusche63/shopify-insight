@@ -18,10 +18,16 @@ package de.kp.shopify.insight.elastic
 * If not, see <http://www.gnu.org/licenses/>.
 */
 
+import de.kp.spark.core.Names
+
+import de.kp.shopify.insight.model._
 import de.kp.shopify.insight.RequestContext
 
 import org.elasticsearch.index.query.QueryBuilders
 import org.elasticsearch.search.{SearchHit,SearchHits}
+
+import com.fasterxml.jackson.databind.{Module, ObjectMapper}
+import com.fasterxml.jackson.module.scala.DefaultScalaModule
 
 import org.elasticsearch.common.xcontent.{XContentBuilder,XContentFactory}
 
@@ -32,6 +38,99 @@ import scala.collection.JavaConversions._
  */
 object ESQuestor {
 
+  private val JSON_MAPPER = new ObjectMapper()  
+  JSON_MAPPER.registerModule(DefaultScalaModule)
+
+  def query_Aggregate(requestCtx:RequestContext,uid:String):InsightAggregate = {
+    /*
+     * Retrieve the aggregate record from the 'orders/aggregates' index, 
+     * that matches the unique identifier
+     */
+    val qbuilder = QueryBuilders.matchQuery(Names.UID_FIELD,uid)
+    val response = requestCtx.find("orders", "aggregates", qbuilder)
+    
+    val hits = response.getHits()
+    val total = hits.totalHits()
+    
+    /* There is no aggregate for the respective identifier */
+    if (total == 0) return null
+    
+    /* 
+     * We expect to have a single aggregate for a certain
+     * unique task identifier
+     */
+    val hit = hits.hits()(0).getSourceAsString
+    JSON_MAPPER.readValue(hit, classOf[InsightAggregate])
+    
+  }
+
+  def query_AllAggregates(requestCtx:RequestContext):List[InsightAggregate] = {
+
+    val qbuilder = QueryBuilders.matchAllQuery()
+    /*
+     * Retrieval of the tasks is a two phase process, where
+     * first the total number of tasks is determined, and
+     * then the tasks are retrieved
+     */
+    val count = requestCtx.count("orders","aggregates",qbuilder)    
+    val response = requestCtx.find("orders","aggregates",qbuilder,count)
+
+    val hits = response.getHits()
+    val total = hits.totalHits()
+ 
+    if (total == 0) return List.empty[InsightAggregate]
+
+    val result = hits.hits().map(x => JSON_MAPPER.readValue(x.getSourceAsString,classOf[InsightAggregate])).sortBy(x => x.timestamp)
+    result.toList
+    
+  }
+  
+  /**
+   * This query retrieves all forecast records that refer to a certain preparation
+   * task, specified by the respective unique identifier
+   */
+  def query_Forecasts(requestCtx:RequestContext,uid:String):List[InsightForecast] = {
+    /*
+     * Retrieve the forecast records from the 'users/forecasts' index, 
+     * that matches the unique identifier
+     */
+    val qbuilder = QueryBuilders.matchQuery(Names.UID_FIELD,uid)
+    val response = requestCtx.find("users", "forecasts", qbuilder)
+    
+    val hits = response.getHits()
+    val total = hits.totalHits()
+    
+    /* There is no forecast record for the respective identifier */
+    if (total == 0) return List.empty[InsightForecast]
+    
+    val result = hits.hits().map(x => JSON_MAPPER.readValue(x.getSourceAsString,classOf[InsightForecast]))    
+    result.toList
+    
+  }
+  
+  /**
+   * This query retrieves all loyalty records that refer to a certain preparation
+   * task, specified by the respective unique identifier
+   */
+  def query_Loyalty(requestCtx:RequestContext,uid:String):List[InsightLoyalty] = {
+    /*
+     * Retrieve the loyalty records from the 'users/loyalty' index, 
+     * that matches the unique identifier
+     */
+    val qbuilder = QueryBuilders.matchQuery(Names.UID_FIELD,uid)
+    val response = requestCtx.find("users", "loyalty", qbuilder)
+    
+    val hits = response.getHits()
+    val total = hits.totalHits()
+    
+    /* There is no loyalty record for the respective identifier */
+    if (total == 0) return List.empty[InsightLoyalty]
+    
+    val result = hits.hits().map(x => JSON_MAPPER.readValue(x.getSourceAsString,classOf[InsightLoyalty]))    
+    result.toList
+    
+  }
+  
   /**
    * This query determines all entries from the database/tasks index
    * and can be used to determine a sorted list of time spans, where
@@ -40,7 +139,7 @@ object ESQuestor {
    * 
    * Actualy 'prepare' & 'synchronize' tasks are supported
    */
-  def query_AllTasks(requestCtx:RequestContext,filter:String) {
+  def query_AllTasks(requestCtx:RequestContext,filter:String):List[InsightTask] = {
 
     val qbuilder = QueryBuilders.matchAllQuery()
     /*
@@ -54,14 +153,14 @@ object ESQuestor {
     val rawset = response.getHits().hits().map(task(_)).sortBy(_._3)
  
     val result = if (filter == "*") {
-      rawset.map(x => (uid(x._1),x._2,x._3,x._4,x._5))
+      rawset.map(x => InsightTask(uid(x._1),x._2,x._3,x._4,x._5))
     
     } else {      
-      rawset.filter(x => x._1.split(":")(0) == filter).map(x => (uid(x._1),x._2,x._3,x._4,x._5))
+      rawset.filter(x => x._1.split(":")(0) == filter).map(x => InsightTask(uid(x._1),x._2,x._3,x._4,x._5))
     
     }
 
-    // TODO
+    result.toList
     
   }
 

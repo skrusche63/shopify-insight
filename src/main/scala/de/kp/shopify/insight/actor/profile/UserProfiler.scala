@@ -47,13 +47,6 @@ class UserProfiler(requestCtx:RequestContext) extends BaseActor {
       try {
       
         requestCtx.listener ! String.format("""[INFO][UID: %s] User profile building started.""",uid)
-
-        /*
-         * Retrieve the customer base from the Shopify store
-         */
-        val customers = requestCtx.getCustomers(req_params)
-       
-        requestCtx.listener ! String.format("""[INFO][UID: %s] Customer base loaded.""",uid)
        
         /*
          * Retrieve order items from the 'orders/items' index and determine 
@@ -227,11 +220,11 @@ class UserProfiler(requestCtx:RequestContext) extends BaseActor {
 
   private def forecasts(params:Map[String,String]):SearchHits = {
     /*
-     * Retrieve all forecast records from the 'orders/forecasts' index;
+     * Retrieve all forecast records from the 'users/forecasts' index;
      * the only parameter that is required to retrieve the data is 'uid'
      */
     val qbuilder = QueryBuilders.matchQuery(Names.UID_FIELD, params(Names.REQ_UID))
-    val response = requestCtx.find("orders", "forecasts", qbuilder)
+    val response = requestCtx.find("users", "forecasts", qbuilder)
 
     response.getHits()
     
@@ -258,11 +251,11 @@ class UserProfiler(requestCtx:RequestContext) extends BaseActor {
   
   private def items(params:Map[String,String]):SearchHits = {
     /*
-     * Retrieve all item records from the 'orders/items' index;
+     * Retrieve all item records from the 'users/items' index;
      * the only parameter that is required to retrieve the data is 'uid'
      */
     val qbuilder = QueryBuilders.matchQuery(Names.UID_FIELD, params(Names.REQ_UID))
-    val response = requestCtx.find("orders", "items", qbuilder)
+    val response = requestCtx.find("users", "items", qbuilder)
 
     response.getHits()
     
@@ -286,11 +279,11 @@ class UserProfiler(requestCtx:RequestContext) extends BaseActor {
   
   private def loyalty(params:Map[String,String]):SearchHits = {
     /*
-     * Retrieve all loyalty records from the 'orders/loyalty' index;
+     * Retrieve all loyalty records from the 'users/loyalty' index;
      * the only parameter that is required to retrieve the data is 'uid'
      */
     val qbuilder = QueryBuilders.matchQuery(Names.UID_FIELD, params(Names.REQ_UID))
-    val response = requestCtx.find("orders", "loyalty", qbuilder)
+    val response = requestCtx.find("users", "loyalty", qbuilder)
 
     response.getHits()
     
@@ -323,11 +316,11 @@ class UserProfiler(requestCtx:RequestContext) extends BaseActor {
   
   private def recommendations(params:Map[String,String]):SearchHits = {
     /*
-     * Retrieve all recommendation records from the 'orders/recommendations' index;
+     * Retrieve all recommendation records from the 'users/recommendations' index;
      * the only parameter that is required to retrieve the data is 'uid'
      */
     val qbuilder = QueryBuilders.matchQuery(Names.UID_FIELD, params(Names.REQ_UID))
-    val response = requestCtx.find("orders", "recommendations", qbuilder)
+    val response = requestCtx.find("users", "recommendations", qbuilder)
 
     response.getHits()
     

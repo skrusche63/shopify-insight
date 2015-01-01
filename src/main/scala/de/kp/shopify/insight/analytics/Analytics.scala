@@ -651,6 +651,9 @@ class Analytics(requestCtx:RequestContext) {
 	    
 	/* uid */
 	builder.field("uid",uid)
+	    
+	/* timestamp */
+	builder.field("timestamp",new java.util.Date().getTime)
 
 	/* created_at_min */
 	builder.field("created_at_min",params("created_at_min"))

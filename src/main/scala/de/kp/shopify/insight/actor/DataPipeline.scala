@@ -366,30 +366,30 @@ class DataPipeline(requestCtx:RequestContext) extends BaseActor {
     if (requestCtx.createIndex(params,"orders","aggregates","aggregate") == false)
       throw new Exception("Index creation for 'orders/aggregates' has been stopped due to an internal error.")
 
-    if (requestCtx.createIndex(params,"orders","items","item") == false)
-      throw new Exception("Index creation for 'orders/items' has been stopped due to an internal error.")
+    if (requestCtx.createIndex(params,"users","items","item") == false)
+      throw new Exception("Index creation for 'users/items' has been stopped due to an internal error.")
  
-    if (requestCtx.createIndex(params,"orders","states","state") == false)
-      throw new Exception("Index creation for 'orders/states' has been stopped due to an internal error.")
+    if (requestCtx.createIndex(params,"users","states","state") == false)
+      throw new Exception("Index creation for 'users/states' has been stopped due to an internal error.")
     /*       
      * SUB PROCESS 'ENRICH'
      */
     if (requestCtx.createIndex(params,"users","forecasts","forecast") == false)
-      throw new Exception("Indexing has been stopped due to an internal error.")
+      throw new Exception("Index creation for 'users/forecasts' has been stopped due to an internal error.")
 
     if (requestCtx.createIndex(params,"users","loyalty","loyalty") == false)
-      throw new Exception("Indexing has been stopped due to an internal error.")
+      throw new Exception("Index creation for 'users/loyalty' has been stopped due to an internal error.")
             
     if (requestCtx.createIndex(params,"users","recommendations","recommendation") == false)
-      throw new Exception("Indexing has been stopped due to an internal error.")
+      throw new Exception("Index creation for 'users/recommendations' has been stopped due to an internal error.")
             
     if (requestCtx.createIndex(params,"products","rules","rule") == false)
-      throw new Exception("Indexing has been stopped due to an internal error.")
+      throw new Exception("Index creation for 'products/rules' has been stopped due to an internal error.")
     /*       
      * SUB PROCESS 'PROFILE'
      */           
     if (requestCtx.createIndex(params,"users","profiles","profile") == false)
-      throw new Exception("Indexing has been stopped due to an internal error.")
+      throw new Exception("Index creation for 'users/profiles' has been stopped due to an internal error.")
   
     requestCtx.listener ! String.format("""[INFO][UID: %s] Elasticsearch indexes created.""",uid)
     

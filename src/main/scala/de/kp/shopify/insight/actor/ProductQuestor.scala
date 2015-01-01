@@ -178,11 +178,11 @@ class ProductQuestor(requestCtx:RequestContext) extends BaseActor {
   private def getElasticRules(params:Map[String,String]):SearchResponse = {
         
     /*
-     * Retrieve the association rules built before from the Elasticsearch 'orders/rules' index;
-     * the only parameter that is required to retrieve the rules is 'uid'
+     * Retrieve the association rules built before from the Elasticsearch 'product/rules' index;
+     * the only parameter that is required to retrieve the data is 'uid'
      */
     val qbuilder = QueryBuilders.matchQuery(Names.UID_FIELD, params(Names.REQ_UID))
-    requestCtx.find("orders", "rules", qbuilder)
+    requestCtx.find("products", "rules", qbuilder)
     
   }
   
