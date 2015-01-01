@@ -58,3 +58,5 @@ case class InsightLoyalty(
   rating:Int
     
 )
+
+case class InsightLoyalties(items:List[InsightLoyalty])

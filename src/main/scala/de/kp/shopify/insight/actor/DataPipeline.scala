@@ -377,8 +377,8 @@ class DataPipeline(requestCtx:RequestContext) extends BaseActor {
     if (requestCtx.createIndex(params,"users","forecasts","forecast") == false)
       throw new Exception("Index creation for 'users/forecasts' has been stopped due to an internal error.")
 
-    if (requestCtx.createIndex(params,"users","loyalty","loyalty") == false)
-      throw new Exception("Index creation for 'users/loyalty' has been stopped due to an internal error.")
+    if (requestCtx.createIndex(params,"users","loyalties","loyalties") == false)
+      throw new Exception("Index creation for 'users/loyalties' has been stopped due to an internal error.")
             
     if (requestCtx.createIndex(params,"users","recommendations","recommendation") == false)
       throw new Exception("Index creation for 'users/recommendations' has been stopped due to an internal error.")

@@ -23,7 +23,7 @@ import de.kp.spark.core.Names
 import de.kp.shopify.insight.model._
 import de.kp.shopify.insight.RequestContext
 
-import org.elasticsearch.index.query.QueryBuilders
+import org.elasticsearch.index.query._
 import org.elasticsearch.search.{SearchHit,SearchHits}
 
 import com.fasterxml.jackson.databind.{Module, ObjectMapper}
@@ -41,12 +41,23 @@ object ESQuestor {
   private val JSON_MAPPER = new ObjectMapper()  
   JSON_MAPPER.registerModule(DefaultScalaModule)
 
+  /**
+   * This is a convenience method to retrieve the aggregate for
+   * a certain task identifier
+   */
   def query_Aggregate(requestCtx:RequestContext,uid:String):InsightAggregate = {
     /*
      * Retrieve the aggregate record from the 'orders/aggregates' index, 
      * that matches the unique identifier
      */
-    val qbuilder = QueryBuilders.matchQuery(Names.UID_FIELD,uid)
+    val fbuilder = FilterBuilders.termFilter(Names.UID_FIELD,uid)
+    query_FilteredAggregate(requestCtx,fbuilder)
+    
+  }
+  
+  def query_FilteredAggregate(requestCtx:RequestContext,filterBuilder:FilterBuilder):InsightAggregate = {
+
+    val qbuilder = QueryBuilders.filteredQuery(QueryBuilders.matchAllQuery(),filterBuilder)
     val response = requestCtx.find("orders", "aggregates", qbuilder)
     
     val hits = response.getHits()
@@ -94,8 +105,17 @@ object ESQuestor {
      * Retrieve the forecast records from the 'users/forecasts' index, 
      * that matches the unique identifier
      */
-    val qbuilder = QueryBuilders.matchQuery(Names.UID_FIELD,uid)
-    val response = requestCtx.find("users", "forecasts", qbuilder)
+    val fbuilder = FilterBuilders.termFilter(Names.UID_FIELD,uid)
+    query_FilteredForecasts(requestCtx,fbuilder)
+    
+  }
+  
+  def query_FilteredForecasts(requestCtx:RequestContext,filterBuilder:FilterBuilder):List[InsightForecast] = {
+
+    val qbuilder = QueryBuilders.filteredQuery(QueryBuilders.matchAllQuery(),filterBuilder)
+
+    val count = requestCtx.count("users","forecasts",qbuilder)    
+    val response = requestCtx.find("users", "forecasts", qbuilder,count)
     
     val hits = response.getHits()
     val total = hits.totalHits()
@@ -109,16 +129,57 @@ object ESQuestor {
   }
   
   /**
+   * This query retrieves all item records that refer to a certain preparation
+   * task, specified by the respective unique identifier
+   */
+  def query_Items(requestCtx:RequestContext,uid:String):List[InsightItem] = {
+    /*
+     * Retrieve the item records from the 'users/items' index, 
+     * that matches the unique identifier
+     */
+    val fbuilder = FilterBuilders.termFilter(Names.UID_FIELD,uid)
+    query_FilteredItems(requestCtx,fbuilder)
+    
+  }
+  
+  def query_FilteredItems(requestCtx:RequestContext,filterBuilder:FilterBuilder):List[InsightItem] = {
+
+    val qbuilder = QueryBuilders.filteredQuery(QueryBuilders.matchAllQuery(),filterBuilder)
+
+    val count = requestCtx.count("users","items",qbuilder)    
+    val response = requestCtx.find("users", "items", qbuilder,count)
+    
+    val hits = response.getHits()
+    val total = hits.totalHits()
+    
+    /* There is no item record for the respective identifier */
+    if (total == 0) return List.empty[InsightItem]
+    
+    val result = hits.hits().map(x => JSON_MAPPER.readValue(x.getSourceAsString,classOf[InsightItem]))    
+    result.toList
+    
+  }
+  
+  /**
    * This query retrieves all loyalty records that refer to a certain preparation
    * task, specified by the respective unique identifier
    */
-  def query_Loyalty(requestCtx:RequestContext,uid:String):List[InsightLoyalty] = {
+  def query_Loyalties(requestCtx:RequestContext,uid:String):List[InsightLoyalty] = {
     /*
      * Retrieve the loyalty records from the 'users/loyalty' index, 
      * that matches the unique identifier
      */
-    val qbuilder = QueryBuilders.matchQuery(Names.UID_FIELD,uid)
-    val response = requestCtx.find("users", "loyalty", qbuilder)
+    val fbuilder = FilterBuilders.termFilter(Names.UID_FIELD,uid)
+    query_FilteredLoyalties(requestCtx,fbuilder)
+    
+  }
+  
+  def query_FilteredLoyalties(requestCtx:RequestContext,filterBuilder:FilterBuilder):List[InsightLoyalty] = {
+
+    val qbuilder = QueryBuilders.filteredQuery(QueryBuilders.matchAllQuery(),filterBuilder)
+
+    val count = requestCtx.count("users","loyalties",qbuilder)    
+    val response = requestCtx.find("users", "loyalties", qbuilder,count)
     
     val hits = response.getHits()
     val total = hits.totalHits()

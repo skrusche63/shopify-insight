@@ -307,6 +307,21 @@ case class Orders(items:List[Order])
  * 
  ***************************************************************************/
 
+/**
+ * An AggregateQuery retrieves aggregated data for all orders or purchase
+ * transactions within a certain period of time
+ */
+case class AggregateQuery(data:Map[String,String])
+
+case class LoyaltyQuery(data:Map[String,String])
+
+/**
+ * A TaskQuery retrieves metadata for all registered preparation and synchronization
+ * tasks processed by the insight server
+ */
+case class TaskQuery(data:Map[String,String])
+
+
 case class CrossSellQuery(data:Map[String,String])
 
 /**

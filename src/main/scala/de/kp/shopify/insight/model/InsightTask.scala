@@ -40,3 +40,5 @@ case class InsightTask(
   created_at_max:String
     
 )
+
+case class InsightTasks(items:List[InsightTask])

@@ -33,10 +33,9 @@ import spray.routing.{Directives,HttpService,RequestContext,Route}
 import spray.routing.directives.CachingDirectives
 
 import scala.concurrent.Future
-
 import scala.concurrent.{ExecutionContext}
-import scala.concurrent.duration.{Duration,DurationInt}
 
+import scala.concurrent.duration.{Duration,DurationInt}
 import scala.util.parsing.json._
 
 import de.kp.spark.core.Names
@@ -45,9 +44,10 @@ import de.kp.spark.core.model._
 import de.kp.spark.core.rest.RestService
 
 import de.kp.shopify.insight.actor._
-import de.kp.shopify.insight.{RequestContext => RequestCtx}
 
+import de.kp.shopify.insight.{RequestContext => RequestCtx}
 import de.kp.shopify.insight.model._
+
 /**
  * Shopify Insight is a REST based data analytics service, using order data 
  * from the past 30, 60 or 90 days. This service generates multiple insight
@@ -111,6 +111,43 @@ class RestApi(host:String,port:Int,system:ActorSystem,@transient sc:SparkContext
 	  }
     }  ~ 
     /*
+     * 'aggregate' requests focus on the aggregated or summary day that have been
+     * extracted from orders or purchase transactions of a certain time span.
+     * 
+     * The following parameters are required:
+     * 
+     * - uid (String, mandatory)
+     */
+    path("aggregate") { 
+	  post {
+	    respondWithStatus(OK) {
+	      ctx => doAggregate(ctx)
+	    }
+	  }
+    }  ~ 
+    /*
+     * The following parameters are required:
+     * 
+     * - method (String, mandatory)
+     * 
+     * The parameters depend on the method selected:
+     * 
+     * user_loyalty:
+     * 
+     * - site (String, mandatory)
+     * - user (String, mandatory)
+     * 
+     * - uid (String, optional)
+     * 
+     */
+    path("loyalty") { 
+	  post {
+	    respondWithStatus(OK) {
+	      ctx => doLoyalty(ctx)
+	    }
+	  }
+    }  ~ 
+    /*
      * 'product' requests focus on product specific questions. A 'product' request
      * requires the following parameters:
      * 
@@ -135,6 +172,22 @@ class RestApi(host:String,port:Int,system:ActorSystem,@transient sc:SparkContext
 	  post {
 	    respondWithStatus(OK) {
 	      ctx => doUser(ctx,subject)
+	    }
+	  }
+    }  ~ 
+    /*
+     * 'task' requests focus on the registered tasks, i.e. either
+     * 'prepare' or 'synchronize' tasks; this request is necessary
+     * to retrieve the 'uid' of a certain task
+     * 
+     * The following parameters are required:
+     * 
+     * - uid (String, mandatory)
+     */
+    path("task") { 
+	  post {
+	    respondWithStatus(OK) {
+	      ctx => doTask(ctx)
 	    }
 	  }
     }
@@ -220,6 +273,114 @@ class RestApi(host:String,port:Int,system:ActorSystem,@transient sc:SparkContext
 
   }
   /**
+   * An 'aggregate' request supports the retrieval of the aggregated data,
+   * extracted from all orders or purchase transactions of the last n days
+   */
+  private def doAggregate[T](ctx:RequestContext) = {
+
+    implicit val timeout:Timeout = DurationInt(requestCtx.getTimeout).second      
+ 
+    val actor = system.actorOf(Props(new query.AggregateQuestor(requestCtx)))
+    val params = getRequest(ctx)
+    
+    val request = AggregateQuery(params)
+    val response = ask(actor,request)     
+
+    response.onSuccess {
+        
+      case result => {
+
+        if (result.isInstanceOf[InsightAggregate]) {
+          ctx.complete(result.asInstanceOf[InsightAggregate])
+            
+        } else if (result.isInstanceOf[SimpleResponse]) {
+          ctx.complete(result.asInstanceOf[SimpleResponse])
+            
+        } else {
+          /* do nothing */
+        }
+          
+      }
+      
+    }
+
+    response.onFailure {
+      case throwable => ctx.complete(throwable.getMessage)
+    }      
+  
+  }
+  private def doLoyalty[T](ctx:RequestContext) = {
+
+    implicit val timeout:Timeout = DurationInt(requestCtx.getTimeout).second      
+ 
+    val actor = system.actorOf(Props(new query.LoyaltyQuestor(requestCtx)))
+    val params = getRequest(ctx)
+    
+    val request = LoyaltyQuery(params)
+    val response = ask(actor,request)     
+
+    response.onSuccess {
+        
+      case result => {
+
+        if (result.isInstanceOf[InsightLoyalties]) {
+          ctx.complete(result.asInstanceOf[InsightLoyalties])
+            
+        } else if (result.isInstanceOf[SimpleResponse]) {
+          ctx.complete(result.asInstanceOf[SimpleResponse])
+            
+        } else {
+          /* do nothing */
+        }
+          
+      }
+      
+    }
+
+    response.onFailure {
+      case throwable => ctx.complete(throwable.getMessage)
+    }      
+  
+  }
+  /**
+   * A 'task' request supports the retrieval of the registered
+   * preparation or synchronization tasks
+   */
+  private def doTask[T](ctx:RequestContext) = {
+
+    implicit val timeout:Timeout = DurationInt(requestCtx.getTimeout).second      
+ 
+    val actor = system.actorOf(Props(new query.TaskQuestor(requestCtx)))
+    val params = getRequest(ctx)
+    
+    val request = TaskQuery(params)
+    val response = ask(actor,request)     
+
+    response.onSuccess {
+        
+      case result => {
+
+        if (result.isInstanceOf[InsightTasks]) {
+          ctx.complete(result.asInstanceOf[InsightTasks])
+            
+        } else if (result.isInstanceOf[SimpleResponse]) {
+          ctx.complete(result.asInstanceOf[SimpleResponse])
+            
+        } else {
+          /* do nothing */
+        }
+          
+      }
+      
+    }
+
+    response.onFailure {
+      case throwable => ctx.complete(throwable.getMessage)
+    }      
+  
+  }
+  
+  /**
    * 'product' supports retrieval of product related mining and prediction
    * results, such as 'collection','cross-sell', 'promotion':
    * 
@@ -244,66 +405,6 @@ class RestApi(host:String,port:Int,system:ActorSystem,@transient sc:SparkContext
    * 
    */
   private def doProduct[T](ctx:RequestContext,subject:String) = {
-
-    implicit val timeout:Timeout = DurationInt(requestCtx.getTimeout).second      
- 
-    val actor = system.actorOf(Props(new ProductQuestor(requestCtx)))
-    val params = getRequest(ctx)
-    
-    val request = subject match {
-      
-      case "collection" => SuggestQuery(params)
-      
-      case "cross-sell" => CrossSellQuery(params)
-      
-      case "promotion" => PromotionQuery(params)
-      
-      case _ => null
-
-    }
-    
-    if (request != null) {
-    
-      val response = ask(actor,request)     
-      response.onSuccess {
-        
-        case result => {
-
-          /* Different response type have to be distinguished */
-          if (result.isInstanceOf[Suggestions]) {
-            /*
-             * Suggestions is a list of product suggestions that
-             * can be used Shopify users to build custom collections;
-             * this result is provided by 'collection' requests
-             */
-            ctx.complete(result.asInstanceOf[Suggestions])
-            
-          } else if (result.isInstanceOf[Products]) {
-            /*
-             * Products is a list of Shopify products that are
-             * related to set of selected products; this result
-             * is provided by 'cross-sell' & 'promotion' requests
-             */
-            ctx.complete(result.asInstanceOf[Products])
-            
-          } else if (result.isInstanceOf[ServiceResponse]) {
-            /*
-             * This is the common response type used for almost
-             * all requests
-             */
-            ctx.complete(result.asInstanceOf[ServiceResponse])
-            
-          }
-          
-        }
-      
-      }
-
-      response.onFailure {
-        case throwable => ctx.complete(throwable.getMessage)
-      }      
-
-    }
       
   }
   
@@ -317,8 +418,6 @@ class RestApi(host:String,port:Int,system:ActorSystem,@transient sc:SparkContext
     val request = subject match {
       
       case "forecast" => ForecastQuery(params)
-      
-      case "loyalty" => {}
       
       case "recommendation" => {}
       
