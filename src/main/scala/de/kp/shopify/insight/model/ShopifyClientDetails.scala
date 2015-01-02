@@ -22,51 +22,12 @@ import org.codehaus.jackson.annotate.JsonProperty
 import com.fasterxml.jackson.annotation.{JsonIgnoreProperties, JsonIgnore}
 
 @JsonIgnoreProperties(ignoreUnknown = true)
-case class ShopifyOrder(
+case class ShopifyClientDetails(
 
-  @JsonProperty("id")
-  id:Long,
+  @JsonProperty("browser_ip")
+  browser_ip:String,
 
-  /*
-   * The datetime this order was created; the format used is:
-   * "2014-11-03T13:51:38-05:00"
-   */
-  
-  @JsonProperty("created_at")
-  created_at:String,
+  @JsonProperty("user_agent")
+  user_agent:String
 
-  @JsonProperty("currency")
-  currency:String,
-
-  /*
-   * The number of items in an order; it should be equal to
-   * the size of the provided line items
-   */
-  @JsonProperty("number")
-  number:Int,
-
-  /*
-   * Price related data
-   */
-  @JsonProperty("total_discounts")
-  total_discounts:String,
-
-  @JsonProperty("total_price")
-  total_price:String,
-
-  @JsonProperty("total_tax")
-  total_tax:String,
-  
-  @JsonProperty("client_details")
-  client_details:ShopifyClientDetails,
-  
-  @JsonProperty("customer")
-  customer:ShopifyCustomer,
-
-  @JsonProperty("line_items")
-  lineItems:List[ShopifyLineItem],
-    
-  @JsonProperty("tax_lines")
-  taxLines:List[ShopifyTaxLine]
- 
 )

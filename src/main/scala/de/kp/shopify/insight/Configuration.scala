@@ -63,6 +63,13 @@ object Configuration extends CoreConf {
     
   }
   
+  def geoip:String = {
+  
+    val cfg = config.getConfig("geoip")
+    cfg.getString("path")
+    
+  }
+  
   override def input:List[String] = null
 
   override def mysql:(String,String,String,String) = null

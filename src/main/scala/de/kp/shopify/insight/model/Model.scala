@@ -199,6 +199,27 @@ case class Image(
     
 )
 
+case class Location(
+    
+  countryname:String,
+  countrycode:String,
+
+  region:String,
+  regionname:String,
+  
+  areacode:Int,
+  dmacode:Int,
+  
+  metrocode:Int,
+  city:String,
+  
+  postalcode:String,
+	  
+  lat:Float,
+  lon:Float
+
+)
+
 case class Product(
   /* 
    * The 'apikey' of the Shopify cloud service is used as a
