@@ -58,3 +58,5 @@ case class InsightForecast(
   score:Double
 
 )
+
+case class InsightForecasts(items:List[InsightForecast])

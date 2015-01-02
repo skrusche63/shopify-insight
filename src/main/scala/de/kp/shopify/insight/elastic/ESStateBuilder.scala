@@ -95,6 +95,11 @@ class ESStateBuilder {
 	             * from the 30, 60 or 90 days
 	             */
 
+                /* user_clv_group */
+                .startObject("user_clv_group")
+                  .field("type", "string")
+                .endObject()
+
                 /* user_total */
                 .startObject("user_total")
                   .field("type", "integer")

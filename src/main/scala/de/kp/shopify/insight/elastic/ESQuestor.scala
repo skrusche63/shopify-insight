@@ -192,6 +192,62 @@ object ESQuestor {
     
   }
   
+  def query_Recommendations(requestCtx:RequestContext,uid:String):List[InsightRecommendation] = {
+    /*
+     * Retrieve the recommendation records from the 'users/recommendations' index, 
+     * that matches the unique identifier
+     */
+    val fbuilder = FilterBuilders.termFilter(Names.UID_FIELD,uid)
+    query_FilteredRecommendations(requestCtx,fbuilder)
+    
+  }
+  
+  def query_FilteredRecommendations(requestCtx:RequestContext,filterBuilder:FilterBuilder):List[InsightRecommendation] = {
+
+    val qbuilder = QueryBuilders.filteredQuery(QueryBuilders.matchAllQuery(),filterBuilder)
+
+    val count = requestCtx.count("users","recommendations",qbuilder)    
+    val response = requestCtx.find("users", "recommendations", qbuilder,count)
+    
+    val hits = response.getHits()
+    val total = hits.totalHits()
+    
+    /* There is no recommendation record for the respective identifier */
+    if (total == 0) return List.empty[InsightRecommendation]
+    
+    val result = hits.hits().map(x => JSON_MAPPER.readValue(x.getSourceAsString,classOf[InsightRecommendation]))    
+    result.toList
+    
+  }
+  
+  def query_Rules(requestCtx:RequestContext,uid:String):List[InsightRule] = {
+    /*
+     * Retrieve the rule records from the 'products/rules' index, 
+     * that matches the unique identifier
+     */
+    val fbuilder = FilterBuilders.termFilter(Names.UID_FIELD,uid)
+    query_FilteredRules(requestCtx,fbuilder)
+    
+  }
+  
+  def query_FilteredRules(requestCtx:RequestContext,filterBuilder:FilterBuilder):List[InsightRule] = {
+
+    val qbuilder = QueryBuilders.filteredQuery(QueryBuilders.matchAllQuery(),filterBuilder)
+
+    val count = requestCtx.count("products","rules",qbuilder)    
+    val response = requestCtx.find("products", "rules", qbuilder,count)
+    
+    val hits = response.getHits()
+    val total = hits.totalHits()
+    
+    /* There is no rule record for the respective identifier */
+    if (total == 0) return List.empty[InsightRule]
+    
+    val result = hits.hits().map(x => JSON_MAPPER.readValue(x.getSourceAsString,classOf[InsightRule]))    
+    result.toList
+    
+  }
+  
   /**
    * This query determines all entries from the database/tasks index
    * and can be used to determine a sorted list of time spans, where

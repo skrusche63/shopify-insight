@@ -42,6 +42,12 @@ class ESRecommendationBuilder {
                   .field("index", "not_analyzed")
                 .endObject()
 
+                /* timestamp */
+                .startObject(TIMESTAMP_FIELD)
+                  .field("type", "long")
+                  .field("index", "not_analyzed")
+                .endObject()
+
                 /* created_at_min */
                 .startObject("created_at_min")
                   .field("type", "string")
@@ -53,33 +59,36 @@ class ESRecommendationBuilder {
                   .field("type", "string")
                   .field("index", "not_analyzed")
                 .endObject()
-
-                /* consequent */
-                .startObject(CONSEQUENT_FIELD)
-                  .field("type", "integer")
-                .endObject()
-
-                /* support */
-                .startObject(SUPPORT_FIELD)
-                  .field("type", "integer")
-                .endObject()
                     
-                /* total */
-                .startObject(TOTAL_FIELD)
-                  .field("type", "long")
+                /* site */
+                .startObject(SITE_FIELD)
+                  .field("type", "string")
+                  .field("index", "not_analyzed")
                 .endObject()
 
-                /* confidence */
-                .startObject(CONFIDENCE_FIELD)
-                  .field("type", "double")
-                .endObject()
-                          
-                /* weight */
-                .startObject(WEIGHT_FIELD)
-                  .field("type", "double")
+                /* user */
+                .startObject(USER_FIELD)
+                  .field("type", "string")
+                  .field("index", "not_analyzed")
                 .endObject()
 
-              .endObject() // properties
+                /* recommendations */
+                .startObject("recommendations")
+                  .startObject("properties")
+                
+                    .startObject("consequent")
+                      .field("type", "integer")
+                    .endObject()
+
+                    /* score */
+                    .startObject("score")
+                      .field("type", "integer")
+                    .endObject()
+                
+                  .endObject()
+                .endObject() 
+              
+                .endObject() // properties
             .endObject()   // mapping
           .endObject()
                     

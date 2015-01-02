@@ -22,7 +22,7 @@ import org.codehaus.jackson.annotate.JsonProperty
 import com.fasterxml.jackson.annotation.{JsonIgnoreProperties, JsonIgnore}
 
 @JsonIgnoreProperties(ignoreUnknown = true)
-case class InsightItem(
+case class InsightRule(
 
   @JsonProperty("uid")
   uid:String,
@@ -36,59 +36,19 @@ case class InsightItem(
   @JsonProperty("created_at_max")
   created_at_max:String,
 
-  @JsonProperty("site")
-  site:String,
+  @JsonProperty("antecedent")
+  antecedent:List[Int],
 
-  @JsonProperty("user")
-  user:String,
+  @JsonProperty("consequent")
+  consequent:List[Int],
 
-  @JsonProperty("group")
-  group:String,
+  @JsonProperty("support")
+  support:Int,
 
-  @JsonProperty("item")
-  item:Int,
-
-  @JsonProperty("score")
-  score:Double,
-
-  @JsonProperty("user_total")
-  user_total:Int,
-
-  @JsonProperty("item_quantity")
-  item_quantity:Int,
-
-  @JsonProperty("item_category")
-  item_category:String,
-
-  @JsonProperty("item_tags")
-  item_tags:String
-
-)
-
-case class InsightItems(items:List[InsightItem])
-
-case class InsightTopItems(
-
-  uid:String,
-  timestamp:Long,
-
-  created_at_min:String,
-  created_at_max:String,
-
+  @JsonProperty("total")
   total:Int,
-  items:List[ItemSupp]
-    
-)
 
-case class InsightFilteredItems(
+  @JsonProperty("confidence")
+  confidence:Double
 
-  uid:String,
-  timestamp:Long,
-
-  created_at_min:String,
-  created_at_max:String,
-
-  total:Int,
-  items:List[ItemPref]
-    
 )

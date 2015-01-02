@@ -37,6 +37,8 @@ class AggregateQuestor(requestCtx:RequestContext) extends BaseActor {
       
       val origin = sender
       try {
+            
+        requestCtx.listener ! String.format("""[INFO][UID: %s] Aggregate request received.""",uid)
        
         val aggregate = ESQuestor.query_Aggregate(requestCtx, uid)
         origin ! aggregate

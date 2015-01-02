@@ -37,7 +37,15 @@ import org.elasticsearch.common.xcontent.{XContentBuilder,XContentFactory}
  * the item, monetary and temporal dimension
  */
 class Analytics(requestCtx:RequestContext) {
-
+  /*
+   * These customer lifetime value thresholds refer to 
+   * the sigma-range of the average lifetime value and
+   * are leveraged to classify customers as "high", "norm"
+   * and "low" customers
+   */
+  private val CLV_MAX_THRESHOLD = 1.3
+  private val CLV_MIN_THRESHOLD = 0.7
+  
   def buildITM(params:Map[String,String],rawset:List[Order]):List[XContentBuilder] = {
     
     val uid = params(Names.REQ_UID)
@@ -209,6 +217,13 @@ class Analytics(requestCtx:RequestContext) {
      * Extract the temporal and monetary dimension from the raw dataset
      */
     val orders = rawset.map(order => (order.site,order.user,order.timestamp,order.amount))    
+    /*
+     * We caluculate the average amount a customer has spent in
+     * the certain timespan under consideration; this is used as
+     * a reference for the individual total amount a specific
+     * customer has spent
+     */
+    val total_avg_clv = averageCLV(orders)
     
     /*
      * We compute the preferred days of the orders, and the preferred 
@@ -290,11 +305,27 @@ class Analytics(requestCtx:RequestContext) {
        * Compute the average, minimum and maximum amount of all 
        * the user purchase transactions of last 30, 60 or 90 days
        */    
-      val user_amounts = user_orders.map(_._2)
- 
-      val user_total_spent = user_amounts.foldLeft(0.toFloat)(_ + _)      
+      val user_amounts = user_orders.map(_._2) 
+      val user_total_spent = user_amounts.sum      
+      
+      /*
+       * Assign a cutomer value group to this specific customer
+       * with respect to the average customer lifetime value in
+       * the time span under consideration
+       */
+      val user_clv_group = 
+        if (CLV_MAX_THRESHOLD * total_avg_clv <= user_total_spent) "high"
+        else if (CLV_MIN_THRESHOLD * total_avg_clv <= user_total_spent && user_total_spent < CLV_MAX_THRESHOLD * total_avg_clv) "norm"
+        else "low"
+      
       val user_avg_amount = user_total_spent / user_total.toFloat
     
+      /*
+       * From the total amount spent by the customer, we rank this
+       * customer as a high, norm or low value customer with respect
+       * to the average amount spent by all customers
+       */
+      
       val user_min_amount = user_amounts.min
       /*
        * (RF)M: the value of the highest order from the given customer is
@@ -450,6 +481,9 @@ class Analytics(requestCtx:RequestContext) {
 	     * from all user specific transactions taken into account, 
 	     * i.e. from the 30, 60 or 90 days
 	     */
+
+	    /* user_clv_group */
+	    builder.field("user_clv_group",user_clv_group)
 	    
 	    /* user_total */
 	    builder.field("user_total",user_total)
@@ -632,7 +666,7 @@ class Analytics(requestCtx:RequestContext) {
     val total_item_supp = orders_itm.flatMap(_._5).groupBy(x => x._1).map(x => {
       
       val item = x._1
-      val supp = x._2.map(_._2).foldLeft(0.toInt)(_ + _)
+      val supp = x._2.map(_._2).sum
       
       (item,supp)
     })
@@ -792,6 +826,13 @@ class Analytics(requestCtx:RequestContext) {
     
     builder.endObject()
     builder
+    
+  }
+  
+  private def averageCLV(rawset:List[(String,String,Long,Float)]):Float = {
+    
+    val values = rawset.groupBy(x => (x._1,x._2)).map(x => x._2.map(_._4).sum)
+    values.sum / values.size
     
   }
   

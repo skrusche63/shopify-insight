@@ -22,7 +22,18 @@ import org.codehaus.jackson.annotate.JsonProperty
 import com.fasterxml.jackson.annotation.{JsonIgnoreProperties, JsonIgnore}
 
 @JsonIgnoreProperties(ignoreUnknown = true)
-case class InsightItem(
+case class InsightRecommendationItems (
+
+  @JsonProperty("consequent")
+  consequent:List[Int],
+
+  @JsonProperty("score")
+  score:Double
+    
+)
+
+@JsonIgnoreProperties(ignoreUnknown = true)
+case class InsightRecommendation (
 
   @JsonProperty("uid")
   uid:String,
@@ -42,53 +53,9 @@ case class InsightItem(
   @JsonProperty("user")
   user:String,
 
-  @JsonProperty("group")
-  group:String,
-
-  @JsonProperty("item")
-  item:Int,
-
-  @JsonProperty("score")
-  score:Double,
-
-  @JsonProperty("user_total")
-  user_total:Int,
-
-  @JsonProperty("item_quantity")
-  item_quantity:Int,
-
-  @JsonProperty("item_category")
-  item_category:String,
-
-  @JsonProperty("item_tags")
-  item_tags:String
-
-)
-
-case class InsightItems(items:List[InsightItem])
-
-case class InsightTopItems(
-
-  uid:String,
-  timestamp:Long,
-
-  created_at_min:String,
-  created_at_max:String,
-
-  total:Int,
-  items:List[ItemSupp]
+  @JsonProperty("recommendations")
+  recommendations:List[InsightRecommendationItems]
     
 )
 
-case class InsightFilteredItems(
-
-  uid:String,
-  timestamp:Long,
-
-  created_at_min:String,
-  created_at_max:String,
-
-  total:Int,
-  items:List[ItemPref]
-    
-)
+case class InsightRecommendations(items:List[InsightRecommendation])

@@ -151,6 +151,9 @@ class RelationModeler(requestCtx:RequestContext) extends BaseActor {
       
       /* uid */
       builder.field(Names.UID_FIELD,params(Names.REQ_UID))
+      
+      /* timestamp */
+      builder.field(Names.TIMESTAMP_FIELD,timestamp)
 
 	  /* created_at_min */
 	  builder.field("created_at_min",params("created_at_min"))

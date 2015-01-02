@@ -41,6 +41,8 @@ import org.elasticsearch.common.xcontent.{XContentBuilder,XContentFactory}
  * 
  */
 class RecommendationModeler(requestCtx:RequestContext) extends BaseActor {
+  
+  private val COVERAGE_THRESHOLD = 0.25
 
   override def receive = {
    
@@ -173,20 +175,27 @@ class RecommendationModeler(requestCtx:RequestContext) extends BaseActor {
        */
       val new_rules = rules.items.map(rule => {
 
-        val intersect = items.intersect(rule.antecedent)
-        val ratio = intersect.length.toDouble / items.length
-                  
-        (items,rule.consequent,rule.support,rule.total,rule.confidence,ratio)
+        val support = rule.support.toDouble / rule.total
+        val coverage = items.intersect(rule.antecedent).length.toDouble / items.length
+        
+        (items,rule.consequent,support,rule.confidence,coverage)
       
-      }).filter(r => (r._1.intersect(r._2).size == 0))
-      
-      val best_rule = new_rules.sortBy(x => (-x._6, -x._5, -x._3)).head
+      }).filter(r => (r._1.intersect(r._2).size > 0) && r._5 > COVERAGE_THRESHOLD)
+
+      /* 
+       * Build recommendation score for each rule from support, confidence and coverage,
+       * and find best rule with highest score 
+       */
+      val sorted_rules = new_rules.map(x => (x._1,x._2,x._3 * x._4 * x._5)).sortBy(x => -x._3)
           
       val builder = XContentFactory.jsonBuilder()
       builder.startObject()
       
       /* uid */
       builder.field(Names.UID_FIELD,params(Names.REQ_UID))
+      
+      /* timestamp */
+      builder.field(Names.TIMESTAMP_FIELD,timestamp)
 
 	  /* created_at_min */
 	  builder.field("created_at_min",params("created_at_min"))
@@ -200,20 +209,26 @@ class RecommendationModeler(requestCtx:RequestContext) extends BaseActor {
       /* user */
       builder.field(Names.USER_FIELD,user)
       
-      /* consequent */
-      builder.field(Names.CONSEQUENT_FIELD,best_rule._2)
+      /* recommendations */
+      builder.startArray("recommendations")
       
-      /* support */
-      builder.field(Names.SUPPORT_FIELD,best_rule._3)
+      for (sorted_rule <- sorted_rules) {
+        
+        builder.startObject()
+          
+        /* consequent */
+        builder.startArray("consequent")
+        sorted_rule._2.foreach(v => builder.value(v))
+        builder.endArray
       
-      /* total */
-      builder.field(Names.TOTAL_FIELD,best_rule._4)
-      
-      /* confidence */
-      builder.field(Names.CONFIDENCE_FIELD,best_rule._5)  
-      
-      /* weight */
-      builder.field(Names.WEIGHT_FIELD,best_rule._6)
+        /* score */
+        builder.field("score",sorted_rule._3)
+        
+        builder.endObject()
+        
+      }
+    
+      builder.endArray()
       
       builder.endObject()        
       builder

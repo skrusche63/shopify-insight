@@ -41,8 +41,8 @@ class ProductProfiler(requestCtx:RequestContext) extends BaseActor {
       try {
       
         requestCtx.listener ! String.format("""[INFO][UID: %s] Product profile building started.""",uid)
-        
-        val rule_hits = rules(req_params)
+
+        // TODO
         
       } catch {
         case e:Exception => {
@@ -59,19 +59,6 @@ class ProductProfiler(requestCtx:RequestContext) extends BaseActor {
       }
     
     }
-    
-  }
-
-  private def rules(params:Map[String,String]):SearchHits = {
-    /*
-     * Retrieve all rule records from the 'products/rules' index;
-     * the only parameter that is required to retrieve the data 
-     * is 'uid'
-     */
-    val qbuilder = QueryBuilders.matchQuery(Names.UID_FIELD, params(Names.REQ_UID))
-    val response = requestCtx.find("products", "rules", qbuilder)
-
-    response.getHits()
     
   }
 

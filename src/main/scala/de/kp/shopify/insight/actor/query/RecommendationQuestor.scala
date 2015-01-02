@@ -29,11 +29,11 @@ import de.kp.shopify.insight.model._
 import org.elasticsearch.index.query._
 import scala.collection.mutable.Buffer
 
-class LoyaltyQuestor(requestCtx:RequestContext) extends BaseActor {
+class RecommendationQuestor(requestCtx:RequestContext) extends BaseActor {
 
   def receive = {
     
-    case query:LoyaltyQuery => {
+    case query:RecommendationQuery => {
 
       val req_params = query.data
       val uid = req_params(Names.REQ_UID)
@@ -41,17 +41,17 @@ class LoyaltyQuestor(requestCtx:RequestContext) extends BaseActor {
       val origin = sender
       try {
             
-        requestCtx.listener ! String.format("""[INFO][UID: %s] Loyalty request received.""",uid)
+        requestCtx.listener ! String.format("""[INFO][UID: %s] Recommendation request received.""",uid)
             
-        val loyalties = ESQuestor.query_Loyalties(requestCtx,uid)
-        origin ! InsightLoyalties(loyalties)
+        val recommendations = ESQuestor.query_Recommendations(requestCtx,uid)
+        origin ! InsightRecommendations(recommendations)
         
         context.stop(self)
       
       } catch {
         case e:Exception => {
             
-          requestCtx.listener ! String.format("""[ERROR][UID: %s] Loyalty query failed: %s.""",uid,e.getMessage)
+          requestCtx.listener ! String.format("""[ERROR][UID: %s] Recommendation query failed: %s.""",uid,e.getMessage)
           origin ! SimpleResponse(uid,e.getMessage)
           
           context.stop(self)

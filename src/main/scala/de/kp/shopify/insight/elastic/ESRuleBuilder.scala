@@ -38,6 +38,11 @@ class ESRuleBuilder {
                  .field("index", "not_analyzed")
                .endObject()
 
+                /* timestamp */
+                .startObject(TIMESTAMP_FIELD)
+                  .field("type", "long")
+                .endObject()
+
                 /* created_at_min */
                 .startObject("created_at_min")
                   .field("type", "string")

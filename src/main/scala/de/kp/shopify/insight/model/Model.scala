@@ -313,7 +313,13 @@ case class Orders(items:List[Order])
  */
 case class AggregateQuery(data:Map[String,String])
 
+case class ForecastQuery(data:Map[String,String])
+
 case class LoyaltyQuery(data:Map[String,String])
+
+case class ProductQuery(data:Map[String,String])
+
+case class RecommendationQuery(data:Map[String,String])
 
 /**
  * A TaskQuery retrieves metadata for all registered preparation and synchronization
@@ -321,19 +327,7 @@ case class LoyaltyQuery(data:Map[String,String])
  */
 case class TaskQuery(data:Map[String,String])
 
-
-case class CrossSellQuery(data:Map[String,String])
-
-/**
- * A ForecastQuery supports the generation of marketing campaigns by forecasting
- * the next purchase date and amount
- */
-case class ForecastQuery(data:Map[String,String])
-/**
- * A SuggestQuery supports the generation of Shopify collections, based
- * on the association rules built by the data analytics pipeline (before) 
- */
-case class SuggestQuery(data:Map[String,String])
+case class UserQuery(data:Map[String,String])
 
 /**
  * A suggestion is a list of weighted (by support & confidence) 
@@ -352,8 +346,6 @@ case class Products(products:List[ShopifyProduct])
 case class Forecast(site:String,user:String,amount:Float,days:Int,score:Double)
 
 case class Forecasts(items:List[Forecast])
-
-case class PromotionQuery(data:Map[String,String])
 
 case class Recommendation(
   /* A recommendation is described on a per user basis */

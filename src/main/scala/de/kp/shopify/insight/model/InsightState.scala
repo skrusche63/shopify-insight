@@ -44,9 +44,15 @@ case class InsightState(
 
   @JsonProperty("state")
   state:String,
-
+  /*
+   * The total number of orders within the timespan
+   * defined by created_at_min and created_at_max
+   */
   @JsonProperty("user_total")
   user_total:Int,
+
+  @JsonProperty("user_clv_group")
+  user_clv_group:String,
 
   @JsonProperty("user_total_spent")
   user_total_spent:Float,

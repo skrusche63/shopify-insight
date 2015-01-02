@@ -114,30 +114,71 @@ class RestApi(host:String,port:Int,system:ActorSystem,@transient sc:SparkContext
      * 'aggregate' requests focus on the aggregated or summary day that have been
      * extracted from orders or purchase transactions of a certain time span.
      * 
-     * The following parameters are required:
+     * The following data have been extracted and are made available through this
+     * request. Note, that these data refer to all orders and customers:
+     * 
+     * CUSTOMER:
+     * 
+     * tbd
+     * 
+     * ORDER:
+     * 
+     * - total number of orders
+     * 
+     * a) monetary dimension
+     * 
+     * - total amount of money spent 
+     * 
+     * - average amount of money spent
+     * 
+     * - minimum & maximum amount of money spent
+     * 
+     * b) temporal dimension
+     * 
+     * - average time elapsed between two subsequent 
+     *   transactions
+     * 
+     * - minimum & maximum time elpased between to subsequent
+     *   transactions
+     *   
+     * - support & preference for the day of the week (note, that
+     *   only those days are avaiable where transactions have been
+     *   made  
+     *   
+     * - support & preference for the time of the day, where a day
+     *   is separated into 4 different time areas
+     *   
+     * - support & preference for the products purchased 
+     * 
+     * 
+     * The request requires the following paramaters:
      * 
      * - uid (String, mandatory)
      */
-    path("aggregate") { 
+    path("aggregate" / Segment) {subject =>  
 	  post {
 	    respondWithStatus(OK) {
-	      ctx => doAggregate(ctx)
+	      ctx => doAggregate(ctx,subject)
 	    }
 	  }
     }  ~ 
     /*
      * The following parameters are required:
      * 
-     * - method (String, mandatory)
+     * - uid (String, mandatory)
      * 
-     * The parameters depend on the method selected:
+     */
+    path("forecast") { 
+	  post {
+	    respondWithStatus(OK) {
+	      ctx => doForecast(ctx)
+	    }
+	  }
+    }  ~ 
+    /*
+     * The following parameters are required:
      * 
-     * user_loyalty:
-     * 
-     * - site (String, mandatory)
-     * - user (String, mandatory)
-     * 
-     * - uid (String, optional)
+     * - uid (String, mandatory)
      * 
      */
     path("loyalty") { 
@@ -148,30 +189,29 @@ class RestApi(host:String,port:Int,system:ActorSystem,@transient sc:SparkContext
 	  }
     }  ~ 
     /*
-     * 'product' requests focus on product specific questions. A 'product' request
-     * requires the following parameters:
+     * The following parameters are required:
      * 
      * - uid (String, mandatory)
      * 
      */
-    path("product" / Segment) {subject => 
+    path("recommendation") { 
 	  post {
 	    respondWithStatus(OK) {
-	      ctx => doProduct(ctx,subject)
+	      ctx => doRecommendation(ctx)
 	    }
 	  }
     }  ~ 
-    /*
-     * 'user' requests focus on user specific questions. A 'user' request requires
-     * the following parameters:
-     * 
-     * - uid (String, mandatory)
-     * 
-     */
-    path("user" / Segment) {subject => 
+    path("product" / Segment) {method => 
 	  post {
 	    respondWithStatus(OK) {
-	      ctx => doUser(ctx,subject)
+	      ctx => doProduct(ctx,method)
+	    }
+	  }
+    }  ~ 
+    path("user" / Segment) {method => 
+	  post {
+	    respondWithStatus(OK) {
+	      ctx => doUser(ctx,method)
 	    }
 	  }
     }  ~ 
@@ -276,22 +316,63 @@ class RestApi(host:String,port:Int,system:ActorSystem,@transient sc:SparkContext
    * An 'aggregate' request supports the retrieval of the aggregated data,
    * extracted from all orders or purchase transactions of the last n days
    */
-  private def doAggregate[T](ctx:RequestContext) = {
+  private def doAggregate[T](ctx:RequestContext,subject:String) = {
+    
+    if (List("customer","order").contains(subject)) {
+    
+      implicit val timeout:Timeout = DurationInt(requestCtx.getTimeout).second      
+ 
+      val actor = system.actorOf(Props(new query.AggregateQuestor(requestCtx)))
+      val params = getRequest(ctx)
+      
+      val excludes = List(Names.REQ_TOPIC)
+      val data = params.filter(kv => excludes.contains(kv._1) == false) ++ Map(Names.REQ_TOPIC -> subject)
+    
+      val request = AggregateQuery(data)
+      val response = ask(actor,request)     
+
+      response.onSuccess {
+        
+        case result => {
+
+          if (result.isInstanceOf[InsightAggregate]) {
+            ctx.complete(result.asInstanceOf[InsightAggregate])
+            
+          } else if (result.isInstanceOf[SimpleResponse]) {
+            ctx.complete(result.asInstanceOf[SimpleResponse])
+            
+          } else {
+            /* do nothing */
+          }
+          
+        }
+      
+      }
+
+      response.onFailure {
+        case throwable => ctx.complete(throwable.getMessage)
+      }
+      
+    }
+  
+  }
+  
+  private def doForecast[T](ctx:RequestContext) = {
 
     implicit val timeout:Timeout = DurationInt(requestCtx.getTimeout).second      
  
-    val actor = system.actorOf(Props(new query.AggregateQuestor(requestCtx)))
+    val actor = system.actorOf(Props(new query.ForecastQuestor(requestCtx)))
     val params = getRequest(ctx)
     
-    val request = AggregateQuery(params)
+    val request = ForecastQuery(params)
     val response = ask(actor,request)     
 
     response.onSuccess {
         
       case result => {
 
-        if (result.isInstanceOf[InsightAggregate]) {
-          ctx.complete(result.asInstanceOf[InsightAggregate])
+        if (result.isInstanceOf[InsightForecasts]) {
+          ctx.complete(result.asInstanceOf[InsightForecasts])
             
         } else if (result.isInstanceOf[SimpleResponse]) {
           ctx.complete(result.asInstanceOf[SimpleResponse])
@@ -309,6 +390,7 @@ class RestApi(host:String,port:Int,system:ActorSystem,@transient sc:SparkContext
     }      
   
   }
+  
   private def doLoyalty[T](ctx:RequestContext) = {
 
     implicit val timeout:Timeout = DurationInt(requestCtx.getTimeout).second      
@@ -342,6 +424,41 @@ class RestApi(host:String,port:Int,system:ActorSystem,@transient sc:SparkContext
     }      
   
   }
+  
+  private def doRecommendation[T](ctx:RequestContext) = {
+
+    implicit val timeout:Timeout = DurationInt(requestCtx.getTimeout).second      
+ 
+    val actor = system.actorOf(Props(new query.RecommendationQuestor(requestCtx)))
+    val params = getRequest(ctx)
+    
+    val request = RecommendationQuery(params)
+    val response = ask(actor,request)     
+
+    response.onSuccess {
+        
+      case result => {
+
+        if (result.isInstanceOf[InsightRecommendations]) {
+          ctx.complete(result.asInstanceOf[InsightRecommendations])
+            
+        } else if (result.isInstanceOf[SimpleResponse]) {
+          ctx.complete(result.asInstanceOf[SimpleResponse])
+            
+        } else {
+          /* do nothing */
+        }
+          
+      }
+      
+    }
+
+    response.onFailure {
+      case throwable => ctx.complete(throwable.getMessage)
+    }      
+  
+  }
+
   /**
    * A 'task' request supports the retrieval of the registered
    * preparation or synchronization tasks
@@ -382,74 +499,51 @@ class RestApi(host:String,port:Int,system:ActorSystem,@transient sc:SparkContext
   
   /**
    * 'product' supports retrieval of product related mining and prediction
-   * results, such as 'collection','cross-sell', 'promotion':
-   * 
-   * 'collection','cross-sell','promotion'
-   * 
-   * Shopify supports custom collections, i.e. grouping of products that a 
-   * shop owner can create to make their shops easier to browse. 
-   * 
-   * a) 'collection' suggests products that are often purchased together
-   * 
-   * b) 'cross-sell' helps to find additional or related products to put into 
-   * a collection e.g. mac book related, starting from a set of selected products. 
-   * 
-   * c) 'promotion' is similar to 'cross-sell' and answers the questions, which
-   * products to put into a certain collection to push sale for a list of 
-   * selected products.
-   * 
-   * 'product' requests are completely independent of a certain user and focus
-   * on relations between different products. A software product on top of these
-   * requests may be "Smart Collection Builder" that suggests products to put
-   * into a collection.
-   * 
+   * results; these requests are completely independent of a certain user 
+   * and focus on relations between different products.
    */
-  private def doProduct[T](ctx:RequestContext,subject:String) = {
-      
-  }
-  
-  private def doUser[T](ctx:RequestContext,subject:String) = {
-
-    implicit val timeout:Timeout = DurationInt(requestCtx.getTimeout).second      
-
-    val actor = system.actorOf(Props(new UserQuestor(requestCtx)))
-    val params = getRequest(ctx)
+  private def doProduct[T](ctx:RequestContext,method:String) = {
     
-    val request = subject match {
+    if (List(
+        /* association rule related */
+        "product_cross_sell",
+        "product_promotion",
+        "product_suggest",
+        /* stats related */
+        "product_top_sell").contains(method)) {
       
-      case "forecast" => ForecastQuery(params)
+      implicit val timeout:Timeout = DurationInt(requestCtx.getTimeout).second      
+ 
+      val actor = system.actorOf(Props(new query.ProductQuestor(requestCtx)))
+      val params = getRequest(ctx)
       
-      case "recommendation" => {}
-      
-      case _ => null
-
-    }
+      val excludes = List(Names.REQ_METHOD)
+      val data = params.filter(kv => excludes.contains(kv._1) == false) ++ Map(Names.REQ_METHOD -> method)
     
-    if (request != null) {
-      
-      val response = ask(actor,request)           
+      val request = ProductQuery(data)
+      val response = ask(actor,request)     
+
       response.onSuccess {
         
         case result => {
-          
-          if (result.isInstanceOf[Forecasts]) {
-            ctx.complete(result.asInstanceOf[Forecasts])
-            
-          } else if (result.isInstanceOf[Recommendations]) {
-             /*
-             * Product recommendations is retrieved e.g. from the 
-             * Association Analysis engine in combination with a 
-             * Shopify request
-             */
-           ctx.complete(result.asInstanceOf[Recommendations])
-            
-          } else if (result.isInstanceOf[ServiceResponse]) {
+
+          if (result.isInstanceOf[InsightFilteredItems]) {
             /*
-             * This is the common response type used for almost
-             * all requests
+             * product_cross_sell
+             * product_promotion
+             * product_suggest
              */
-            ctx.complete(result.asInstanceOf[ServiceResponse])
+            ctx.complete(result.asInstanceOf[InsightFilteredItems])
             
+          } else if (result.isInstanceOf[InsightTopItems]) {
+            /* product_top_sell */
+            ctx.complete(result.asInstanceOf[InsightTopItems])
+            
+          } else if (result.isInstanceOf[SimpleResponse]) {
+            ctx.complete(result.asInstanceOf[SimpleResponse])
+            
+          } else {
+            /* do nothing */
           }
           
         }
@@ -461,7 +555,60 @@ class RestApi(host:String,port:Int,system:ActorSystem,@transient sc:SparkContext
       }
       
     }
+      
+  }
+  
+  private def doUser[T](ctx:RequestContext,method:String) = {
+    
+    if (List(
+        "user_forecast",
+        "user_loyalty",
+        "user_recommendation").contains(method)) {
+      
+      implicit val timeout:Timeout = DurationInt(requestCtx.getTimeout).second      
+ 
+      val actor = system.actorOf(Props(new query.UserQuestor(requestCtx)))
+      val params = getRequest(ctx)
+      
+      val excludes = List(Names.REQ_METHOD)
+      val data = params.filter(kv => excludes.contains(kv._1) == false) ++ Map(Names.REQ_METHOD -> method)
+    
+      val request = UserQuery(data)
+      val response = ask(actor,request)     
 
+      response.onSuccess {
+        
+        case result => {
+
+          if (result.isInstanceOf[InsightForecasts]) {
+            /* user_forecast */
+            ctx.complete(result.asInstanceOf[InsightForecasts])
+
+          } else if (result.isInstanceOf[InsightLoyalties]) {
+            /* user_loyalty */
+            ctx.complete(result.asInstanceOf[InsightLoyalties])
+ 
+          } else if (result.isInstanceOf[InsightFilteredItems]) {
+            /* user_recommendation */
+            ctx.complete(result.asInstanceOf[InsightFilteredItems])
+            
+          } else if (result.isInstanceOf[SimpleResponse]) {
+            ctx.complete(result.asInstanceOf[SimpleResponse])
+            
+          } else {
+            /* do nothing */
+          }
+          
+        }
+      
+      }
+
+      response.onFailure {
+        case throwable => ctx.complete(throwable.getMessage)
+      }
+    
+    }
+  
   }
 
   private def getHeaders(ctx:RequestContext):Map[String,String] = {
