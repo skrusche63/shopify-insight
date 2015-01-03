@@ -87,8 +87,8 @@ class ESForecastBuilder {
                   .field("type", "float")
                 .endObject()
 
-                /* days */
-                .startObject(DAYS_FIELD)
+                /* time */
+                .startObject(TIME_FIELD)
                   .field("type", "long")
                 .endObject()
                

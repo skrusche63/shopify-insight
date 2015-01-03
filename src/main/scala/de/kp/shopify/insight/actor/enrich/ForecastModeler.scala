@@ -217,13 +217,13 @@ class ForecastModeler(requestCtx:RequestContext) extends BaseActor {
      * re-interpret the time sub state; the days period is e.g.
      * 15, 45 or 90 days (from the last purchase)
      */
-    val next_days = StateHandler.nextDays(state.name)
+    val next_time = StateHandler.nextDate(state.name,time)
     val next_score = state.probability
     
     val source = HashMap.empty[String,Any]
     
     source += Names.AMOUNT_FIELD -> next_amount
-    source += Names.DAYS_FIELD -> next_days
+    source += Names.TIME_FIELD -> next_time
     
     source += Names.STATE_FIELD -> state.name
     source += Names.SCORE_FIELD -> next_score
@@ -233,21 +233,18 @@ class ForecastModeler(requestCtx:RequestContext) extends BaseActor {
     var pre_amount = next_amount
     var pre_score = next_score
     
-    var sum_days = next_days
+    var pre_time = next_time
     var sum_amount = next_amount
     
     for (state <- states.tail) {
 
-      val next_days = StateHandler.nextDays(state.name)
+      val next_time = StateHandler.nextDate(state.name,pre_time)
       val next_amount = StateHandler.nextAmount(state.name, pre_amount)
       
       /* Conditional probability */
       val next_score = state.probability * pre_score
-      /*
-       * Add aggregated (sum) amount and days period to 
-       * the forecast
-       */
-      sum_days += next_days
+
+      pre_time += next_time
       sum_amount += next_amount
 
       pre_amount = next_amount
@@ -256,7 +253,7 @@ class ForecastModeler(requestCtx:RequestContext) extends BaseActor {
       val source = HashMap.empty[String,Any]
     
       source += Names.AMOUNT_FIELD -> sum_amount.asInstanceOf[Object]
-      source += Names.DAYS_FIELD -> sum_days.asInstanceOf[Object]
+      source += Names.TIME_FIELD -> next_time
     
       source += Names.STATE_FIELD -> state.name
       source += Names.SCORE_FIELD -> next_score.asInstanceOf[Object]

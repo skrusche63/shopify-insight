@@ -1,5 +1,8 @@
 package de.kp.shopify.insight.actor.query
 
+import org.joda.time.DateTime
+import org.joda.time.format.DateTimeFormat
+
 import de.kp.spark.core.Names
 
 import de.kp.shopify.insight._
@@ -32,19 +35,7 @@ class UserQuestor(requestCtx:RequestContext) extends BaseActor {
             
             requestCtx.listener ! String.format("""[INFO][UID: %s] User forecast request received.""",uid)
             
-            val filters = Buffer.empty[FilterBuilder]
-            /*
-             * This method retrieves the forecast description of a certain user,
-             * specified by 'site' and 'user' identifier 
-             */
-            val site = req_params(Names.REQ_SITE)
-            filters += FilterBuilders.termFilter(Names.REQ_SITE, site)
-            
-            val user = req_params(Names.REQ_USER)
-            filters += FilterBuilders.termFilter(Names.REQ_USER, user)
-    
-            if (req_params.contains(Names.REQ_UID))
-              filters += FilterBuilders.termFilter(Names.REQ_UID, req_params(Names.REQ_UID))
+            val filters = buildUserFilters(req_params)
             
             val fbuilder = FilterBuilders.boolFilter()
             fbuilder.must(filters:_*)
@@ -60,19 +51,7 @@ class UserQuestor(requestCtx:RequestContext) extends BaseActor {
             
             requestCtx.listener ! String.format("""[INFO][UID: %s] User loyalty request received.""",uid)
             
-            val filters = Buffer.empty[FilterBuilder]
-            /*
-             * This method retrieves the loyalty description of a certain user,
-             * specified by 'site' and 'user' identifier 
-             */
-            val site = req_params(Names.REQ_SITE)
-            filters += FilterBuilders.termFilter(Names.REQ_SITE, site)
-            
-            val user = req_params(Names.REQ_USER)
-            filters += FilterBuilders.termFilter(Names.REQ_USER, user)
-    
-            if (req_params.contains(Names.REQ_UID))
-              filters += FilterBuilders.termFilter(Names.REQ_UID, req_params(Names.REQ_UID))
+            val filters = buildUserFilters(req_params)
             
             val fbuilder = FilterBuilders.boolFilter()
             fbuilder.must(filters:_*)
@@ -84,24 +63,57 @@ class UserQuestor(requestCtx:RequestContext) extends BaseActor {
             
           }
           
+          case "user_next_purchase" => {
+            
+            requestCtx.listener ! String.format("""[INFO][UID: %s] User next purchase request received.""",uid)
+
+            /*
+             * Retrieve all (user) forecasts that specify purchase events from today within
+             * the next 'n' days; we sort these events by the probability score provided and
+             * return a list with 'user', 'timestamp' and 'probability
+             */
+            val days = if (req_params.contains(Names.REQ_DAYS)) req_params(Names.REQ_DAYS).toInt else 30
+    
+            val today = new DateTime()
+            
+            val from = today.getMillis
+            val to = today.plusDays(days).getMillis
+            
+            val filters = buildTimespanFilters(from,to)
+            
+            val fbuilder = FilterBuilders.boolFilter()
+            fbuilder.must(filters:_*)
+            
+            val forecasts = ESQuestor.query_FilteredForecasts(requestCtx,fbuilder)
+            /*
+             * Build from these forecasts a group of users and specify their
+             * predicted purchase timestamp and the respective score
+             */
+            val users = forecasts.groupBy(x => (x.site,x.user)).map(f => {
+              
+              val (site,user) = f._1
+              /*
+               * Note, that we have computed more than one step into 
+               * the future, but due to conditional probability, we actually
+               * only take the highest score per user
+               */
+              val data = f._2.sortBy(x => -x.score).map(x => (x.time,x.score)).head
+              
+              InsightPurchaseSegmentUser(site,user,data._1,data._2)
+              
+            }).toList
+            
+            origin ! InsightPurchaseSegment(from,to,users)
+            context.stop(self)
+
+          }
+          
           case "user_recommendation" => {
             
             requestCtx.listener ! String.format("""[INFO][UID: %s] User recommendation request received.""",uid)
 
             val total = if (req_params.contains(Names.REQ_TOTAL)) req_params(Names.REQ_TOTAL).toInt else 10
-            val filters = Buffer.empty[FilterBuilder]
-            /*
-             * This method retrieves the forecast description of a certain user,
-             * specified by 'site' and 'user' identifier 
-             */
-            val site = req_params(Names.REQ_SITE)
-            filters += FilterBuilders.termFilter(Names.REQ_SITE, site)
-            
-            val user = req_params(Names.REQ_USER)
-            filters += FilterBuilders.termFilter(Names.REQ_USER, user)
-    
-            if (req_params.contains(Names.REQ_UID))
-              filters += FilterBuilders.termFilter(Names.REQ_UID, req_params(Names.REQ_UID))
+            val filters = buildUserFilters(req_params)
             
             val fbuilder = FilterBuilders.boolFilter()
             fbuilder.must(filters:_*)
@@ -177,4 +189,44 @@ class UserQuestor(requestCtx:RequestContext) extends BaseActor {
       
   }
  
+  private def buildTimespanFilters(params:Map[String,String]):List[FilterBuilder] = {
+
+    val days = if (params.contains(Names.REQ_DAYS)) params(Names.REQ_DAYS).toInt else 30
+    
+    val today = new DateTime()
+    
+    val from = today.getMillis
+    val to = today.plusDays(days).getMillis
+            
+    buildTimespanFilters(from,to)
+    
+  }
+  private def buildTimespanFilters(from:Long,to:Long):List[FilterBuilder] = {
+            
+    val filters = Buffer.empty[FilterBuilder]
+    filters += FilterBuilders.rangeFilter("time").from(from).to(to)
+    
+    filters.toList
+    
+  }
+
+  private def buildUserFilters(params:Map[String,String]):List[FilterBuilder] = {
+             
+    val filters = Buffer.empty[FilterBuilder]
+    /*
+     * This method retrieves the forecast description of a certain user,
+     * specified by 'site' and 'user' identifier 
+     */
+    val site = params(Names.REQ_SITE)
+    filters += FilterBuilders.termFilter(Names.REQ_SITE, site)
+            
+    val user = params(Names.REQ_USER)
+    filters += FilterBuilders.termFilter(Names.REQ_USER, user)
+    
+    if (params.contains(Names.REQ_UID))
+      filters += FilterBuilders.termFilter(Names.REQ_UID, params(Names.REQ_UID))
+   
+    filters.toList
+    
+  }
 }

@@ -73,6 +73,21 @@ class ESCustomerBuilder {
                    .field("type", "long")
                    .field("index", "not_analyzed")
                 .endObject()
+                
+                /* email */
+                .startObject("email")
+                  .field("type", "string")
+                .endObject()
+
+                /* email_verified */
+                .startObject("email_verified")
+                  .field("type", "boolean")
+                .endObject()
+
+                /* accepts_marketing */
+                .startObject("accepts_marketing")
+                  .field("type", "boolean")
+                .endObject()
 
                 /* customer_data */
                 .startObject("customer_data")
@@ -94,21 +109,6 @@ class ESCustomerBuilder {
                     .startObject("created_at_max")
                       .field("type", "string")
                       .field("index", "not_analyzed")
-                    .endObject()
-                
-                    /* email */
-                    .startObject("email")
-                      .field("type", "string")
-                    .endObject()
-
-                    /* email_verified */
-                    .startObject("email_verified")
-                      .field("type", "boolean")
-                    .endObject()
-
-                    /* accepts_marketing */
-                    .startObject("accepts_marketing")
-                      .field("type", "boolean")
                     .endObject()
 
                     /* operational_state */

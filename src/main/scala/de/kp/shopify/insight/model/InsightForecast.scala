@@ -22,6 +22,37 @@ import org.codehaus.jackson.annotate.JsonProperty
 import com.fasterxml.jackson.annotation.{JsonIgnoreProperties, JsonIgnore}
 
 @JsonIgnoreProperties(ignoreUnknown = true)
+case class InsightPurchaseSegmentUser(
+
+  @JsonProperty("site")
+  site:String,
+
+  @JsonProperty("user")
+  user:String,
+
+  @JsonProperty("time")
+  time:Long,
+
+  @JsonProperty("score")
+  score:Double
+
+)
+
+@JsonIgnoreProperties(ignoreUnknown = true)
+case class InsightPurchaseSegment(
+  
+  @JsonProperty("time_from")
+  time_from:Long,
+  
+  @JsonProperty("time_to")
+  time_to:Long,
+  
+  @JsonProperty("users")
+  users:List[InsightPurchaseSegmentUser]
+    
+)
+
+@JsonIgnoreProperties(ignoreUnknown = true)
 case class InsightForecast(
 
   @JsonProperty("uid")
@@ -51,8 +82,8 @@ case class InsightForecast(
   @JsonProperty("amount")
   amount:Float,
 
-  @JsonProperty("days")
-  days:Long,
+  @JsonProperty("time")
+  time:Long,
 
   @JsonProperty("score")
   score:Double

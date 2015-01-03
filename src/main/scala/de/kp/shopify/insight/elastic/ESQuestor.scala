@@ -90,6 +90,23 @@ object ESQuestor {
     
   }
   
+  def query_Customers(requestCtx:RequestContext):List[InsightCustomer] = {
+
+    val qbuilder = QueryBuilders.matchAllQuery()
+
+    val count = requestCtx.count("database","customers",qbuilder)    
+    val response = requestCtx.find("database", "customers", qbuilder,count)
+    
+    val hits = response.getHits()
+    val total = hits.totalHits()
+    
+    if (total == 0) return List.empty[InsightCustomer]
+    
+    val result = hits.hits().map(x => requestCtx.JSON_MAPPER.readValue(x.getSourceAsString,classOf[InsightCustomer]))    
+    result.toList
+    
+  }
+  
   /**
    * This query retrieves all forecast records that refer to a certain preparation
    * task, specified by the respective unique identifier

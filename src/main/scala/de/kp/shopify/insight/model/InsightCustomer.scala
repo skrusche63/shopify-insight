@@ -33,15 +33,6 @@ case class InsightCustomerDetails(
   @JsonProperty("created_at_max")
   created_at_max:String,
 
-  @JsonProperty("email")
-  email:String,
-
-  @JsonProperty("email_verified")
-  email_verified:Boolean,
-
-  @JsonProperty("accepts_marketing")
-  accepts_marketing:Boolean,
-
   @JsonProperty("amount_spent")
   amount_spent:Long,
 
@@ -73,6 +64,15 @@ case class InsightCustomer(
 
   @JsonProperty("last_update")
   last_update:Long,
+
+  @JsonProperty("email")
+  email:String,
+
+  @JsonProperty("email_verified")
+  email_verified:Boolean,
+
+  @JsonProperty("accepts_marketing")
+  accepts_marketing:Boolean,
 
   /*
    * Customer details can change from evaluation timespan to 

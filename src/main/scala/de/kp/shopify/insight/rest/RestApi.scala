@@ -570,6 +570,7 @@ class RestApi(host:String,port:Int,system:ActorSystem,@transient sc:SparkContext
     if (List(
         "user_forecast",
         "user_loyalty",
+        "user_next_purchase",
         "user_recommendation").contains(method)) {
       
       implicit val timeout:Timeout = DurationInt(requestCtx.getTimeout).second      
@@ -594,6 +595,10 @@ class RestApi(host:String,port:Int,system:ActorSystem,@transient sc:SparkContext
           } else if (result.isInstanceOf[InsightLoyalties]) {
             /* user_loyalty */
             ctx.complete(result.asInstanceOf[InsightLoyalties])
+          
+          } else if (result.isInstanceOf[InsightPurchaseSegment]) {
+            /* user_next_purchase */
+            ctx.complete(result.asInstanceOf[InsightPurchaseSegment])
  
           } else if (result.isInstanceOf[InsightFilteredItems]) {
             /* user_recommendation */

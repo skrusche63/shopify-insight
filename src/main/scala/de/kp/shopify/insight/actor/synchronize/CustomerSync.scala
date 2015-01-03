@@ -106,6 +106,11 @@ class CustomerSync(requestCtx:RequestContext) extends BaseActor {
     val customer_json = requestCtx.getAsString("database","customers",customer.id)  
     val customer_ds = if (customer_json == null) null else requestCtx.JSON_MAPPER.readValue(customer_json,classOf[InsightCustomer])
     
+    /*
+     * Compute timeseries from history and actual data record
+     */
+    val history_ds = if (customer_ds == null) List.empty[(Float,Long,Long)] else customer_ds.customer_data.map(x => (x.amount_spent,x.orders_count,x.timestamp))
+    
     val builder = XContentFactory.jsonBuilder()
 	builder.startObject()
 	
@@ -123,10 +128,18 @@ class CustomerSync(requestCtx:RequestContext) extends BaseActor {
 	
 	/* last_update */
 	builder.field("last_update",timestamp)
+
+    builder.field("email",customer.emailAddress)
+    builder.field("email_verified",customer.emailVerified)
+
+    builder.field("accepts_marketing",customer.marketing)
 	
 	/* customer_data */
 	builder.startArray("customer_data")
 	
+	/*
+	 * Add customer data history data
+	 */
 	if (customer_ds != null) {
 	   
 	  val customer_data = customer_ds.customer_data
@@ -139,10 +152,6 @@ class CustomerSync(requestCtx:RequestContext) extends BaseActor {
 	    builder.field("created_at_min",customer_detail.created_at_min)
 	    builder.field("created_at_max",customer_detail.created_at_max)
 
-	    builder.field("email",customer_detail.email)
- 	    builder.field("email_verified",customer_detail.email_verified)
-
-	    builder.field("accepts_marketing",customer_detail.accepts_marketing)
  	    builder.field("amount_spent",customer_detail.amount_spent)
 
 	    builder.field("last_order",customer_detail.last_order)
@@ -164,10 +173,6 @@ class CustomerSync(requestCtx:RequestContext) extends BaseActor {
 	builder.field("created_at_min",created_at_min)
 	builder.field("created_at_max",created_at_max)
 
-	builder.field("email",customer.emailAddress)
- 	builder.field("email_verified",customer.emailVerified)
-
-	builder.field("accepts_marketing",customer.marketing)
  	builder.field("amount_spent",customer.totalSpent)
 
 	builder.field("last_order",customer.lastOrder)
@@ -184,4 +189,15 @@ class CustomerSync(requestCtx:RequestContext) extends BaseActor {
     
   }
 
+  private def timeseries(history_ds:List[(Float,Long,Long)],new_ds:(Float,Long,Long)) {
+  
+    val rawset = history_ds ++ List(new_ds).sortBy(_._3)
+    val series = List(rawset.head) ++ (if (rawset.size > 1) {
+      /* Determine total amount & orders count per timestamp */
+      rawset.zip(rawset.tail).map(x => (x._2._1 - x._1._1,x._2._2 - x._1._2, x._2._3))
+      
+    } else List.empty[(Float,Long,Long)])
+  
+  }
+  
 }
