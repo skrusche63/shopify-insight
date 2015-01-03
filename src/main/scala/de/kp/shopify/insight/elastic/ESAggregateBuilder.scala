@@ -81,6 +81,21 @@ class ESAggregateBuilder {
                   .field("type", "float")
                 .endObject()
 
+                /* total_avg_clv */
+                .startObject("total_avg_clv")
+                  .field("type", "float")
+                .endObject()
+
+                /* total_max_clv */
+                .startObject("total_max_clv")
+                  .field("type", "float")
+                .endObject()
+
+                /* total_min_clv */
+                .startObject("total_min_clv")
+                  .field("type", "float")
+                .endObject()
+
                 /* total_avg_timespan */
                 .startObject("total_avg_timespan")
                   .field("type", "long")

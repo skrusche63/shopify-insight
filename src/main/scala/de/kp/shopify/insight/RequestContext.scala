@@ -29,13 +29,13 @@ import de.kp.shopify.insight.model._
 
 import de.kp.shopify.insight.elastic._
 
-import org.joda.time.DateTime
-import org.joda.time.format.DateTimeFormat
-
 import scala.collection.mutable.{Buffer,HashMap}
 
 import org.elasticsearch.action.search.SearchResponse
 import org.elasticsearch.common.xcontent.XContentBuilder
+
+import com.fasterxml.jackson.databind.{Module, ObjectMapper}
+import com.fasterxml.jackson.module.scala.DefaultScalaModule
 
 import org.elasticsearch.index.query.QueryBuilder
 
@@ -51,6 +51,9 @@ class RequestContext(
     * system, that is responsible for receiving any kind of messages
     */
    val listener:ActorRef) extends Serializable {
+
+  val JSON_MAPPER = new ObjectMapper()  
+  JSON_MAPPER.registerModule(DefaultScalaModule)
 
   /*
    * Determine Shopify access parameters from the configuration file 
@@ -128,8 +131,11 @@ class RequestContext(
   def find(index:String,mapping:String,query:QueryBuilder,size:Int):SearchResponse 
     = elasticClient.find(index,mapping,query,size)
 
-  def get(index:String,mapping:String,id:String):java.util.Map[String,Object] 
-    = elasticClient.get(index,mapping,id)
+  def getAsMap(index:String,mapping:String,id:String):java.util.Map[String,Object] 
+    = elasticClient.getAsMap(index,mapping,id)
+
+  def getAsString(index:String,mapping:String,id:String):String 
+    = elasticClient.getAsString(index,mapping,id)
 
   def putSource(index:String,mapping:String,source:XContentBuilder):Boolean 
     = elasticClient.putSource(index,mapping,source)
@@ -287,15 +293,7 @@ class RequestContext(
   
   private def setOrderParams(params:Map[String,String]):Map[String,String] = {
 
-    val days = if (params.contains(Names.REQ_DAYS)) params(Names.REQ_DAYS).toInt else 30
-    
-    val created_max = new DateTime()
-    val created_min = created_max.minusDays(days)
-
-    val data = HashMap(
-      "created_at_min" -> formatted(created_min.getMillis),
-      "created_at_max" -> formatted(created_max.getMillis)
-    )
+    val data = HashMap.empty[String,String]
     
     /*
      * We restrict to those orders that have been paid,
@@ -306,19 +304,6 @@ class RequestContext(
     data += "status" -> "closed"
 
     data.toMap
-    
-  }
-  /**
-   * This method is used to format a certain timestamp, provided with 
-   * a request to collect data from a certain Shopify store
-   */
-  private def formatted(time:Long):String = {
-
-    //2008-12-31 03:00
-    val pattern = "yyyy-MM-dd HH:mm"
-    val formatter = DateTimeFormat.forPattern(pattern)
-    
-    formatter.print(time)
     
   }
   

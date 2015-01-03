@@ -26,7 +26,10 @@ case class InsightState(
 
   @JsonProperty("uid")
   uid:String,
-
+  /*
+   * timestamp of the order that forms the basis
+   * for the derivation of the subsequent values
+   */
   @JsonProperty("timestamp")
   timestamp:Long,
 
@@ -35,6 +38,15 @@ case class InsightState(
 
   @JsonProperty("created_at_max")
   created_at_max:String,
+
+  /*
+   * today is the reference timestamp when this
+   * analytics record has been built; it is used
+   * to compute the recency and may also be used
+   * to adapt the recency
+   */
+  @JsonProperty("today")
+  today:Long,
 
   @JsonProperty("site")
   site:String,
@@ -66,6 +78,9 @@ case class InsightState(
   @JsonProperty("user_min_amount")
   user_min_amount:Float,
 
+  @JsonProperty("user_diff_amount")
+  user_diff_amount:Float,
+
   @JsonProperty("user_avg_timespan")
   user_avg_timespan:Long,
 
@@ -74,6 +89,9 @@ case class InsightState(
 
   @JsonProperty("user_min_timespan")
   user_min_timespan:Long,
+
+  @JsonProperty("user_timespan")
+  user_timespan:Long,
 
   @JsonProperty("user_recency")
   user_recency:Long,

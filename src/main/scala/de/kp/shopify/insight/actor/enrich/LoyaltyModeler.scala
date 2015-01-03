@@ -140,8 +140,6 @@ class LoyaltyModeler(requestCtx:RequestContext) extends BaseActor {
     val states_list = response.data(Names.REQ_RESPONSE).split(";").map(x => x.split(","))    
     val sources = ArrayBuffer.empty[XContentBuilder]
     
-    val timestamp = new java.util.Date().getTime
-    
     val len = observations.size
     (0 until len).foreach(i => {
       
@@ -175,7 +173,7 @@ class LoyaltyModeler(requestCtx:RequestContext) extends BaseActor {
       builder.field(Names.UID_FIELD,params(Names.REQ_UID))
       
       /* timestamp */
-      builder.field(Names.TIMESTAMP_FIELD,timestamp)
+      builder.field(Names.TIMESTAMP_FIELD,params("timestamp"))
 
 	  /* created_at_min */
 	  builder.field("created_at_min",params("created_at_min"))

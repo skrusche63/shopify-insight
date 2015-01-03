@@ -54,8 +54,6 @@ class UserProfiler(requestCtx:RequestContext) extends BaseActor {
          */
         val item_hits = items(req_params).hits().map(item(_))
         
-        val daytime_hits = new TimePreference().build(item_hits).groupBy(x => (x._1,x._2))
-        
         /*
          * Retrieve sales forecasts from the 'orders/forecasts' index
          * and transform into tuple representation; a certain 'user'
@@ -78,127 +76,6 @@ class UserProfiler(requestCtx:RequestContext) extends BaseActor {
         
         requestCtx.listener ! String.format("""[INFO][UID: %s] Raw data for user profile building retrieved.""",uid)
 
-        /*
-         * Join the datasets into a single profile; to this end, we start
-         * with the forecast data and append loyalty and recommendation part
-         */	    
-        val profiles = forecast_hits.map(kv => {
-
-          val builder = XContentFactory.jsonBuilder()
-	      builder.startObject()
-
-          val k = kv._1
-          val v = kv._2
-
-          /* 
-           * The 'forecast' description is directly extracted from
-           * the values (v) provided by this dataset; all other parts
-           * have to be looked up 
-           */
-          builder.startArray("forecast")
-          for (record <- v) {
-        
-            builder.startObject()
-
-            builder.field("step",record._3)
-        
-            builder.field("state",record._4)
-            builder.field("amount",record._5)
-
-            builder.field("days",record._6)
-            builder.field("score",record._7)
-        
-            builder.endObject()
-          
-          }
-      
-          builder.endArray()
-
-          /* loyalty */
-          builder.startObject("loyalty")
-          if (loyalty_hits.contains(k)) {
-            
-            val loyalty = loyalty_hits(k)(0)
-            
-            builder.field("low",loyalty._3)
-            builder.field("norm",loyalty._4)
-
-            builder.field("high",loyalty._5)
-            
-            builder.startArray("trajectory")
-            loyalty._6.foreach(v => builder.value(v))
-            builder.endArray
-            
-          }
-          builder.endObject()
-          
-          /* preferences */
-          builder.startObject("preference")
-          
-          /*
-           * The 'day' preference combines the day of the 
-           * week with a preference for a certain day to
-           * purchase products
-           */
-          builder.startArray("day")
-          if (daytime_hits.contains(k)) {
-            
-            val days = daytime_hits(k)(0)._3
-            for (day <- days) {
-              builder.startObject()
-              
-              builder.field("day",day._1)
-              builder.field("score",day._2)
-              
-              builder.endObject()
-            }
-            
-            
-          }
-          builder.endArray()
-
-          builder.startArray("time")
-          if (daytime_hits.contains(k)) {
-            
-            val times = daytime_hits(k)(0)._4
-            for (time <- times) {
-              builder.startObject()
-              
-              builder.field("time",time._1)
-              builder.field("score",time._2)
-              
-              builder.endObject()
-            }
-            
-            
-          }
-          builder.endArray()
-          
-          builder.endObject()
-          
-          /* recommendation */
-          builder.startObject("recommendation")
-          if (recommendation_hits.contains(k)) {
-            
-            val recommendation = recommendation_hits(k)(0)
-            
-            builder.field("support", recommendation._4)
-            builder.field("total", recommendation._5)
-            
-            builder.field("confidence", recommendation._6)
-            builder.field("weight", recommendation._7)
-            
-            builder.startArray("products")
-            recommendation._3.foreach(v => builder.value(v))
-            builder.endArray()
-            
-          }
-          builder.endObject()
-          
-          builder.endObject()          
-          builder
-          
-        }).toList
         
       } catch {
         case e:Exception => {

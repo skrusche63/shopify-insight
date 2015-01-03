@@ -285,7 +285,6 @@ class DataPipeline(requestCtx:RequestContext) extends BaseActor {
     val key = "prepare:" + uid
     
     val task = "data preparation"
-    val timestamp = new java.util.Date().getTime
     /*
      * Note, that we do not specify additional
      * payload data here
@@ -300,7 +299,7 @@ class DataPipeline(requestCtx:RequestContext) extends BaseActor {
 	builder.field("task",task)
 	
 	/* timestamp */
-	builder.field("timestamp",timestamp)
+	builder.field("timestamp",params("timestamp").toLong)
 
     /* created_at_min */
 	builder.field("created_at_min",params("created_at_min"))

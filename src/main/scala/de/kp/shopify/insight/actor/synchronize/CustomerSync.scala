@@ -55,7 +55,7 @@ class CustomerSync(requestCtx:RequestContext) extends BaseActor {
         requestCtx.listener ! String.format("""[INFO][UID: %s] Customer base loaded.""",uid)
 
         val ids = customers.map(_.id)
-        val sources = customers.map(toSource(_))
+        val sources = customers.map(x=> toSource(req_params,x))
         
         writer.writeBulkJSON("database", "customers", ids, sources)
         writer.close()
@@ -82,9 +82,30 @@ class CustomerSync(requestCtx:RequestContext) extends BaseActor {
     case _ =>  
       
   }
-
-  private def toSource(customer:Customer):XContentBuilder = {
-           
+  /**
+   * This method merges customer details for existing customers
+   * and replaces the existing record with the merged one; note,
+   * that with this method, we even hold customers which have
+   * already been deleted from the Shopify store.
+   * 
+   * The customer base controlled by the Elasticsearch index
+   * database/customers is the starting point for any kind of
+   * customer lifecycle evaluation 
+   */
+  private def toSource(params:Map[String,String],customer:Customer):XContentBuilder = {
+    
+    val timestamp = params("timestamp").toLong
+    
+    val created_at_min = params("created_at_min")
+    val created_at_max = params("created_at_max")
+  
+    /*
+     * Determine whether this customer is a new or an
+     * already existing one
+     */
+    val customer_json = requestCtx.getAsString("database","customers",customer.id)  
+    val customer_ds = if (customer_json == null) null else requestCtx.JSON_MAPPER.readValue(customer_json,classOf[InsightCustomer])
+    
     val builder = XContentFactory.jsonBuilder()
 	builder.startObject()
 	
@@ -100,29 +121,65 @@ class CustomerSync(requestCtx:RequestContext) extends BaseActor {
 	/* last_name */
 	builder.field("last_name",customer.lastName)
 	
-	/* email */
+	/* last_update */
+	builder.field("last_update",timestamp)
+	
+	/* customer_data */
+	builder.startArray("customer_data")
+	
+	if (customer_ds != null) {
+	   
+	  val customer_data = customer_ds.customer_data
+	  for (customer_detail <- customer_data) {
+	    
+	    builder.startObject()
+
+	    builder.field("timestamp",customer_detail.timestamp)
+ 
+	    builder.field("created_at_min",customer_detail.created_at_min)
+	    builder.field("created_at_max",customer_detail.created_at_max)
+
+	    builder.field("email",customer_detail.email)
+ 	    builder.field("email_verified",customer_detail.email_verified)
+
+	    builder.field("accepts_marketing",customer_detail.accepts_marketing)
+ 	    builder.field("amount_spent",customer_detail.amount_spent)
+
+	    builder.field("last_order",customer_detail.last_order)
+ 	    builder.field("orders_count",customer_detail.orders_count)
+
+	    builder.field("operational_state",customer_detail.operational_state)
+	    
+	    builder.endObject()
+	    
+	  }
+	}
+    /*
+     * Add new customer detail record
+     */
+	builder.startObject()
+
+	builder.field("timestamp",timestamp)
+ 
+	builder.field("created_at_min",created_at_min)
+	builder.field("created_at_max",created_at_max)
+
 	builder.field("email",customer.emailAddress)
-	
-	/* email_verified */
-	builder.field("email_verified",customer.emailVerified)
-	
-	/* accepts_marketing */
+ 	builder.field("email_verified",customer.emailVerified)
+
 	builder.field("accepts_marketing",customer.marketing)
-	
-	/* operational_state */
-	builder.field("operational_state",customer.state)
-	
-	/* last_order */
+ 	builder.field("amount_spent",customer.totalSpent)
+
 	builder.field("last_order",customer.lastOrder)
-	
-	/* orders_count */
-	builder.field("orders_count",customer.ordersCount)
-	
-	/* amount_spent */
-	builder.field("amount_spent",customer.totalSpent)
-	
+ 	builder.field("orders_count",customer.ordersCount)
+
+	builder.field("operational_state",customer.state)
+	    
 	builder.endObject()
-   
+	
+	builder.endArray()
+
+	builder.endObject()
     builder
     
   }

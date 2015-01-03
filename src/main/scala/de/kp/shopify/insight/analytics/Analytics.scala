@@ -132,7 +132,7 @@ class Analytics(requestCtx:RequestContext) {
            * from the synchronized (hopefully before) product database
            * and retrieve 'tags' and 'category'
            */
-          val product = requestCtx.get("database","products",item.toString)
+          val product = requestCtx.getAsMap("database","products",item.toString)
           
           val tags = product("tags").asInstanceOf[String]
           val category = product("category").asInstanceOf[String]
@@ -223,7 +223,7 @@ class Analytics(requestCtx:RequestContext) {
      * a reference for the individual total amount a specific
      * customer has spent
      */
-    val total_avg_clv = averageCLV(orders)
+    val (total_avg_clv,total_min_clv,total_max_clv) = statsCLV(orders)
     
     /*
      * We compute the preferred days of the orders, and the preferred 
@@ -334,11 +334,11 @@ class Analytics(requestCtx:RequestContext) {
       val user_max_amount = user_amounts.max
       
       /*
-       * Compute the amount sub states from the subsequent pairs 
-       * of user amounts; the amount handler holds a predefined
-       * configuration to map a pair onto a state
+       * Compute the amount difference and respective sub state from 
+       * the subsequent pairs of user amounts; the amount handler holds 
+       * a predefined configuration to map a pair onto a state
        */
-      val user_amount_states = user_amounts.zip(user_amounts.tail).map(x => StateHandler.stateByAmount(x._2,x._1))
+      val user_amount_states = user_amounts.zip(user_amounts.tail).map(x => (x._2 - x._1,StateHandler.stateByAmount(x._2,x._1)))
      
       /******************** TEMPORAL DIMENSION *******************/
 
@@ -429,19 +429,23 @@ class Analytics(requestCtx:RequestContext) {
       })
        
       /*
-       * Compute the timespan sub states from the subsequent pairs 
-       * of user timestamps; the amount handler holds a predefined
-       * configuration to map a pair onto a state
+       * Compute the timespan and the respective sub state from 
+       * the subsequent pairs of user timestamps; the state handler 
+       * holds a predefined configuration to map a pair onto a state
        */
-      val user_time_states = user_timestamps.zip(user_timestamps.tail).map(x => StateHandler.stateByTime(x._2,x._1))
+      val user_time_states = user_timestamps.zip(user_timestamps.tail).map(x => (x._2 - x._1,StateHandler.stateByTime(x._2,x._1)))
 
       /*
-       * Build user states and zip result with user_timestamps
+       * Build user states and zip result with user_timestamps; a user state encloses
+       * the amount & time difference and the respective genuine state description
        */
-      val user_zipped_states = user_amount_states.zip(user_time_states).map(x => x._1 + x._2).zip(user_timestamps.tail)
+      val user_zipped_states = user_amount_states.zip(user_time_states).map(x => (x._1._1,x._2._1,x._1._2 + x._2._2)).zip(user_timestamps.tail)
       
       user_zipped_states.map(x => {
-          
+        
+        val (user_diff_amount,user_timespan,state) = x._1
+        val timestamp = x._2
+        
         val builder = XContentFactory.jsonBuilder()
 	    builder.startObject()
         
@@ -457,10 +461,10 @@ class Analytics(requestCtx:RequestContext) {
 	    builder.field(Names.USER_FIELD,user)
 
 	    /* timestamp */
-	    builder.field(Names.TIMESTAMP_FIELD,x._2)
+	    builder.field(Names.TIMESTAMP_FIELD,timestamp)
 	    
 	    /* state */
-	    builder.field(Names.STATE_FIELD,x._1)
+	    builder.field(Names.STATE_FIELD,state)
 
 	    /*
 	     * The subsequent fields are used for evaluation within
@@ -475,6 +479,9 @@ class Analytics(requestCtx:RequestContext) {
 
 	    /* created_at_max */
 	    builder.field("created_at_max",params("created_at_max"))
+
+	    /* today */
+	    builder.field("today",today)
 	    
 	    /*
 	     * Denormalized description of the RFM data retrieved
@@ -488,6 +495,8 @@ class Analytics(requestCtx:RequestContext) {
 	    /* user_total */
 	    builder.field("user_total",user_total)
 
+	    /********** MONETARY **********/
+	    
 	    /* user_total_spent */
 	    builder.field("user_total_spent",user_total_spent)
 
@@ -499,6 +508,11 @@ class Analytics(requestCtx:RequestContext) {
 
 	    /* user_min_amount */
 	    builder.field("user_min_amount",user_min_amount)
+	    
+	    /* user_diff_amount */
+	    builder.field("user_diff_amount",user_diff_amount)
+
+	    /********** TEMPORAL **********/
  
 	    /* user_avg_timespan */
 	    builder.field("user_avg_timespan",user_avg_timespan)
@@ -508,6 +522,9 @@ class Analytics(requestCtx:RequestContext) {
 
 	    /* user_min_timespan */
 	    builder.field("user_min_timespan",user_min_timespan)
+	    
+	    /* user_timespan */
+	    builder.field("user_timespan",user_timespan)
 
 	    /* user_recency */
 	    builder.field("user_recency",user_recency)
@@ -575,6 +592,12 @@ class Analytics(requestCtx:RequestContext) {
     
     val total_min_amount = amounts.min
     val total_max_amount = amounts.max
+    /*
+     * We caluculate the average, minimum and maximum customer value 
+     * from the amount a customer has spent in the certain timespan 
+     * under consideration
+     */
+    val (total_avg_clv,total_min_clv,total_max_clv) = statsCLV(orders_rfm)
     
     /********************* TEMPORAL DIMENSION ********************/
     
@@ -715,6 +738,15 @@ class Analytics(requestCtx:RequestContext) {
 
 	/* total_min_amount */
 	builder.field("total_min_amount",total_min_amount)
+
+	/* total_avg_clv */
+	builder.field("total_avg_clv",total_avg_clv)
+
+	/* total_max_clv */
+	builder.field("total_max_clv",total_max_clv)
+
+	/* total_min_clv */
+	builder.field("total_min_clv",total_min_clv)
  
 	/* total_avg_timespan */
 	builder.field("total_avg_timespan",total_avg_timespan)
@@ -829,10 +861,15 @@ class Analytics(requestCtx:RequestContext) {
     
   }
   
-  private def averageCLV(rawset:List[(String,String,Long,Float)]):Float = {
+  private def statsCLV(rawset:List[(String,String,Long,Float)]):(Float,Float,Float) = {
     
     val values = rawset.groupBy(x => (x._1,x._2)).map(x => x._2.map(_._4).sum)
-    values.sum / values.size
+    val total_avg_clv = values.sum / values.size
+    
+    val total_min_clv = values.min
+    val total_max_clv = values.max
+    
+    (total_avg_clv,total_min_clv,total_max_clv)
     
   }
   

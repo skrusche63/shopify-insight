@@ -161,9 +161,6 @@ class RecommendationModeler(requestCtx:RequestContext) extends BaseActor {
     val uid = response.data(Names.REQ_UID)
     val rules = Serializer.deserializeRules(response.data(Names.REQ_RESPONSE))
 
-    val now = new java.util.Date()
-    val timestamp = now.getTime()
-
     itemsets.map(itemset => {
       
       val (site,user,items) = itemset
@@ -195,7 +192,7 @@ class RecommendationModeler(requestCtx:RequestContext) extends BaseActor {
       builder.field(Names.UID_FIELD,params(Names.REQ_UID))
       
       /* timestamp */
-      builder.field(Names.TIMESTAMP_FIELD,timestamp)
+      builder.field(Names.TIMESTAMP_FIELD,params("timestamp"))
 
 	  /* created_at_min */
 	  builder.field("created_at_min",params("created_at_min"))

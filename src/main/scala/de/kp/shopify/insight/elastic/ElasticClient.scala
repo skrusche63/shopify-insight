@@ -350,10 +350,17 @@ class ElasticClient {
     
   }
 
-  def get(index:String,mapping:String,id:String):java.util.Map[String,Object] = {
+  def getAsMap(index:String,mapping:String,id:String):java.util.Map[String,Object] = {
     
     val response = client.prepareGet(index,mapping,id).execute().actionGet()
-    if (response.isExists()) response.getSource() else null
+    if (response.isExists()) response.getSource else null
+    
+  }
+
+  def getAsString(index:String,mapping:String,id:String):String = {
+    
+    val response = client.prepareGet(index,mapping,id).execute().actionGet()
+    if (response.isExists()) response.getSourceAsString else null
     
   }
 

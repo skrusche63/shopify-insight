@@ -303,6 +303,16 @@ case class Order(
    */
   user:String,
   /*
+   * The IP address that is assigne to an online order;
+   * this field is leveraged to determine location data
+   */
+  ip_address:String,
+  /*
+   * The user agent for the online access; this field is
+   * leveraged to determine the referrer and others
+   */
+  user_agent:String,
+  /*
    * The timestamp for a certain Shopify order
    */
   timestamp:Long,

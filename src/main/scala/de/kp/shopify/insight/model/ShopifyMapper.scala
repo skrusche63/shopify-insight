@@ -90,6 +90,13 @@ class ShopifyMapper {
      */
     val user = order.customer.id.toString
     /*
+     * The IP address is assigned to an order to
+     * determine the location dimension associated
+     * with this request
+     */
+    val ip_address = order.client_details.browser_ip
+    val user_agent = order.client_details.user_agent
+    /*
      * The amount is retrieved from the total price
      */
     val amount = order.total_price.toFloat
@@ -127,7 +134,7 @@ class ShopifyMapper {
     
     })
 
-    Order(site,user,timestamp,group,amount,items)
+    Order(site,user,ip_address,user_agent,timestamp,group,amount,items)
   
   }
 

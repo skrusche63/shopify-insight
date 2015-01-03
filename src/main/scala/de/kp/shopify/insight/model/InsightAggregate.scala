@@ -117,6 +117,15 @@ case class InsightAggregate(
   @JsonProperty("total_min_amount")
   total_min_amount:Float,
 
+  @JsonProperty("total_avg_clv")
+  total_avg_clv:Float,
+
+  @JsonProperty("total_max_clv")
+  total_max_clv:Float,
+
+  @JsonProperty("total_min_clv")
+  total_min_clv:Float,
+
   @JsonProperty("total_avg_timespan")
   total_avg_timespan:Long,
 

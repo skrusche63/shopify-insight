@@ -18,7 +18,8 @@ package de.kp.shopify.insight.rest
 * If not, see <http://www.gnu.org/licenses/>.
 */
 
-import java.util.Date
+import org.joda.time.DateTime
+import org.joda.time.format.DateTimeFormat
 
 import org.apache.spark.SparkContext
 
@@ -47,6 +48,8 @@ import de.kp.shopify.insight.actor._
 
 import de.kp.shopify.insight.{RequestContext => RequestCtx}
 import de.kp.shopify.insight.model._
+
+import scala.collection.mutable.HashMap
 
 /**
  * Shopify Insight is a REST based data analytics service, using order data 
@@ -248,14 +251,16 @@ class RestApi(host:String,port:Int,system:ActorSystem,@transient sc:SparkContext
        */
       val pipeline = system.actorOf(Props(new DataPipeline(requestCtx)))
 
-      val params = getRequest(ctx)
+      val params = getRequest(ctx) 
+      val req_params = params ++ setTimespan(params)
+      
       val uid = java.util.UUID.randomUUID().toString
       /*
        * 'uid', 'name' and 'topic' is set internally and MUST be excluded
        * from the external request parameters
        */
-      val excludes = List(Names.REQ_UID,Names.REQ_NAME,Names.REQ_TOPIC)
-      val data = params.filter(kv => excludes.contains(kv._1) == false) ++ 
+      val excludes = List(Names.REQ_UID,Names.REQ_NAME,Names.REQ_TOPIC,Names.REQ_DAYS)
+      val data = req_params.filter(kv => excludes.contains(kv._1) == false) ++ 
         Map(Names.REQ_UID -> uid,Names.REQ_TOPIC -> subject)
 
       /* 
@@ -287,13 +292,15 @@ class RestApi(host:String,port:Int,system:ActorSystem,@transient sc:SparkContext
       val pipeline = system.actorOf(Props(new SyncPipeline(requestCtx)))
 
       val params = getRequest(ctx)
+      val req_params = params ++ setTimespan(params)
+
       val uid = java.util.UUID.randomUUID().toString
       /*
        * 'uid' and 'topic' is set internally and MUST be excluded
        * from the external request parameters
        */
-      val excludes = List(Names.REQ_UID,Names.REQ_TOPIC)
-      val data = params.filter(kv => excludes.contains(kv._1) == false) ++ 
+      val excludes = List(Names.REQ_UID,Names.REQ_TOPIC,Names.REQ_DAYS)
+      val data = req_params.filter(kv => excludes.contains(kv._1) == false) ++ 
         Map(Names.REQ_UID -> uid,Names.REQ_TOPIC -> subject)
 
       /* 
@@ -644,6 +651,36 @@ class RestApi(host:String,port:Int,system:ActorSystem,@transient sc:SparkContext
     val body = getBodyAsMap(ctx)
     
     headers ++ body
+    
+  }
+
+  private def setTimespan(params:Map[String,String]):Map[String,String] = {
+
+    val days = if (params.contains(Names.REQ_DAYS)) params(Names.REQ_DAYS).toInt else 30
+    
+    val created_max = new DateTime()
+    val created_min = created_max.minusDays(days)
+
+    val data = HashMap(
+      "timestamp"      -> created_max.getMillis.toString,
+      "created_at_min" -> formatted(created_min.getMillis),
+      "created_at_max" -> formatted(created_max.getMillis)
+    )
+
+    data.toMap
+    
+  }
+  /**
+   * This method is used to format a certain timestamp, provided with 
+   * a request to collect data from a certain Shopify store
+   */
+  private def formatted(time:Long):String = {
+
+    //2008-12-31 03:00
+    val pattern = "yyyy-MM-dd HH:mm"
+    val formatter = DateTimeFormat.forPattern(pattern)
+    
+    formatter.print(time)
     
   }
 

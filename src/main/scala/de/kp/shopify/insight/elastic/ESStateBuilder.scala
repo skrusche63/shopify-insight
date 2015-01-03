@@ -88,6 +88,12 @@ class ESStateBuilder {
                   .field("type", "string")
                   .field("index", "not_analyzed")
                 .endObject()
+ 
+                /* today */
+                .startObject("today")
+                  .field("type", "long")
+                  .field("index", "not_analyzed")
+                .endObject()
                 
                 /*
 	             * Denormalized description of the RFM data retrieved
@@ -125,6 +131,11 @@ class ESStateBuilder {
                   .field("type", "float")
                 .endObject()
 
+                /* user_diff_amount */
+                .startObject("user_diff_amount")
+                  .field("type", "float")
+                .endObject()
+
                 /* user_avg_timespan */
                 .startObject("user_avg_timespan")
                   .field("type", "long")
@@ -137,6 +148,11 @@ class ESStateBuilder {
 
                 /* user_min_timespan */
                 .startObject("user_min_timespan")
+                  .field("type", "long")
+                .endObject()
+
+                /* user_timespan */
+                .startObject("user_timespan")
                   .field("type", "long")
                 .endObject()
 

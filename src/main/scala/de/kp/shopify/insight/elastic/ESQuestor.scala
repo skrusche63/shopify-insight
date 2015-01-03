@@ -26,9 +26,6 @@ import de.kp.shopify.insight.RequestContext
 import org.elasticsearch.index.query._
 import org.elasticsearch.search.{SearchHit,SearchHits}
 
-import com.fasterxml.jackson.databind.{Module, ObjectMapper}
-import com.fasterxml.jackson.module.scala.DefaultScalaModule
-
 import org.elasticsearch.common.xcontent.{XContentBuilder,XContentFactory}
 
 import scala.collection.JavaConversions._
@@ -37,9 +34,6 @@ import scala.collection.JavaConversions._
  * and leverages these to retrieve data from predefined indexes
  */
 object ESQuestor {
-
-  private val JSON_MAPPER = new ObjectMapper()  
-  JSON_MAPPER.registerModule(DefaultScalaModule)
 
   /**
    * This is a convenience method to retrieve the aggregate for
@@ -71,7 +65,7 @@ object ESQuestor {
      * unique task identifier
      */
     val hit = hits.hits()(0).getSourceAsString
-    JSON_MAPPER.readValue(hit, classOf[InsightAggregate])
+    requestCtx.JSON_MAPPER.readValue(hit, classOf[InsightAggregate])
     
   }
 
@@ -91,7 +85,7 @@ object ESQuestor {
  
     if (total == 0) return List.empty[InsightAggregate]
 
-    val result = hits.hits().map(x => JSON_MAPPER.readValue(x.getSourceAsString,classOf[InsightAggregate])).sortBy(x => x.timestamp)
+    val result = hits.hits().map(x => requestCtx.JSON_MAPPER.readValue(x.getSourceAsString,classOf[InsightAggregate])).sortBy(x => x.timestamp)
     result.toList
     
   }
@@ -123,7 +117,7 @@ object ESQuestor {
     /* There is no forecast record for the respective identifier */
     if (total == 0) return List.empty[InsightForecast]
     
-    val result = hits.hits().map(x => JSON_MAPPER.readValue(x.getSourceAsString,classOf[InsightForecast]))    
+    val result = hits.hits().map(x => requestCtx.JSON_MAPPER.readValue(x.getSourceAsString,classOf[InsightForecast]))    
     result.toList
     
   }
@@ -155,7 +149,7 @@ object ESQuestor {
     /* There is no item record for the respective identifier */
     if (total == 0) return List.empty[InsightItem]
     
-    val result = hits.hits().map(x => JSON_MAPPER.readValue(x.getSourceAsString,classOf[InsightItem]))    
+    val result = hits.hits().map(x => requestCtx.JSON_MAPPER.readValue(x.getSourceAsString,classOf[InsightItem]))    
     result.toList
     
   }
@@ -187,7 +181,7 @@ object ESQuestor {
     /* There is no loyalty record for the respective identifier */
     if (total == 0) return List.empty[InsightLoyalty]
     
-    val result = hits.hits().map(x => JSON_MAPPER.readValue(x.getSourceAsString,classOf[InsightLoyalty]))    
+    val result = hits.hits().map(x => requestCtx.JSON_MAPPER.readValue(x.getSourceAsString,classOf[InsightLoyalty]))    
     result.toList
     
   }
@@ -215,7 +209,7 @@ object ESQuestor {
     /* There is no recommendation record for the respective identifier */
     if (total == 0) return List.empty[InsightRecommendation]
     
-    val result = hits.hits().map(x => JSON_MAPPER.readValue(x.getSourceAsString,classOf[InsightRecommendation]))    
+    val result = hits.hits().map(x => requestCtx.JSON_MAPPER.readValue(x.getSourceAsString,classOf[InsightRecommendation]))    
     result.toList
     
   }
@@ -243,7 +237,7 @@ object ESQuestor {
     /* There is no rule record for the respective identifier */
     if (total == 0) return List.empty[InsightRule]
     
-    val result = hits.hits().map(x => JSON_MAPPER.readValue(x.getSourceAsString,classOf[InsightRule]))    
+    val result = hits.hits().map(x => requestCtx.JSON_MAPPER.readValue(x.getSourceAsString,classOf[InsightRule]))    
     result.toList
     
   }

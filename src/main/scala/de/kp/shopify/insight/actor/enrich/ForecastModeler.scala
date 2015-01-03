@@ -137,8 +137,7 @@ class ForecastModeler(requestCtx:RequestContext) extends BaseActor {
 
   private def toSources(params:Map[String,String],response:ServiceResponse,purchases:List[(String,String,Float,Long,String)]):List[XContentBuilder] = {
 
-    val uid = response.data(Names.REQ_UID)
-    val timestamp = new java.util.Date().getTime
+    val uid = params(Names.REQ_UID)
     
     /*
      * A set of Markovian rules (i.e. a relation between a certain state and a sequence
@@ -169,7 +168,7 @@ class ForecastModeler(requestCtx:RequestContext) extends BaseActor {
         builder.field(Names.UID_FIELD,params(Names.REQ_UID))
        
         /* timestamp */
-        builder.field(Names.TIMESTAMP_FIELD,timestamp)
+        builder.field(Names.TIMESTAMP_FIELD,params("timestamp"))
 
 	    /* created_at_min */
 	    builder.field("created_at_min",params("created_at_min"))
