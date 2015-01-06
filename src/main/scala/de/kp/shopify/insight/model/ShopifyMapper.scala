@@ -25,7 +25,11 @@ import de.kp.shopify.insight.model._
 
 import org.joda.time.format.DateTimeFormat
 import scala.collection.JavaConversions._
-
+/**
+ * The ShopifyMapper class is used by the RequestContext to transform
+ * the proprietary data representation into an independent one, that
+ * can be used to support more than one e-commerce source
+ */
 class ShopifyMapper {
 
   def extractCustomer(site:String,customer:ShopifyCustomer):Customer = {
@@ -39,6 +43,8 @@ class ShopifyMapper {
      */
     val firstName = customer.first_name
     val lastName  = customer.last_name
+    
+    val created_at = customer.created_at
     /*
      * Retrieve email data from customer
      */
@@ -49,20 +55,24 @@ class ShopifyMapper {
      */
     val marketing = customer.accepts_marketing
     val state = customer.state
-    /*
-     * Determine order specific data
-     */
-    val lastOrder = customer.last_order_id.toString
-    val ordersCount = customer.orders_count
     
-    val totalSpent = customer.total_spent.toFloat
-    
-    Customer(site,user,firstName,lastName,emailAddress,emailVerified,marketing,state,lastOrder,ordersCount,totalSpent)
+    Customer(site,user,firstName,lastName,created_at,emailAddress,emailVerified,marketing,state)
     
   }
 
   def extractProduct(site:String,product:ShopifyProduct):Product = {
-    null
+
+    val id = product.id.toString
+    val category = product.product_type
+    
+    val name = product.title
+    val vendor = product.vendor
+    
+    val tags = product.tags
+    val images = product.images.map(x => Image(x.id.toString,x.position,x.src))
+    
+    Product(site,id,category,name,vendor,tags,images)
+
   }
 
   /**
@@ -98,8 +108,9 @@ class ShopifyMapper {
     val user_agent = order.client_details.user_agent
     /*
      * The amount is retrieved from the total price
+     * minus the total tax
      */
-    val amount = order.total_price.toFloat
+    val amount = order.total_price.toFloat - order.total_tax.toFloat
     /*
      * Convert all line items of the respective order
      * into 'OrderItem' for indexing
@@ -136,54 +147,6 @@ class ShopifyMapper {
 
     Order(site,user,ip_address,user_agent,timestamp,group,amount,items)
   
-  }
-
-  /**
-   * A public method to extract those fields from a Shopify
-   * order that describes an 'AmountObject'
-   */
-  def extractPurchase(site:String,order:ShopifyOrder):AmountObject = {
-    
-    /*
-     * The datetime this order was created:
-     * "2014-11-03T13:51:38-05:00"
-     */
-    val created_at = order.created_at
-    val timestamp = toTimestamp(created_at)
-    /*
-     * The unique user identifier is retrieved from the
-     * customer object and there from the 'id' field
-     */
-    val user = order.customer.id.toString
-    /*
-     * The amount is retrieved from the total price
-     */
-    val amount = order.total_price.toFloat
-
-    AmountObject(site,user,timestamp,amount)
-  
-  }
-      
-  def toItemMap(order:Order):List[java.util.Map[String,Object]] = {
-
-    val items = order.items.map(_.item)
-    items.map(item => {
-    
-      val data = new java.util.HashMap[String,Object]()
-        
-      data += Names.SITE_FIELD -> order.site
-      data += "user" -> order.user
-        
-      data += "timestamp" -> order.timestamp.asInstanceOf[Object]
-      data += "group" -> order.group
-
-      data += Names.ITEM_FIELD -> item.asInstanceOf[Object]
-      data += Names.SCORE_FIELD -> 0.0.asInstanceOf[Object]
-      
-      data
-      
-    })    
-    
   }
  
   private def toTimestamp(text:String):Long = {

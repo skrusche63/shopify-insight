@@ -81,8 +81,16 @@ class RequestContext(
   /*
    * Heartbeat & timeout configuration in seconds
    */
-  private val (heartbeat, time) = Configuration.heartbeat     
-
+  private val (heartbeat, time) = Configuration.heartbeat  
+  /**
+   * The base directory for all file based IO
+   */
+  def getBase = Configuration.input(0)
+  
+  def getConfig = Configuration
+  
+  def getESConfig = Configuration.elastic
+  
   /**
    * The time interval for schedulers (e.g. StatusSupervisor) to 
    * determine how often alive messages have to be sent

@@ -31,10 +31,7 @@ import de.kp.shopify.insight.model._
 class CustomerSync(requestCtx:RequestContext) extends BaseActor {
 
   override def receive = {
-    /*
-     * Retrieve all Shopify customers of a certain store via the 
-     * REST interface and register them in an Elasticsearch index
-     */
+
     case message:StartSynchronize => {
       
       val req_params = message.data
@@ -63,14 +60,17 @@ class CustomerSync(requestCtx:RequestContext) extends BaseActor {
         val end = new java.util.Date().getTime
         requestCtx.listener ! String.format("""[INFO][UID: %s] Customer base synchronization finished in %s ms.""",uid,(end-start).toString)
          
-        context.parent ! SynchronizeFinished(req_params)
+        val params = Map(Names.REQ_MODEL -> "CUSTOMER") ++ req_params
+
+        context.parent ! SynchronizeFinished(params)
+        context.stop(self)
         
       } catch {
         case e:Exception => {
 
           requestCtx.listener ! String.format("""[ERROR][UID: %s] Customer base synchronization failed due to an internal error.""",uid)
           
-          val params = Map(Names.REQ_MESSAGE -> e.getMessage) ++ message.data
+          val params = Map(Names.REQ_MESSAGE -> e.getMessage) ++ req_params
 
           context.parent ! SynchronizeFailed(params)            
           context.stop(self)
@@ -82,40 +82,16 @@ class CustomerSync(requestCtx:RequestContext) extends BaseActor {
     case _ =>  
       
   }
-  /**
-   * This method merges customer details for existing customers
-   * and replaces the existing record with the merged one; note,
-   * that with this method, we even hold customers which have
-   * already been deleted from the Shopify store.
-   * 
-   * The customer base controlled by the Elasticsearch index
-   * database/customers is the starting point for any kind of
-   * customer lifecycle evaluation 
-   */
+
   private def toSource(params:Map[String,String],customer:Customer):XContentBuilder = {
     
     val timestamp = params("timestamp").toLong
-    
-    val created_at_min = params("created_at_min")
-    val created_at_max = params("created_at_max")
-  
-    /*
-     * Determine whether this customer is a new or an
-     * already existing one
-     */
-    val customer_json = requestCtx.getAsString("database","customers",customer.id)  
-    val customer_ds = if (customer_json == null) null else requestCtx.JSON_MAPPER.readValue(customer_json,classOf[InsightCustomer])
-    
-    /*
-     * Compute timeseries from history and actual data record
-     */
-    val history_ds = if (customer_ds == null) List.empty[(Float,Long,Long)] else customer_ds.customer_data.map(x => (x.amount_spent,x.orders_count,x.timestamp))
     
     val builder = XContentFactory.jsonBuilder()
 	builder.startObject()
 	
 	/* site */
-	builder.field(Names.SITE_FIELD,customer.site)
+	builder.field("site",customer.site)
 	
 	/* id */
 	builder.field("id",customer.id)
@@ -126,78 +102,22 @@ class CustomerSync(requestCtx:RequestContext) extends BaseActor {
 	/* last_name */
 	builder.field("last_name",customer.lastName)
 	
-	/* last_update */
-	builder.field("last_update",timestamp)
+	/* signup_date */
+	builder.field("signup_date",customer.created_at)
+	
+	/* last_sync */
+	builder.field("last_sync",timestamp)
 
     builder.field("email",customer.emailAddress)
     builder.field("email_verified",customer.emailVerified)
 
     builder.field("accepts_marketing",customer.marketing)
-	
-	/* customer_data */
-	builder.startArray("customer_data")
-	
-	/*
-	 * Add customer data history data
-	 */
-	if (customer_ds != null) {
-	   
-	  val customer_data = customer_ds.customer_data
-	  for (customer_detail <- customer_data) {
-	    
-	    builder.startObject()
 
-	    builder.field("timestamp",customer_detail.timestamp)
- 
-	    builder.field("created_at_min",customer_detail.created_at_min)
-	    builder.field("created_at_max",customer_detail.created_at_max)
-
- 	    builder.field("amount_spent",customer_detail.amount_spent)
-
-	    builder.field("last_order",customer_detail.last_order)
- 	    builder.field("orders_count",customer_detail.orders_count)
-
-	    builder.field("operational_state",customer_detail.operational_state)
-	    
-	    builder.endObject()
-	    
-	  }
-	}
-    /*
-     * Add new customer detail record
-     */
-	builder.startObject()
-
-	builder.field("timestamp",timestamp)
- 
-	builder.field("created_at_min",created_at_min)
-	builder.field("created_at_max",created_at_max)
-
- 	builder.field("amount_spent",customer.totalSpent)
-
-	builder.field("last_order",customer.lastOrder)
- 	builder.field("orders_count",customer.ordersCount)
-
-	builder.field("operational_state",customer.state)
-	    
-	builder.endObject()
-	
-	builder.endArray()
+    builder.field("operational_state",customer.state)
 
 	builder.endObject()
     builder
     
   }
-
-  private def timeseries(history_ds:List[(Float,Long,Long)],new_ds:(Float,Long,Long)) {
-  
-    val rawset = history_ds ++ List(new_ds).sortBy(_._3)
-    val series = List(rawset.head) ++ (if (rawset.size > 1) {
-      /* Determine total amount & orders count per timestamp */
-      rawset.zip(rawset.tail).map(x => (x._2._1 - x._1._1,x._2._2 - x._1._2, x._2._3))
-      
-    } else List.empty[(Float,Long,Long)])
-  
-  }
-  
+ 
 }

@@ -77,11 +77,6 @@ class ESForecastBuilder {
                   .field("type", "integer")
                 .endObject()//
 
-                /* state */
-                .startObject(STATE_FIELD)
-                  .field("type", "string")
-                .endObject()
-
                 /* amount */
                 .startObject(AMOUNT_FIELD)
                   .field("type", "float")
@@ -90,6 +85,11 @@ class ESForecastBuilder {
                 /* time */
                 .startObject(TIME_FIELD)
                   .field("type", "long")
+                .endObject()
+
+                /* state */
+                .startObject(STATE_FIELD)
+                  .field("type", "string")
                 .endObject()
                
                 /* score */

@@ -80,12 +80,12 @@ class DataPipeline(requestCtx:RequestContext) extends BaseActor {
          */
         registerTask(req_params)
         /*
-         * Send request to DataCollector actor and inform requestor
+         * Send request to DataPreparer actor and inform requestor
          * that the tracking process has been started. Error and
          * interim messages of this process are sent to the listener
          */
-        val actor = context.actorOf(Props(new DataCollector(requestCtx)))          
-        actor ! StartCollect(req_params)
+        val actor = context.actorOf(Props(new DataPreparer(requestCtx)))          
+        actor ! StartPrepare(req_params)
     
       } catch {
         
@@ -105,7 +105,7 @@ class DataPipeline(requestCtx:RequestContext) extends BaseActor {
       } 
       
     }   
-    case message:CollectFailed => {
+    case message:PrepareFailed => {
       /*
        * The Collector actor already sent an error message to the message listener;
        * no additional notification has to be done, so just stop the pipeline
@@ -114,7 +114,7 @@ class DataPipeline(requestCtx:RequestContext) extends BaseActor {
       context.stop(self)
       
     }    
-    case message:CollectFinished => {
+    case message:PrepareFinished => {
       /*
        * This message is sent by a collector actor and indicates that the data collection
        * sub process has been finished. Note, that this collector (child) is responsible 

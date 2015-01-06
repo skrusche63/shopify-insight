@@ -62,15 +62,18 @@ class ProductSync(requestCtx:RequestContext) extends BaseActor {
         
         val end = new java.util.Date().getTime
         requestCtx.listener ! String.format("""[INFO][UID: %s] Product base synchronization finished in %s ms.""",uid,(end-start).toString)
-         
+        
+        val params = Map(Names.REQ_MODEL -> "PRODUCT") ++ req_params
+
         context.parent ! SynchronizeFinished(req_params)
+        context.stop(self)
         
       } catch {
         case e:Exception => {
 
           requestCtx.listener ! String.format("""[ERROR][UID: %s] Product base synchronization failed due to an internal error.""",uid)
           
-          val params = Map(Names.REQ_MESSAGE -> e.getMessage) ++ message.data
+          val params = Map(Names.REQ_MESSAGE -> e.getMessage) ++ req_params
 
           context.parent ! SynchronizeFailed(params)            
           context.stop(self)

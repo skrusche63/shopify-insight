@@ -30,7 +30,12 @@ import de.kp.shopify.insight.elastic._
 import de.kp.shopify.insight.actor.synchronize._
 import org.elasticsearch.common.xcontent.{XContentBuilder,XContentFactory}
 
+import scala.collection.mutable.ArrayBuffer
+
 class SyncPipeline(requestCtx:RequestContext) extends BaseActor {
+  
+  private val MODELS = ArrayBuffer.empty[String]
+  private val MODELS_COMPLETE = 3
 
   override def receive = {
     
@@ -89,8 +94,14 @@ class SyncPipeline(requestCtx:RequestContext) extends BaseActor {
       
     }
     case message:SynchronizeFinished => {
-      // TODO
-      context.stop(self)
+      /*
+       * Collect the models built by the synchronization sub processes,
+       * and if synchronization task is finished, stop pipeline actor
+       */
+      val model = message.data(Names.REQ_MODEL)
+      if (List("CUSTOMER","PRODUCT","ORDER").contains(model)) MODELS += model
+      
+      if (MODELS.size == MODELS_COMPLETE) context.stop(self)
 
     }
     
@@ -155,6 +166,9 @@ class SyncPipeline(requestCtx:RequestContext) extends BaseActor {
      * 
      * The 'products' index (mapping) specifies a product database that
      * holds synchronized product data relevant for the insight server
+     * 
+     * The 'orders' index (mapping) specifies an order database that
+     * holds synchronized order data relevant for the insight server
      */
     
     if (requestCtx.createIndex(params,"database","tasks","task") == false)
@@ -168,6 +182,9 @@ class SyncPipeline(requestCtx:RequestContext) extends BaseActor {
  
     if (requestCtx.createIndex(params,"database","products","product") == false)
       throw new Exception("Index creation for 'database/products' has been stopped due to an internal error.")
+ 
+    if (requestCtx.createIndex(params,"database","orders","order") == false)
+      throw new Exception("Index creation for 'database/orders' has been stopped due to an internal error.")
     
   }
   

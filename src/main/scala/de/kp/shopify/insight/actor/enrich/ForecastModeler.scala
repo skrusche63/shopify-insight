@@ -18,6 +18,12 @@ package de.kp.shopify.insight.actor.enrich
 * If not, see <http://www.gnu.org/licenses/>.
 */
 
+import org.apache.spark.SparkContext
+import org.apache.spark.SparkContext._
+
+import org.apache.spark.sql.SQLContext
+import org.apache.spark.rdd.RDD
+
 import de.kp.spark.core.Names
 import de.kp.spark.core.model._
 
@@ -43,6 +49,8 @@ import org.elasticsearch.common.xcontent.{XContentBuilder,XContentFactory}
  * the data analytics pipeline.
  * 
  */
+private case class MarkovStep(step:Int,amount:Float,time:Long,state:String,score:Double)
+ 
 class ForecastModeler(requestCtx:RequestContext) extends BaseActor {
 
   override def receive = {
@@ -60,16 +68,21 @@ class ForecastModeler(requestCtx:RequestContext) extends BaseActor {
          * STEP #1: Transform Shopify orders into purchases; these purchases are used 
          * to compute n-step ahead forecasts with respect to purchase amount and time
          */
-        val purchases = transform(requestCtx.getOrders(req_params))
+        val store = String.format("""%s/STM/%s""",requestCtx.getBase,uid)         
+        val parquetStates = readParquetStates(store)
       
-        requestCtx.listener ! String.format("""[INFO][UID: %s] Orders successfully transformed into purchases.""",uid)
+        requestCtx.listener ! String.format("""[INFO][UID: %s] Parquet states successfully retrieved.""",uid)
 
+        /*
+         * Retrieve list of distinct states from user specific parquet states 
+         */
+        val states = parquetStates.map(x => x._5).collect.distinct
         /*
          * STEP #2: Retrieve Markovian rules from Intent Recognition engine, combine
          * rules and purchases into a user specific set of purchase forecasts
          * 
          */
-        val (service,req) = buildRemoteRequest(req_params,purchases.map(_._5))
+        val (service,req) = buildRemoteRequest(req_params,states)
         val response = requestCtx.getRemoteContext.send(service,req).mapTo[String]     
         
         response.onSuccess {
@@ -86,7 +99,7 @@ class ForecastModeler(requestCtx:RequestContext) extends BaseActor {
 
             } else {
 
-              val sources = toSources(req_params,res,purchases)
+              val sources = toSources(req_params,res,parquetStates)
 
               if (requestCtx.putSources("users","forecasts",sources) == false)
                 throw new Exception("Indexing processing has been stopped due to an internal error.")
@@ -135,7 +148,7 @@ class ForecastModeler(requestCtx:RequestContext) extends BaseActor {
 
   }  
 
-  private def toSources(params:Map[String,String],response:ServiceResponse,purchases:List[(String,String,Float,Long,String)]):List[XContentBuilder] = {
+  private def toSources(params:Map[String,String],response:ServiceResponse,parquetStates:RDD[(String,String,Float,Long,String)]):List[XContentBuilder] = {
 
     val uid = params(Names.REQ_UID)
     
@@ -149,26 +162,29 @@ class ForecastModeler(requestCtx:RequestContext) extends BaseActor {
      * Transform the rules in an appropriate lookup format as the states sent
      * to the Intent Recognition engine are distinct
      */
-    val lookup = rules.items.map(rule => (rule.antecedent,rule.consequent)).toMap
+    val lookup = requestCtx.sparkContext.broadcast(rules.items.map(rule => (rule.antecedent,rule.consequent)).toMap)
+    
     /*
      * Compute next probable purchase amount and time by combining the Markovian
      * rules and the purchases retrieved from the Shopify store
      */
-    purchases.flatMap(p => {
+    parquetStates.flatMap(p => {
       
       val (site,user,amount,time,state) = p
       
-      val forecasts = buildForecasts(amount,time,lookup(state)).zipWithIndex
+      val forecasts = buildForecasts(amount,time,lookup.value(state))
       forecasts.map(x => {
           
         val builder = XContentFactory.jsonBuilder()
         builder.startObject()
        
+        /********** METADATA **********/
+        
         /* uid */
-        builder.field(Names.UID_FIELD,params(Names.REQ_UID))
+        builder.field("uid",params("uid"))
        
         /* timestamp */
-        builder.field(Names.TIMESTAMP_FIELD,params("timestamp"))
+        builder.field("timestamp",params("timestamp"))
 
 	    /* created_at_min */
 	    builder.field("created_at_min",params("created_at_min"))
@@ -177,96 +193,76 @@ class ForecastModeler(requestCtx:RequestContext) extends BaseActor {
 	    builder.field("created_at_max",params("created_at_max"))
       
         /* site */
-        builder.field(Names.SITE_FIELD,site)
+        builder.field("site",site)
       
+        /********** FORECAST DATA **********/
+        
         /* user */
-        builder.field(Names.USER_FIELD,user)
+        builder.field("user",user)
         
         /* step */
-        builder.field(Names.STEP_FIELD,(x._2 + 1))
+        builder.field("step",x.step)
         
-        x._1.foreach(entry => builder.field(entry._1,entry._2))       
+        /* amount */
+        builder.field("amount",x.amount)
+        
+        /* time */
+        builder.field("time",x.time)
+        
+        /* state */
+        builder.field("state",x.state)
+        
+        /* score */
+        builder.field("score",x.score)
         
         builder.endObject()
         builder
         
       })
     
-    })
+    }).collect.toList
     
   }
   /*
    * The Intent Recognition engine returns a list of Markovian states; the ordering
    * of these states reflects the number of steps looked ahead
    */
-  private def buildForecasts(amount:Float,time:Long,states:List[MarkovState]):List[Map[String,Any]] = {
-    
-    val result = ArrayBuffer.empty[Map[String,Any]]
+  private def buildForecasts(amount:Float,time:Long,states:List[MarkovState]):List[MarkovStep] = {
+   
+    val result = ArrayBuffer.empty[MarkovStep]
     val steps = states.size
     
     if (steps == 0) return result.toList
     
-    val state = states.head
-    /* 
-     * The AmountHandler uses the predefined amount horizon to
-     * re-interpret the amount sub state
-     */    
-    val next_amount = StateHandler.nextAmount(state.name, amount)
-    /*
-     * The AmountHandler uses the predefined time horizon to
-     * re-interpret the time sub state; the days period is e.g.
-     * 15, 45 or 90 days (from the last purchase)
-     */
-    val next_time = StateHandler.nextDate(state.name,time)
-    val next_score = state.probability
-    
-    val source = HashMap.empty[String,Any]
-    
-    source += Names.AMOUNT_FIELD -> next_amount
-    source += Names.TIME_FIELD -> next_time
-    
-    source += Names.STATE_FIELD -> state.name
-    source += Names.SCORE_FIELD -> next_score
-    
-    result += source.toMap
-
-    var pre_amount = next_amount
-    var pre_score = next_score
-    
-    var pre_time = next_time
-    var sum_amount = next_amount
-    
-    for (state <- states.tail) {
-
-      val next_time = StateHandler.nextDate(state.name,pre_time)
-      val next_amount = StateHandler.nextAmount(state.name, pre_amount)
+    (0 until steps).foreach(i => {
       
-      /* Conditional probability */
-      val next_score = state.probability * pre_score
-
-      pre_time += next_time
-      sum_amount += next_amount
-
-      pre_amount = next_amount
-      pre_score = next_score
+      val markovState = states(i)
+      if (i == 0) {
+        
+        val next_amount = StateHandler.nextAmount(markovState.name, amount)
+        val next_time   = StateHandler.nextDate(markovState.name, time)
+        
+        result += MarkovStep(i+1,next_amount,next_time,markovState.name,markovState.probability)
       
-      val source = HashMap.empty[String,Any]
-    
-      source += Names.AMOUNT_FIELD -> sum_amount.asInstanceOf[Object]
-      source += Names.TIME_FIELD -> next_time
-    
-      source += Names.STATE_FIELD -> state.name
-      source += Names.SCORE_FIELD -> next_score.asInstanceOf[Object]
+      } else {
+        
+        val previousStep = result(i-1)
+        
+        val next_amount = StateHandler.nextAmount(markovState.name, previousStep.amount)
+        val next_time   = StateHandler.nextDate(markovState.name, previousStep.time)
+        
+        result += MarkovStep(i+1,next_amount,next_time,markovState.name,markovState.probability)
+        
+      }
       
-      result += source.toMap
- 
-    }
+      
+    })
     
     result.toList
     
   }
   
-  private def buildRemoteRequest(params:Map[String,String],states:List[String]):(String,String) = {
+  private def buildRemoteRequest(params:Map[String,String],states:Array[String]):(String,String) = {
 
     val service = "intent"
     val task = "get:state"
@@ -283,21 +279,60 @@ class ForecastModeler(requestCtx:RequestContext) extends BaseActor {
     (service,message)
 
   }
-  
-  private def transform(rawset:List[Order]):List[(String,String,Float,Long,String)] = {
+
+  /**
+   * This method reads the Parquet file that specifies the state representation 
+   * for all customers that have purchased at least twice since the start of the 
+   * collection of the Shopify orders.
+   */
+  private def readParquetStates(store:String):RDD[(String,String,Float,Long,String)] = {
+
+    val sqlCtx = new SQLContext(requestCtx.sparkContext)
+    import sqlCtx.createSchemaRDD
     
-    /*
-     * Group purchases by site & user and restrict to those
-     * users with more than one purchase
+    /* 
+     * Read in the parquet file created above.  Parquet files are self-describing 
+     * so the schema is preserved. The result of loading a Parquet file is also a 
+     * SchemaRDD. 
      */
-    val orders = rawset.map(order => (order.site,order.user,order.timestamp,order.amount))    
-    orders.groupBy(x => (x._1,x._2)).filter(_._2.size > 1).map(p => {
+    val parquetFile = sqlCtx.parquetFile(store)
+    val metadata = parquetFile.schema.fields.zipWithIndex
+    
+    val rawset = parquetFile.map(row => {
+
+      val values = row.iterator.zipWithIndex.map(x => (x._2,x._1)).toMap
+      val data = metadata.map(entry => {
+      
+        val (field,col) = entry
+      
+        val colname = field.name
+        val colvalu = values(col)
+      
+        (colname,colvalu)
+          
+      }).toMap
+
+      val site = data("site").asInstanceOf[String]
+      val user = data("user").asInstanceOf[String]
+
+      val amount = data("amount").asInstanceOf[Float]
+      val timestamp = data("timestamp").asInstanceOf[Long]
+      
+      (site,user,amount,timestamp)
+      
+    })
+    
+    rawset.groupBy(x => (x._1,x._2)).filter(_._2.size > 1).map(p => {
 
       val (site,user) = p._1
-      val orders = p._2.map(x => (x._3,x._4)).toList.sortBy(_._1).reverse.take(2)
+      /*
+       * Constrain to the last two transactions and retrieve
+       * the respective timestamp and amount
+       */
+      val orders = p._2.toSeq.sortBy(_._4).reverse.take(2)
       
-      val (last_time,last_amount) = orders.head
-      val (prev_time,prev_amount) = orders.last
+      val (last_amount,last_time) = (orders.head._3,orders.head._4)
+      val (prev_amount,prev_time) = (orders.last._3,orders.last._4)
         
       /* 
        * Determine first sub state from amount and second
@@ -309,8 +344,7 @@ class ForecastModeler(requestCtx:RequestContext) extends BaseActor {
       val last_state = astate + tstate
       (site,user,last_amount,last_time,last_state)
       
-    }).toList
-    
+    })
+
   }
-  
 }

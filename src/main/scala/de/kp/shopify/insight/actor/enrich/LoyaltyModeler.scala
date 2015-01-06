@@ -18,6 +18,12 @@ package de.kp.shopify.insight.actor.enrich
 * If not, see <http://www.gnu.org/licenses/>.
 */
 
+import org.apache.spark.SparkContext
+import org.apache.spark.SparkContext._
+
+import org.apache.spark.sql.SQLContext
+import org.apache.spark.rdd.RDD
+
 import de.kp.spark.core.Names
 import de.kp.spark.core.model._
 
@@ -46,21 +52,24 @@ class LoyaltyModeler(requestCtx:RequestContext) extends BaseActor {
       try {
       
         requestCtx.listener ! String.format("""[INFO][UID: %s] User loyalty model building started.""",uid)
-       
+        
         /*
-         * STEP #1: Transform Shopify orders into sequences of observed states; 
-         * these observations are then used to determine the assigned hidden 
-         * loyalty states
+         * STEP #1: Transform Shopify orders into purchases; these purchases are used 
+         * to compute n-step ahead forecasts with respect to purchase amount and time
          */
-        val observations = transform(requestCtx.getOrders(req_params))
+        val store = String.format("""%s/STM/%s""",requestCtx.getBase,uid)         
+        val parquetStates = readParquetStates(store)
       
-        requestCtx.listener ! String.format("""[INFO][UID: %s] Orders successfully transformed into observations.""",uid)
+        requestCtx.listener ! String.format("""[INFO][UID: %s] Parquet states successfully retrieved.""",uid)
 
         /*
          * STEP #2: Retrieve hidden Markon states from Intent Recognition engine, 
          * combine those and observations into a user specific loyalty trajectories
          * 
          */
+        val observations = parquetStates.map(_._3).collect.distinct
+        val lookup = observations.zipWithIndex.toMap
+        
         val (service,req) = buildRemoteRequest(req_params,observations)
         val response = requestCtx.getRemoteContext.send(service,req).mapTo[String]     
         
@@ -78,7 +87,7 @@ class LoyaltyModeler(requestCtx:RequestContext) extends BaseActor {
 
             } else {
             
-              val trajectories = toSources(req_params,res,observations)
+              val trajectories = toSources(req_params,res,parquetStates,lookup)
             
               /*
                * STEP #3: Register the trajectories derived from the hidden state model
@@ -135,24 +144,27 @@ class LoyaltyModeler(requestCtx:RequestContext) extends BaseActor {
   /**
    * Buid user loyalty trajectories
    */
-  private def toSources(params:Map[String,String],response:ServiceResponse,observations:List[(String,String,List[String])]):List[XContentBuilder] = {
+  private def toSources(params:Map[String,String],response:ServiceResponse,parquetStates:RDD[(String,String,String)],lookup:Map[String,Int]):List[XContentBuilder] = {
     
-    val states_list = response.data(Names.REQ_RESPONSE).split(";").map(x => x.split(","))    
-    val sources = ArrayBuffer.empty[XContentBuilder]
+    val sc = requestCtx.sparkContext
+    val states = response.data(Names.REQ_RESPONSE).split(";").zipWithIndex.map(x => (x._2,x._1)).toMap    
     
-    val len = observations.size
-    (0 until len).foreach(i => {
+    val observ_lookup = sc.broadcast(lookup)
+    val states_lookup = sc.broadcast(states)
+   
+    parquetStates.map(o => {
       
-      val data = new java.util.HashMap[String,Object]()
+      val (site,user,observation) = o
+      /* Determine position from observation */
+      val pos = observ_lookup.value(observation)
       
-      val (site,user,observation) = observations(i)
-      val states = states_list(i)
+      val trajectory = states_lookup.value(pos).split(",") 
       /*
        * From the states, we also derive the percentage of the different 
        * loyalty states. Note, that these loyalty rates are the counterpart 
        * to  Sentiment Analysis, when content is considered
        */
-      val rates = states.groupBy(x => x).map(x => (x._1, x._2.length.toDouble / states.length))    
+      val rates = trajectory.groupBy(x => x).map(x => (x._1, x._2.length.toDouble / trajectory.length))    
     
       val low  = if (rates.contains("L")) rates("L") else 0.0 
       val norm = if (rates.contains("N")) rates("N") else 0.0 
@@ -165,15 +177,17 @@ class LoyaltyModeler(requestCtx:RequestContext) extends BaseActor {
        */
       val ratio = states.map(x => if (x == "L") 0 else if (x == "N") 1 else 2).sum.toDouble / (2 * states.size).toDouble
       val rating = Math.round(5 * ratio).toInt
-      
+          
       val builder = XContentFactory.jsonBuilder()
       builder.startObject()
-      
+       
+      /********** METADATA **********/
+        
       /* uid */
-      builder.field(Names.UID_FIELD,params(Names.REQ_UID))
-      
+      builder.field("uid",params("uid"))
+       
       /* timestamp */
-      builder.field(Names.TIMESTAMP_FIELD,params("timestamp"))
+      builder.field("timestamp",params("timestamp"))
 
 	  /* created_at_min */
 	  builder.field("created_at_min",params("created_at_min"))
@@ -182,13 +196,15 @@ class LoyaltyModeler(requestCtx:RequestContext) extends BaseActor {
 	  builder.field("created_at_max",params("created_at_max"))
       
       /* site */
-      builder.field(Names.SITE_FIELD,site)
+      builder.field("site",site)
+      
+      /********** LOYALTY DATA **********/
       
       /* user */
-      builder.field(Names.USER_FIELD,user)
+      builder.field("user",user)
       
       /* trajectory */
-      builder.field(Names.TRAJECTORY_FIELD,states.toList)
+      builder.field("trajectory",trajectory.toList)
       
       /* low */
       builder.field("low",low)
@@ -203,15 +219,13 @@ class LoyaltyModeler(requestCtx:RequestContext) extends BaseActor {
       builder.field("rating",rating)
       
       builder.endObject()
-      sources += builder
+      builder
       
-    })
-    
-    sources.toList    
+    }).collect.toList
   
   }
   
-  private def buildRemoteRequest(params:Map[String,String],observations:List[(String,String,List[String])]):(String,String) = {
+  private def buildRemoteRequest(params:Map[String,String],observations:Array[String]):(String,String) = {
 
     val service = "intent"
     val task = "get:state"
@@ -220,7 +234,7 @@ class LoyaltyModeler(requestCtx:RequestContext) extends BaseActor {
      * The list of last customer observations must be added to the 
      * request parameters; note, that this done outside the HSMHandler 
      */
-    val new_params = Map(Names.REQ_OBSERVATIONS -> observations.map(x => x._3.mkString(",")).mkString(";")) ++ params
+    val new_params = Map(Names.REQ_OBSERVATIONS -> observations.mkString(";")) ++ params
        
     val data = new HSMHandler().get(new_params)
     val message = Serializer.serializeRequest(new ServiceRequest(service,task,data))
@@ -228,23 +242,54 @@ class LoyaltyModeler(requestCtx:RequestContext) extends BaseActor {
     (service,message)
 
   }
+  /**
+   * This method reads the Parquet file that specifies the state representation 
+   * for all customers that have purchased at least twice since the start of the 
+   * collection of the Shopify orders.
+   */
+  private def readParquetStates(store:String):RDD[(String,String,String)] = {
 
-  private def transform(rawset:List[Order]):List[(String,String,List[String])] = {
+    val sqlCtx = new SQLContext(requestCtx.sparkContext)
+    import sqlCtx.createSchemaRDD
+    
+    /* 
+     * Read in the parquet file created above.  Parquet files are self-describing 
+     * so the schema is preserved. The result of loading a Parquet file is also a 
+     * SchemaRDD. 
+     */
+    val parquetFile = sqlCtx.parquetFile(store)
+    val metadata = parquetFile.schema.fields.zipWithIndex
+    
+    val rawset = parquetFile.map(row => {
 
-    /*
-     * Extract the temporal and monetary dimension from the raw dataset
-     */
-    val orders = rawset.map(order => (order.site,order.user,order.timestamp,order.amount))    
-    /*
-     * Group orders by site & user and restrict to those
-     * users with more than one purchase
-     */
-    orders.groupBy(x => (x._1,x._2)).filter(_._2.size > 1).map(p => {
+      val values = row.iterator.zipWithIndex.map(x => (x._2,x._1)).toMap
+      val data = metadata.map(entry => {
+      
+        val (field,col) = entry
+      
+        val colname = field.name
+        val colvalu = values(col)
+      
+        (colname,colvalu)
+          
+      }).toMap
+
+      val site = data("site").asInstanceOf[String]
+      val user = data("user").asInstanceOf[String]
+
+      val amount = data("amount").asInstanceOf[Float]
+      val timestamp = data("timestamp").asInstanceOf[Long]
+      
+      (site,user,amount,timestamp)
+      
+    })
+    
+    rawset.groupBy(x => (x._1,x._2)).filter(_._2.size > 1).map(p => {
 
       val (site,user) = p._1  
       
-      /* Compute time ordered list of (timestamp,amount) */
-      val user_orders = p._2.map(x => (x._3,x._4)).toList.sortBy(_._1)      
+      /* Compute time ordered list of (amount,timestamp) */
+      val user_orders = p._2.map(x => (x._3,x._4)).toList.sortBy(_._2)      
       
       /******************** MONETARY DIMENSION *******************/
       
@@ -253,7 +298,7 @@ class LoyaltyModeler(requestCtx:RequestContext) extends BaseActor {
        * of user amounts; the amount handler holds a predefined
        * configuration to map a pair onto a state
        */
-      val user_amounts = user_orders.map(_._2)
+      val user_amounts = user_orders.map(_._1)
       val user_amount_states = user_amounts.zip(user_amounts.tail).map(x => StateHandler.stateByAmount(x._2,x._1))
      
       /******************** TEMPORAL DIMENSION *******************/
@@ -263,17 +308,17 @@ class LoyaltyModeler(requestCtx:RequestContext) extends BaseActor {
        * of user timestamps; the amount handler holds a predefined
        * configuration to map a pair onto a state
        */
-      val user_timestamps = user_orders.map(_._1)
+      val user_timestamps = user_orders.map(_._2)
       val user_time_states = user_timestamps.zip(user_timestamps.tail).map(x => StateHandler.stateByTime(x._2,x._1))
 
      
       /********************* STATES DIMENSION ********************/
 
-      val user_states = user_amount_states.zip(user_time_states).map(x => x._1 + x._2)
-      (site,user,user_states)
+      val observation = user_amount_states.zip(user_time_states).map(x => x._1 + x._2).mkString(",")
+      (site,user,observation)
       
-    }).toList
-   
+    })
+
   }
 
 }

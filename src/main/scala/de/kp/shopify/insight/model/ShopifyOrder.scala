@@ -56,6 +56,9 @@ case class ShopifyOrder(
 
   @JsonProperty("total_tax")
   total_tax:String,
+
+  @JsonProperty("subtotal_price")
+  subtotal_price:String,
   
   @JsonProperty("client_details")
   client_details:ShopifyClientDetails,

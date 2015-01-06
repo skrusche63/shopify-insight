@@ -68,8 +68,13 @@ class ESCustomerBuilder {
                    .field("type", "string")
                 .endObject()
 
-                /* last_update */
-                .startObject("last_update")
+                /* signup_date */
+                .startObject("signup_date")
+                   .field("type", "string")
+                .endObject()
+
+                /* last_sync */
+                .startObject("last_sync")
                    .field("type", "long")
                    .field("index", "not_analyzed")
                 .endObject()
@@ -89,64 +94,9 @@ class ESCustomerBuilder {
                   .field("type", "boolean")
                 .endObject()
 
-                /* customer_data */
-                .startObject("customer_data")
-                  .startObject("properties")
-                
-                    /* timestamp */
-                    .startObject("timestamp")
-                      .field("type", "long")
-                      .field("index", "not_analyzed")
-                    .endObject()
-                    
-                    /* created_at_min */
-                    .startObject("created_at_min")
-                      .field("type", "string")
-                      .field("index", "not_analyzed")
-                    .endObject()
-                    
-                    /* created_at_max */
-                    .startObject("created_at_max")
-                      .field("type", "string")
-                      .field("index", "not_analyzed")
-                    .endObject()
-
-                    /* operational_state */
-                    .startObject("operational_state")
-                      .field("type", "string")
-                    .endObject()
-
-                    /* 
-                     * last_order: 
-                     * 
-                     * The identifier of the last order a certain customer
-                     * has made; this is relevant for customer lifecycle
-                     * management
-                     */
-                    .startObject("last_order")
-                      .field("type", "string")
-                    .endObject()
-
-                    /*
-                     * orders_count:
-                     * 
-                     * The number of orders a certain customer has made
-                     * since registration
-                     */
-                    .startObject("orders_count")
-                      .field("type", "long")
-                    .endObject()
-                
-                    /*
-                     * amount_spent:
-                     * 
-                     * The total amount of money spent by a certain customer
-                     */
-                    .startObject("amount_spent")
-                      .field("type", "float")
-                    .endObject()
-                    
-                  .endObject()
+                /* operational_state */
+                .startObject("operational_state")
+                  .field("type", "string")
                 .endObject()
 
               .endObject() // properties

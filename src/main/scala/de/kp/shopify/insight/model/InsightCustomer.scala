@@ -22,32 +22,6 @@ import org.codehaus.jackson.annotate.JsonProperty
 import com.fasterxml.jackson.annotation.{JsonIgnoreProperties, JsonIgnore}
 
 @JsonIgnoreProperties(ignoreUnknown = true)
-case class InsightCustomerDetails(
-
-  @JsonProperty("timestamp")
-  timestamp:Long,
-
-  @JsonProperty("created_at_min")
-  created_at_min:String,
-
-  @JsonProperty("created_at_max")
-  created_at_max:String,
-
-  @JsonProperty("amount_spent")
-  amount_spent:Long,
-
-  @JsonProperty("last_order")
-  last_order:String,
-
-  @JsonProperty("orders_count")
-  orders_count:Long,
-
-  @JsonProperty("operational_state")
-  operational_state:String
-
-)
-
-@JsonIgnoreProperties(ignoreUnknown = true)
 case class InsightCustomer(
 
   @JsonProperty("site")
@@ -62,8 +36,11 @@ case class InsightCustomer(
   @JsonProperty("last_name")
   last_name:String,
 
-  @JsonProperty("last_update")
-  last_update:Long,
+  @JsonProperty("signup_date")
+  signup_date:String,
+
+  @JsonProperty("last_sync")
+  last_sync:Long,
 
   @JsonProperty("email")
   email:String,
@@ -74,11 +51,7 @@ case class InsightCustomer(
   @JsonProperty("accepts_marketing")
   accepts_marketing:Boolean,
 
-  /*
-   * Customer details can change from evaluation timespan to 
-   * next timespan; we therefore hold these data as a list
-   */
-  @JsonProperty("customer_data")
-  customer_data:List[InsightCustomerDetails]
+  @JsonProperty("operational_state")
+  operational_state:String
 
 )

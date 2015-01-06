@@ -29,8 +29,6 @@ case class ActorInfo(
   name:String,timestamp:Long
 )
 
-case class AliveMessage()
-
 case class ActorStatus(
   name:String,date:String,status:String
 )
@@ -44,11 +42,6 @@ case class StopActor()
  * (see DataPipeline actor) to start a new data mining and model building process
  */
 case class StartPipeline(data:Map[String,String])
-/**
- * Status event specifies a message sent by the RemoteSupervisor actor to indicate
- * that a certain 'status' of a mining or model building task has been reached.
- */
-case class StatusEvent(uid:String,service:String,task:String,value:String)
 
 case class SimpleResponse(uid:String,message:String)
 
@@ -71,18 +64,18 @@ case class SynchronizeFinished(data:Map[String,String])
  ***************************************************************************/
 
 /**
- * StartCollect specifies a message sent to a data collector actor (e.g. Elastic
- * Collector) to indicate that the collection sub process has to be started
+ * StartPrepare specifies a message sent to a data preparer actor to indicate 
+ * that the preparation sub process has to be started
  */
-case class StartCollect(data:Map[String,String])
+case class StartPrepare(data:Map[String,String])
 
-case class CollectFailed(data:Map[String,String])
+case class PrepareFailed(data:Map[String,String])
 
 /**
- * CollectFinished specifies a message sent to the DataPipeline actor to indicate
- * that the data collection sub process finished sucessfully
+ * PrepareFinished specifies a message sent to the DataPipeline actor to 
+ * indicate that the data preparation sub process finished sucessfully
  */
-case class CollectFinished(data:Map[String,String])
+case class PrepareFinished(data:Map[String,String])
 
 /****************************************************************************
  * 
@@ -142,6 +135,11 @@ case class Customer(
   firstName:String,
   lastName:String,
   /*
+   * THe signup date of the customer
+   */
+  created_at:String,
+  
+  /*
    * The email address of a customer and a flag to indicate,
    * whether this address is verified; this is relevant for
    * email marketing
@@ -154,34 +152,13 @@ case class Customer(
    */
   marketing:Boolean,
   /*
-   * The state of the customer, e.g. 'disabled'
+   * The state of the customer, i.e. 'disabled' or 'enabled'
    */ 
-  state:String,
-  
-  /*
-   * The identifier of the last order a certain customer
-   * has made; this is relevant for customer lifecycle
-   * management
-   */
-  lastOrder:String,
-  /*
-   * The number of orders a certain customer has made
-   * since registration
-   */
-  ordersCount:Long,
-  /*
-   * The total amount of money spent by a certain customer
-   */
-  totalSpent:Float
+  state:String
 
 )
 
 case class Image(
-  /* 
-   * The 'apikey' of the Shopify cloud service is used as a
-   * unique identifier for the respective tenant or website
-   */
-  site:String,
   /*
    * Unique identifier that designates a certain Shopify
    * store product image
@@ -189,14 +166,7 @@ case class Image(
   id:String,
 
   position:Int,
-  src:String,
-  /*
-   * The unique identifier that assigns a certain image
-   * to a product; note, that actually, we do not need
-   * variant support
-   */
-  product:String
-    
+  src:String
 )
 
 case class Location(

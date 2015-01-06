@@ -35,6 +35,11 @@ case class ShopifyCustomer(
     
   @JsonProperty("last_name")
   last_name:String,
+  /*
+   * The signup date of the customer
+   */
+  @JsonProperty("created_at")
+  created_at:String,
 
   @JsonProperty("default_address")
   default_address:ShopifyAddress,

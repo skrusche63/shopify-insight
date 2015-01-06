@@ -164,6 +164,15 @@ class ElasticClient {
          */
         val builder = new ESLoyaltyBuilder().createBuilder(mapping)
         create(index,mapping,builder)
+        
+      } else if (topic == "order") {
+        /*
+         * Topic 'order' is indexed by the order synchronizer and does not require 
+         * a metadata specification as these data are not shared with predictive
+         * engines
+         */
+        val builder = new ESOrderBuilder().createBuilder(mapping)
+        create(index,mapping,builder)
        
       } else if (topic == "product") {
         /*

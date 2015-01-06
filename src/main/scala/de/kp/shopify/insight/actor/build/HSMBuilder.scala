@@ -21,6 +21,8 @@ package de.kp.shopify.insight.actor.build
 import akka.actor.Props
 
 import de.kp.spark.core.Names
+
+import de.kp.spark.core.actor._
 import de.kp.spark.core.model._
 
 import de.kp.shopify.insight.RequestContext
@@ -28,7 +30,7 @@ import de.kp.shopify.insight.RequestContext
 import de.kp.shopify.insight.model._
 import de.kp.shopify.insight.io._
 
-import de.kp.shopify.insight.actor.{BaseActor,StatusSupervisor}
+import de.kp.shopify.insight.actor.BaseActor
 
 /**
  * HSMBuilder is responsible for building a hidden state model
@@ -39,6 +41,8 @@ import de.kp.shopify.insight.actor.{BaseActor,StatusSupervisor}
  * 
  */
 class HSMBuilder(requestCtx:RequestContext) extends BaseActor {
+  
+  private val config = requestCtx.getConfig
   
   override def receive = {
    
@@ -67,7 +71,7 @@ class HSMBuilder(requestCtx:RequestContext) extends BaseActor {
        * that a certain status has been reached
        */
       val status = ResponseStatus.MODEL_TRAINING_FINISHED
-      val supervisor = context.actorOf(Props(new StatusSupervisor(req,status)))
+      val supervisor = context.actorOf(Props(new Supervisor(req,status,config)))
       
       /*
        * We evaluate the response message from the remote

@@ -82,34 +82,23 @@ class RestApi(host:String,port:Int,system:ActorSystem,@transient sc:SparkContext
   private def routes:Route = {
     /*
      * A 'prepare' request supports the generation of multiple insight models 
-     * from orders in a Shopify store; from orders of a defined period of days 
-     * (e.g. the last 30, 60 or 90 days), multiple Elasticsearch indexes are
-     * built, machine learning models derived by invoking the Association Analysis
-     * and Intent Recognition engine of Predictiveworks. 
-     * 
-     * 'prepare' also specifies the first step in a pipeline of data analytics 
-     * pipeline. A 'prepare' request requires the following parameters:
-     * 
-     * - days (Integer, optional)
-     * 
-     * 
      */
-    path("prepare" / Segment) {subject => 
+    path("prepare") { 
 	  post {
 	    respondWithStatus(OK) {
-	      ctx => doPrepare(ctx,subject)
+	      ctx => doPrepare(ctx)
 	    }
 	  }
     }  ~ 
     /*
-     * A 'synchronize' request supports the creation or update of the customer and 
-     * product database as respective Elasticsearch indexes, and represents copies
-     * of the customer and product data of a certain Shopify store
+     * A 'synchronize' request supports the creation or update of the customer, product 
+     * and order database as respective Elasticsearch indexes, and represents a copy
+     * of the customer, product and order data of a certain Shopify store
      */
-    path("synchronize" / Segment) {subject => 
+    path("synchronize") {
 	  post {
 	    respondWithStatus(OK) {
-	      ctx => doSynchronize(ctx,subject)
+	      ctx => doSynchronize(ctx)
 	    }
 	  }
     }  ~ 
@@ -237,86 +226,69 @@ class RestApi(host:String,port:Int,system:ActorSystem,@transient sc:SparkContext
   
   }
   /**
-   * 'prepare' describes the starting point of a data analytics process that collects orders
-   * or products from a Shopify store through the respective REST API and builds predictive 
-   * models to support product cross sell, purchase forecast, product recommendations and more.
+   * 'prepare' describes the starting point of a data analytics process and
+   * extracts multiple data dimensions from the customers' purchase history
+   * of a certaion Shopihy shop.
    */
-  private def doPrepare[T](ctx:RequestContext,subject:String) = {
+  private def doPrepare[T](ctx:RequestContext) = {
     
-    if (List("order","product").contains(subject)) {
-      /*
-       * A 'prepare' request starts a data processing pipeline and is accompanied 
-       * by the DataPipeline actor that is responsible for controlling the analytics 
-       * pipeline
-       */
-      val pipeline = system.actorOf(Props(new DataPipeline(requestCtx)))
+    /*
+     * A 'prepare' request starts a data processing pipeline and is accompanied 
+     * by the DataPipeline actor that is responsible for controlling the analytics 
+     * pipeline
+     */
+    val pipeline = system.actorOf(Props(new DataPipeline(requestCtx)))
 
-      val params = getRequest(ctx) 
-      val req_params = params ++ setTimespan(params)
+    val params = getRequest(ctx) 
+    val req_params = params ++ setTimespan(params)
       
-      val uid = java.util.UUID.randomUUID().toString
-      /*
-       * 'uid', 'name' and 'topic' is set internally and MUST be excluded
-       * from the external request parameters
-       */
-      val excludes = List(Names.REQ_UID,Names.REQ_NAME,Names.REQ_TOPIC,Names.REQ_DAYS)
-      val data = req_params.filter(kv => excludes.contains(kv._1) == false) ++ 
-        Map(Names.REQ_UID -> uid,Names.REQ_TOPIC -> subject)
+    val uid = java.util.UUID.randomUUID().toString
+    /*
+     * 'uid' and 'name' is set internally and MUST be excluded
+     * from the external request parameters
+     */
+    val excludes = List(Names.REQ_UID,Names.REQ_NAME)
+    val data = req_params.filter(kv => excludes.contains(kv._1) == false) ++ Map(Names.REQ_UID -> uid)
 
-      /* 
-       * Delegate data preparation and model building to the DataPipeline actor. Note, that 
-       * this actor is created for each 'prepare' request and stops itself either after having 
-       * executed all data processing tasks or after having detected a processing failure.
-       */
-      pipeline ! StartPipeline(data)
+    /* 
+     * Delegate data preparation and model building to the DataPipeline actor. Note, that 
+     * this actor is created for each 'prepare' request and stops itself either after having 
+     * executed all data processing tasks or after having detected a processing failure.
+     */
+    pipeline ! StartPipeline(data)
 
-      val message = "Data analytics started."
-      ctx.complete(SimpleResponse(uid,message))
-      
-    } else {
-      
-      val message = "This request is not supported."
-      ctx.complete(SimpleResponse("",message))
-           
-    }
+    val message = "Data analytics started."
+    ctx.complete(SimpleResponse(uid,message))
 
   }
-  private def doSynchronize[T](ctx:RequestContext,subject:String) = {
+  
+  private def doSynchronize[T](ctx:RequestContext) = {
     
-    if (List("customer","product").contains(subject)) {
-      /*
-       * A 'synchronize' request starts a processing pipeline to synchronize 
-       * the customer and product database of a Shopify store with an external
-       * Elasticsearch cluster
-       */
-      val pipeline = system.actorOf(Props(new SyncPipeline(requestCtx)))
+    /*
+     * A 'synchronize' request starts a processing pipeline to synchronize 
+     * the customer and product database of a Shopify store with an external
+     * Elasticsearch cluster
+     */
+    val pipeline = system.actorOf(Props(new SyncPipeline(requestCtx)))
 
-      val params = getRequest(ctx)
-      val req_params = params ++ setTimespan(params)
+    val params = getRequest(ctx)
+    val req_params = params ++ setTimespan(params)
 
-      val uid = java.util.UUID.randomUUID().toString
-      /*
-       * 'uid' and 'topic' is set internally and MUST be excluded
-       * from the external request parameters
-       */
-      val excludes = List(Names.REQ_UID,Names.REQ_TOPIC,Names.REQ_DAYS)
-      val data = req_params.filter(kv => excludes.contains(kv._1) == false) ++ 
-        Map(Names.REQ_UID -> uid,Names.REQ_TOPIC -> subject)
+    val uid = java.util.UUID.randomUUID().toString
+    /*
+     * 'uid' is set internally and MUST be excluded
+     * from the external request parameters
+     */
+    val excludes = List(Names.REQ_UID,Names.REQ_DAYS)
+    val data = req_params.filter(kv => excludes.contains(kv._1) == false) ++ Map(Names.REQ_UID -> uid)
 
-      /* 
-       * Delegate database synchronization to the SyncPipeline actor.
-       */
-      pipeline ! StartPipeline(data)
+    /* 
+     * Delegate database synchronization to the SyncPipeline actor.
+     */
+    pipeline ! StartPipeline(data)
 
-      val message = "Database synchronization started."
-      ctx.complete(SimpleResponse(uid,message))
-      
-    } else {
-      
-      val message = "This request is not supported."
-      ctx.complete(SimpleResponse("",message))
-           
-    }
+    val message = "Database synchronization started."
+    ctx.complete(SimpleResponse(uid,message))
 
   }
   /**
