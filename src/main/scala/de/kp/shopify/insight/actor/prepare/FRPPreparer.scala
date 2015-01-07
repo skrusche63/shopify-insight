@@ -64,7 +64,7 @@ class FRPPreparer(requestCtx:RequestContext,orders:RDD[InsightOrder]) extends Ba
            */ 
           val timestamps = x._2.map(_._3).toSeq.sorted
           val timespans = timestamps.zip(timestamps.tail).map(v => v._2 - v._1).map(v => (if (v / DAY < 1) 1 else v / DAY))
-
+          
           val total = timespans.size
           /*
            * Calculate stats from timespans here, as we build profile

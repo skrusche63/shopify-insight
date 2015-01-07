@@ -78,7 +78,7 @@ class RFMPreparer(requestCtx:RequestContext,orders:RDD[InsightOrder]) extends Ba
          *   
          */
         val sc = requestCtx.sparkContext
-        val table = orders.groupBy(x => (x.site,x.user)).map(p => {
+        val rawset = orders.groupBy(x => (x.site,x.user)).map(p => {
 
           val (site,user) = p._1  
       
@@ -103,7 +103,7 @@ class RFMPreparer(requestCtx:RequestContext,orders:RDD[InsightOrder]) extends Ba
         })
         
         /*
-         * Now that the RFM Table is ready, we allocate the respective attribute values
+         * Now that the RFM rawset is ready, we allocate the respective attribute values
          * into segments. To this end, we use quantiles. Simply put, this means folllowing:
          * 
          * The k-th quantile is a value x such that k% of values are less than x. So if the 
@@ -113,10 +113,98 @@ class RFMPreparer(requestCtx:RequestContext,orders:RDD[InsightOrder]) extends Ba
          * to calulcate the quantiles for the different attributes and the result are
          * re-assigned.
          */
-        val r_quantiles = RQuantiles(table)
-        val f_quantiles = FQuantiles(table)
+        val r_quantiles = sc.broadcast(RQuantiles(rawset))
+        val f_quantiles = sc.broadcast(FQuantiles(rawset))
  
-        val m_quantiles = MQuantiles(table)
+        val m_quantiles = sc.broadcast(MQuantiles(rawset))
+        
+        val table = rawset.map(x => {
+          
+          val (site,user,today,r,f,m) = x
+
+          /********** RECENCY ***********/
+      
+          /*
+           * We use the quantiles description to divide
+           * all the users into three segments:
+           * 
+           * a) high value::    0 < value < 0.25 boundary
+           * b) medium value:: 0.25 boundary <= value < 0.75 boundary
+           * c) low value::   0.75 boundary <= value
+           */
+          val r_b1 = r_quantiles.value(0.25)
+          val r_b2 = r_quantiles.value(0.75)
+      
+          val r_segment = (
+            if (r < r_b1) "H"
+            else if (r_b1 <= r && r < r_b2) "M"
+            else if (r_b2 <= r) "L"
+            else "-"  
+          )
+          
+          val r_quantiles_str = r_quantiles.value.map(v => String.format("""%s:%s""",v._1.toString,v._2.toString)).mkString(",")
+          
+          
+          /********** FREQUENCY *********/
+      
+          /*
+           * We use the quantiles description to divide
+           * all the users into three segments:
+           * 
+           * a) low value::    0 < value < 0.25 boundary
+           * b) medium value:: 0.25 boundary <= value < 0.75 boundary
+           * c) high value::   0.75 boundary <= value
+           */
+          val f_b1 = f_quantiles.value(0.25)
+          val f_b2 = f_quantiles.value(0.75)
+      
+          val f_segment = (
+            if (f < f_b1) "L"
+            else if (f_b1 <= f && f < f_b2) "M"
+            else if (f_b2 <= f) "H"
+            else "-"  
+          )
+          
+          val f_quantiles_str = f_quantiles.value.map(v => String.format("""%s:%s""",v._1.toString,v._2.toString)).mkString(",")
+
+          /********** MONETARY **********/
+          
+          /*
+           * We use the quantiles description to divide
+           * all the users into three segments:
+           * 
+           * a) low value::    0 < value < 0.25 boundary
+           * b) medium value:: 0.25 boundary <= value < 0.75 boundary
+           * c) high value::   0.75 boundary <= value
+           */
+          val m_b1 = m_quantiles.value(0.25)
+          val m_b2 = m_quantiles.value(0.75)
+      
+          val m_segment = (
+            if (m < m_b1) "L"
+            else if (m_b1 <= m && m < m_b2) "M"
+            else if (m_b2 <= m) "H"
+            else "-"  
+          )
+          
+          val m_quantiles_str = m_quantiles.value.map(v => String.format("""%s:%s""",v._1.toString,v._2.toString)).mkString(",")
+          
+          ParquetRFM(
+              site,
+              user,
+              today,
+              r,
+              r_segment,
+              r_quantiles_str,
+              f,
+              f_segment,
+              f_quantiles_str,
+              m,
+              m_segment,
+              m_quantiles_str
+           )
+        
+        })
         
         val sqlCtx = new SQLContext(sc)
         import sqlCtx.createSchemaRDD
@@ -153,7 +241,7 @@ class RFMPreparer(requestCtx:RequestContext,orders:RDD[InsightOrder]) extends Ba
   
   }
   
-  private def RQuantiles(dataset:RDD[(String,String,Long,Int,Int,Float)]):String = {
+  private def RQuantiles(dataset:RDD[(String,String,Long,Int,Int,Float)]):Map[Double,Double] = {
     
     implicit val semigroup = new QTreeSemigroup[Double](K)
     
@@ -164,14 +252,14 @@ class RFMPreparer(requestCtx:RequestContext,orders:RDD[InsightOrder]) extends Ba
       
       val (lower,upper) = d1.quantileBounds(x)
       val mean = (lower + upper) / 2
+
+      (x,mean)
       
-      String.format("""%s:%s""",x.toString,mean.toString)
-      
-    }).mkString(",")
+    }).toMap
     
   }
   
-  private def FQuantiles(dataset:RDD[(String,String,Long,Int,Int,Float)]):String = {
+  private def FQuantiles(dataset:RDD[(String,String,Long,Int,Int,Float)]):Map[Double,Double] = {
     
     implicit val semigroup = new QTreeSemigroup[Double](K)
     
@@ -182,14 +270,14 @@ class RFMPreparer(requestCtx:RequestContext,orders:RDD[InsightOrder]) extends Ba
       
       val (lower,upper) = d1.quantileBounds(x)
       val mean = (lower + upper) / 2
+
+      (x,mean)
       
-      String.format("""%s:%s""",x.toString,mean.toString)
-      
-    }).mkString(",")
+    }).toMap
     
   }
   
-  private def MQuantiles(dataset:RDD[(String,String,Long,Int,Int,Float)]):String = {
+  private def MQuantiles(dataset:RDD[(String,String,Long,Int,Int,Float)]):Map[Double,Double] = {
     
     implicit val semigroup = new QTreeSemigroup[Double](K)
     
@@ -200,10 +288,10 @@ class RFMPreparer(requestCtx:RequestContext,orders:RDD[InsightOrder]) extends Ba
       
       val (lower,upper) = d1.quantileBounds(x)
       val mean = (lower + upper) / 2
+
+      (x,mean)
       
-      String.format("""%s:%s""",x.toString,mean.toString)
-      
-    }).mkString(",")
+    }).toMap
     
   }
   

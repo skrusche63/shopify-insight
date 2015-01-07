@@ -17,6 +17,17 @@ package de.kp.shopify.insight.model
 * 
 * If not, see <http://www.gnu.org/licenses/>.
 */
+
+case class ParquetCHN(
+  site:String,
+  user:String,
+  
+  amount:Double,
+  timespan:Double,
+  
+  churner:Boolean
+)
+
 /**
  * ParquetCLV is a data structure that specifies the customer-specific 
  * lifetime value in terms of an assigned state. The state is determined 
@@ -186,12 +197,15 @@ case class ParquetRFM(
   today:Long,
   
   R:Int,
+  R_segment:String,
   R_quantiles:String,
   
   F:Int,
+  F_segment:String,
   F_quantiles:String,
   
   M:Double,
+  M_segment:String,
   M_Quantiles:String
 )
 
