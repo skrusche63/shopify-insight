@@ -17,6 +17,51 @@ package de.kp.shopify.insight.model
 * 
 * If not, see <http://www.gnu.org/licenses/>.
 */
+/**
+ * ParquetCLV is a data structure that specifies the customer-specific 
+ * lifetime value in terms of an assigned state. The state is determined 
+ * by evaluating the respective M_QUANTILES
+ */
+case class ParquetCLV(
+  site:String,
+  user:String,
+  /* 
+   * Total amount spent since the signup date of
+   * the customer
+   */
+  amount:Double,
+  state:String
+)
+/**
+ * ParquetFRQ is a data structure that specifies the customer-specific 
+ * purchase frequency in terms of an assigned state. The state is determined 
+ * by evaluating the respective F_QUANTILES
+ */
+case class ParquetFRQ(
+  site:String,
+  user:String,
+  /* 
+   * Total orders since the signup date of
+   * the customer
+   */
+  total:Int,
+  state:String
+)
+/**
+ * ParquetREC is a data structure that specifies the customer-specific 
+ * purchase activity (recency) in terms of an assigned state. The state 
+ * is determined by evaluating the respective R_QUANTILES
+ */
+case class ParquetREC(
+  site:String,
+  user:String,
+  /* 
+   * The number of days passed since the
+   * purchase of the customer
+   */
+  days:Int,
+  state:String
+)
 
 /**
  * TODO: Integrate Jollydays project and defines calendars
@@ -101,6 +146,31 @@ case class ParquetITP(
   
   total:Int
 )
+
+case class ParquetLOC(
+  site:String,
+  user:String,
+  
+  ip_address:String,
+  timestamp:Long,
+    
+  countryname:String,
+  countrycode:String,
+
+  region:String,
+  regionname:String,
+  
+  areacode:Int,
+  dmacode:Int,
+  
+  metrocode:Int,
+  city:String,
+  
+  postalcode:String,
+	  
+  lat:Double,
+  lon:Double
+)
 /**
  * ParquetRFM is a data structure that specifies an e-commerce
  * RFM table, extended by the quantiles for the respective RFM
@@ -121,7 +191,7 @@ case class ParquetRFM(
   F:Int,
   F_quantiles:String,
   
-  M:Float,
+  M:Double,
   M_Quantiles:String
 )
 

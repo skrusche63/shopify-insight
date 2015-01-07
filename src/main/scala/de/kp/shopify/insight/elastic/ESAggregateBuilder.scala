@@ -63,52 +63,57 @@ class ESAggregateBuilder {
 
                 /* total_amount */
                 .startObject("total_amount")
-                  .field("type", "float")
+                  .field("type", "double")
                 .endObject()
 
                 /* total_avg_amount */
                 .startObject("total_avg_amount")
-                  .field("type", "float")
+                  .field("type", "double")
                 .endObject()
 
                 /* total_max_amount */
                 .startObject("total_max_amount")
-                  .field("type", "float")
+                  .field("type", "double")
                 .endObject()
 
                 /* total_min_amount */
                 .startObject("total_min_amount")
-                  .field("type", "float")
+                  .field("type", "double")
+                .endObject()
+                
+                /* total_stdev_amount */
+                .startObject("total_stdev_amount")
+                  .field("type", "double")
                 .endObject()
 
-                /* total_avg_clv */
-                .startObject("total_avg_clv")
-                  .field("type", "float")
-                .endObject()
-
-                /* total_max_clv */
-                .startObject("total_max_clv")
-                  .field("type", "float")
-                .endObject()
-
-                /* total_min_clv */
-                .startObject("total_min_clv")
-                  .field("type", "float")
+                /* total_variance_amount */
+                .startObject("total_variance_amount")
+                  .field("type", "double")
                 .endObject()
 
                 /* total_avg_timespan */
                 .startObject("total_avg_timespan")
-                  .field("type", "long")
+                  .field("type", "double")
                 .endObject()
 
                 /* total_max_timespan */
                 .startObject("total_max_timespan")
-                  .field("type", "long")
+                  .field("type", "double")
                 .endObject()
 
                 /* total_min_timespan */
                 .startObject("total_min_timespan")
-                  .field("type", "long")
+                  .field("type", "double")
+                .endObject()
+                
+                /* total_stdev_timespan */
+                .startObject("total_stdev_timespan")
+                  .field("type", "double")
+                .endObject()
+
+                /* total_variance_timespan */
+                .startObject("total_variance_timespan")
+                  .field("type", "double")
                 .endObject()
                 
                 /* total_day_supp */

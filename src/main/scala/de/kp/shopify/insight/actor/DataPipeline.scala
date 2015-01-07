@@ -60,7 +60,7 @@ class DataPipeline(requestCtx:RequestContext) extends BaseActor {
       
       /**********************************************************************
        *      
-       *                       SUB PROCESS 'COLLECT'
+       *                       SUB PROCESS 'PREPARE'
        * 
        *********************************************************************/
       try {      
@@ -329,15 +329,6 @@ class DataPipeline(requestCtx:RequestContext) extends BaseActor {
      * where all steps of a certain synchronization or data analytics
      * task are registered
      * 
-     * The 'aggregates' index (mapping) specifies a database with aggregated
-     * data from all orders or transactions of a certain time span
-     * 
-     * The 'items' index (mapping) specifies a transaction database and
-     * is used by Association Analysis, Series Analysis and other engines
-     * 
-     * The 'states' index (mapping) specifies a states database derived 
-     * from the amount representation and used by Intent Recognition
-     * 
      * The 'forecast' index (mapping) specifies a sales forecast database
      * derived from the Markovian rules built by the Intent Recognition
      * engine
@@ -359,17 +350,6 @@ class DataPipeline(requestCtx:RequestContext) extends BaseActor {
     if (requestCtx.createIndex(params,"database","tasks","task") == false)
       throw new Exception("Index creation for 'database/tasks' has been stopped due to an internal error.")
     
-    /*
-     * SUB PROCESS 'COLLECT'
-     */
-    if (requestCtx.createIndex(params,"orders","aggregates","aggregate") == false)
-      throw new Exception("Index creation for 'orders/aggregates' has been stopped due to an internal error.")
-
-    if (requestCtx.createIndex(params,"users","items","item") == false)
-      throw new Exception("Index creation for 'users/items' has been stopped due to an internal error.")
- 
-    if (requestCtx.createIndex(params,"users","states","state") == false)
-      throw new Exception("Index creation for 'users/states' has been stopped due to an internal error.")
     /*       
      * SUB PROCESS 'ENRICH'
      */

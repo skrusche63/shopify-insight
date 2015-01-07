@@ -57,8 +57,6 @@ class DataPreparer(requestCtx:RequestContext) extends BaseActor {
          
          val rawset = elasticRDD.read(esConfig)
          val orders = elasticRDD.orders(rawset)
-
-         // TODO  Provide metadata description for shared parquet files.
          
          /*
           * STEP #2: Start ASRPreparer actor to create the ParquetASR table 
@@ -129,17 +127,6 @@ class DataPreparer(requestCtx:RequestContext) extends BaseActor {
           */
          val rfm_preparer = context.actorOf(Props(new RFMPreparer(requestCtx,orders)))          
          rfm_preparer ! StartPrepare(req_params)
-
-         /*
-          * STEP #9: Start SUMPreparer actor to update the orders/aggregates index 
-          * from the purchase history. This index is used to provide aggregated or
-          * summarized information.
-          * 
-          * The aggregated data are the starting point for comparing order perspectives
-          * from different preparation timestamps.
-          */
-         val sum_preparer = context.actorOf(Props(new SUMPreparer(requestCtx,orders)))          
-         sum_preparer ! StartPrepare(req_params)
 
       } catch {
         case e:Exception => {

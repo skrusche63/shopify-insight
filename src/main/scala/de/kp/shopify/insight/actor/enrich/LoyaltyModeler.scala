@@ -175,7 +175,7 @@ class LoyaltyModeler(requestCtx:RequestContext) extends BaseActor {
        * From the loyalty states build an overall score, where "L" = 0,
        * "N" = 1 and "H" = 2
        */
-      val ratio = states.map(x => if (x == "L") 0 else if (x == "N") 1 else 2).sum.toDouble / (2 * states.size).toDouble
+      val ratio = states.map(x => if (x._2 == "L") 0 else if (x._2 == "N") 1 else 2).sum.toDouble / (2 * states.size).toDouble
       val rating = Math.round(5 * ratio).toInt
           
       val builder = XContentFactory.jsonBuilder()

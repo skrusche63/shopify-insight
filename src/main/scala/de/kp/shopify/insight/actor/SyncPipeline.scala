@@ -169,6 +169,10 @@ class SyncPipeline(requestCtx:RequestContext) extends BaseActor {
      * 
      * The 'orders' index (mapping) specifies an order database that
      * holds synchronized order data relevant for the insight server
+     * 
+     * The 'aggregates' index (mapping) specifies a statistics database 
+     * that holds synchronized aggregated order data relevant for the 
+     * insight server
      */
     
     if (requestCtx.createIndex(params,"database","tasks","task") == false)
@@ -185,6 +189,9 @@ class SyncPipeline(requestCtx:RequestContext) extends BaseActor {
  
     if (requestCtx.createIndex(params,"database","orders","order") == false)
       throw new Exception("Index creation for 'database/orders' has been stopped due to an internal error.")
+ 
+    if (requestCtx.createIndex(params,"database","aggregates","aggregate") == false)
+      throw new Exception("Index creation for 'database/aggreates' has been stopped due to an internal error.")
     
   }
   

@@ -106,34 +106,37 @@ case class InsightAggregate(
   total_orders:Int,
 
   @JsonProperty("total_amount")
-  total_amount:Float,
+  total_amount:Double,
 
   @JsonProperty("total_avg_amount")
-  total_avg_amount:Float,
+  total_avg_amount:Double,
 
   @JsonProperty("total_max_amount")
-  total_max_amount:Float,
+  total_max_amount:Double,
 
   @JsonProperty("total_min_amount")
-  total_min_amount:Float,
+  total_min_amount:Double,
 
-  @JsonProperty("total_avg_clv")
-  total_avg_clv:Float,
+  @JsonProperty("total_stdev_amount")
+  total_stdev_amount:Double,
 
-  @JsonProperty("total_max_clv")
-  total_max_clv:Float,
-
-  @JsonProperty("total_min_clv")
-  total_min_clv:Float,
+  @JsonProperty("total_variance_amount")
+  total_variance_amount:Double,
 
   @JsonProperty("total_avg_timespan")
-  total_avg_timespan:Long,
+  total_avg_timespan:Double,
 
   @JsonProperty("total_max_timespan")
-  total_max_timespan:Long,
+  total_max_timespan:Double,
 
   @JsonProperty("total_min_timespan")
-  total_min_timespan:Long,
+  total_min_timespan:Double,
+
+  @JsonProperty("total_stdev_timespan")
+  total_stdev_timespan:Double,
+
+  @JsonProperty("total_variance_timespan")
+  total_variance_timespan:Double,
 
   @JsonProperty("total_day_supp")
   total_day_supp:List[DaySupp],

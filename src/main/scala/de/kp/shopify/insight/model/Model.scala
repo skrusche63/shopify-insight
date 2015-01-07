@@ -47,6 +47,18 @@ case class SimpleResponse(uid:String,message:String)
 
 /****************************************************************************
  * 
+ *                      SUB PROCESS 'ANALYZE'
+ * 
+ ***************************************************************************/
+
+case class StartAnalyze(data:Map[String,String])
+
+case class AnalyzeFailed(data:Map[String,String])
+
+case class AnalyzeFinished(data:Map[String,String])
+
+/****************************************************************************
+ * 
  *                      SUB PROCESS 'SYNCHRONIZE'
  * 
  ***************************************************************************/
@@ -185,8 +197,8 @@ case class Location(
   
   postalcode:String,
 	  
-  lat:Float,
-  lon:Float
+  lat:Double,
+  lon:Double
 
 )
 
