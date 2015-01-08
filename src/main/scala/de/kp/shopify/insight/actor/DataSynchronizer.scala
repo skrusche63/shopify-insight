@@ -28,44 +28,48 @@ import de.kp.shopify.insight.model._
 import de.kp.shopify.insight.elastic._
 
 import de.kp.shopify.insight.actor.synchronize._
-import org.elasticsearch.common.xcontent.{XContentBuilder,XContentFactory}
 
 import scala.collection.mutable.ArrayBuffer
+import org.elasticsearch.common.xcontent.{XContentBuilder,XContentFactory}
 
-class SyncPipeline(requestCtx:RequestContext) extends BaseActor {
+class DataSynchronizer(requestCtx:RequestContext) extends BaseActor {
   
-  private val MODELS = ArrayBuffer.empty[String]
-  private val MODELS_COMPLETE = 3
+  private val STEPS = ArrayBuffer.empty[String]
+  private val STEPS_COMPLETE = 3
 
   override def receive = {
     
-    case message:StartPipeline => {
+    case message:StartSynchronize => {
       
-      /**********************************************************************
-       *      
-       *                       SUB PROCESS 'SYNCHRONIZE'
-       * 
-       *********************************************************************/
       try { 
-        
+
         val req_params = message.data
-        createElasticIndexes(req_params)
-       
+        val uid = req_params(Names.REQ_UID)
+             
+        val start = new java.util.Date().getTime.toString            
+        requestCtx.listener ! String.format("""[INFO][UID: %s] Data synchronization request received at %s.""",uid,start)
+        
+        /**********************************************************************
+         *      
+         *                       SUB PROCESS 'SYNCHRONIZE'
+         * 
+         *********************************************************************/
+
+        createElasticIndexes(req_params)       
         /*
          * Register this synchronization task in the respective
          * 'database/tasks' index
          */
         registerTask(req_params)
         
-        /*
-         * Synchronize customer and product database with the 
-         * current entries assigned to s specific Shopify store
-         */
         val customer_sync = context.actorOf(Props(new CustomerSync(requestCtx)))  
         customer_sync ! StartSynchronize(message.data)
       
         val product_sync = context.actorOf(Props(new ProductSync(requestCtx)))  
         product_sync ! StartSynchronize(message.data)
+      
+        val order_sync = context.actorOf(Props(new OrderSync(requestCtx)))  
+        order_sync ! StartSynchronize(message.data)
         
     
       } catch {
@@ -99,9 +103,9 @@ class SyncPipeline(requestCtx:RequestContext) extends BaseActor {
        * and if synchronization task is finished, stop pipeline actor
        */
       val model = message.data(Names.REQ_MODEL)
-      if (List("CUSTOMER","PRODUCT","ORDER").contains(model)) MODELS += model
+      if (List("CUSTOMER","PRODUCT","ORDER").contains(model)) STEPS += model
       
-      if (MODELS.size == MODELS_COMPLETE) context.stop(self)
+      if (STEPS.size == STEPS_COMPLETE) context.stop(self)
 
     }
     

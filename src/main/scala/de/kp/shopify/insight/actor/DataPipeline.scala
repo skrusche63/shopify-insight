@@ -36,54 +36,59 @@ class DataPipeline(requestCtx:RequestContext) extends BaseActor {
       
       /**********************************************************************
        *      
+       *                       SUB PROCESS 'SYNCHRONIZE'
+       * 
+       *********************************************************************/
+       
+      val req_params = message.data
+      /*
+       * Send request to DataPreparer actor and inform requestor
+       * that the tracking process has been started. Error and
+       * interim messages of this process are sent to the listener
+       */
+      val actor = context.actorOf(Props(new DataSynchronizer(requestCtx)))          
+      actor ! StartSynchronize(req_params)
+      
+    }       
+    case message:SynchronizeFailed => {
+      /*
+       * The DataSynchronizer actor already sent an error message to the message 
+       * listener; no additional notification has to be done, so just stop the 
+       * pipeline
+       */
+      requestCtx.clear
+      context.stop(self)
+       
+    }
+    case message:SynchronizeFinished => {
+     /*
+       * This message is sent by the DataSynchronizer actor and indicates that the 
+       * data synchronization sub process has been finished. Note, that this actor 
+       * (child) is responsible for stopping itself, and NOT the DataPipeline.
+       * 
+       * After having received this message, the DataPipeline actor starts to prepare 
+       * the data; to this end, the DataPreparer actor is invoked.
+       */
+
+      /**********************************************************************
+       *      
        *                       SUB PROCESS 'PREPARE'
        * 
        *********************************************************************/
-      try {      
         
-        /*
-         * The data analytics pipeline retrieves Shopify orders; we therefore
-         * have to make clear, that no previous orders are still available
-         */
-        requestCtx.clear
-        
-        val req_params = message.data
-        createElasticIndexes(req_params)
-       
-        /*
-         * Register this data preparation task in the respective
-         * 'database/tasks' index
-         */
-        registerTask(req_params)
-        /*
-         * Send request to DataPreparer actor and inform requestor
-         * that the tracking process has been started. Error and
-         * interim messages of this process are sent to the listener
-         */
-        val actor = context.actorOf(Props(new DataPreparer(requestCtx)))          
-        actor ! StartPrepare(req_params)
-    
-      } catch {
-        
-        case e:Exception => {
-          /*
-           * Inform the message listener about the error that occurred
-           * while collecting data from a certain Shopify store and
-           * stop the DataPipeline
-           */
-          requestCtx.listener ! e.getMessage
-          
-          requestCtx.clear
-          context.stop(self)
-          
-        }
-
-      } 
+      val req_params = message.data
+      /*
+       * Send request to DataPreparer actor and inform requestor
+       * that the tracking process has been started. Error and
+       * interim messages of this process are sent to the listener
+       */
+      val actor = context.actorOf(Props(new DataPreparer(requestCtx)))          
+      actor ! StartPrepare(req_params)
       
-    }   
+    }
     case message:PrepareFailed => {
       /*
-       * The Collector actor already sent an error message to the message listener;
+       * The DataPreparer actor already sent an error message to the message listener;
        * no additional notification has to be done, so just stop the pipeline
        */
       requestCtx.clear
@@ -171,106 +176,15 @@ class DataPipeline(requestCtx:RequestContext) extends BaseActor {
     case message:ProfileFinished => {
       // TODO
     }
+    
+    case message:LoadFailed => {
+      // TODO
+    }
+    
+    case message:LoadFinished => {
+      
+    }
     case _ => {/* do nothing */}
-    
-  }
-  /**
-   * This method registers the data preparation task in the respective
-   * Elasticsearch index; this information supports administrative
-   * tasks such as the monitoring of this insight server
-   */
-  private def registerTask(params:Map[String,String]) = {
-    
-    val uid = params(Names.REQ_UID)
-    val key = "prepare:" + uid
-    
-    val task = "data preparation"
-    /*
-     * Note, that we do not specify additional
-     * payload data here
-     */
-    val builder = XContentFactory.jsonBuilder()
-	builder.startObject()
-	
-	/* key */
-	builder.field("key",key)
-	
-	/* task */
-	builder.field("task",task)
-	
-	/* timestamp */
-	builder.field("timestamp",params("timestamp").toLong)
-
-    /* created_at_min */
-	builder.field("created_at_min",params("created_at_min"))
-	
-    /* created_at_max */
-	builder.field("created_at_max",params("created_at_max"))
-	
-	builder.endObject()
-	/*
-	 * Register data in the 'database/tasks' index
-	 */
-	requestCtx.putSource("database","tasks",builder)
-
-  }
-  
-  /**
-   * A helper method to prepare all Elasticsearch indexes used by the 
-   * Shopify Analytics (or Insight) Server
-   */
-  private def createElasticIndexes(params:Map[String,String]) {
-    
-    val uid = params(Names.REQ_UID)
-    /*
-     * Create search indexes (if not already present)
-     * 
-     * The 'tasks' index (mapping) specified an administrative database
-     * where all steps of a certain synchronization or data analytics
-     * task are registered
-     * 
-     * The 'forecast' index (mapping) specifies a sales forecast database
-     * derived from the Markovian rules built by the Intent Recognition
-     * engine
-     * 
-     * The 'loyalty' index (mapping) specifies a user loyalty database
-     * derived from the Markovian hidden states built by the Intent Recognition
-     * engine
-     * 
-     * The 'recommendation' index (mapping) specifies a product recommendation
-     * database derived from the Association rules and the last items purchased
-     * 
-     * The 'rule' index (mapping) specifies the association rules database
-     * computed by the Association Analysis engine
-     * 
-     * The 'profile' index (mapping) specifies the user profile database
-     * computed by the user profiler
-     */
-    
-    if (requestCtx.createIndex(params,"database","tasks","task") == false)
-      throw new Exception("Index creation for 'database/tasks' has been stopped due to an internal error.")
-    
-    /*       
-     * SUB PROCESS 'ENRICH'
-     */
-    if (requestCtx.createIndex(params,"users","forecasts","forecast") == false)
-      throw new Exception("Index creation for 'users/forecasts' has been stopped due to an internal error.")
-
-    if (requestCtx.createIndex(params,"users","loyalties","loyalties") == false)
-      throw new Exception("Index creation for 'users/loyalties' has been stopped due to an internal error.")
-            
-    if (requestCtx.createIndex(params,"users","recommendations","recommendation") == false)
-      throw new Exception("Index creation for 'users/recommendations' has been stopped due to an internal error.")
-            
-    if (requestCtx.createIndex(params,"products","rules","rule") == false)
-      throw new Exception("Index creation for 'products/rules' has been stopped due to an internal error.")
-    /*       
-     * SUB PROCESS 'PROFILE'
-     */           
-    if (requestCtx.createIndex(params,"users","profiles","profile") == false)
-      throw new Exception("Index creation for 'users/profiles' has been stopped due to an internal error.")
-  
-    requestCtx.listener ! String.format("""[INFO][UID: %s] Elasticsearch indexes created.""",uid)
     
   }
   

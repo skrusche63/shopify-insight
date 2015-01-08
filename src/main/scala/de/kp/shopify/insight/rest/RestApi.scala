@@ -81,12 +81,12 @@ class RestApi(host:String,port:Int,system:ActorSystem,@transient sc:SparkContext
 
   private def routes:Route = {
     /*
-     * A 'prepare' request supports the generation of multiple insight models 
+     * A 'analyze' request supports the generation of multiple insight models 
      */
-    path("prepare") { 
+    path("analyze") { 
 	  post {
 	    respondWithStatus(OK) {
-	      ctx => doPrepare(ctx)
+	      ctx => doAnalyze(ctx)
 	    }
 	  }
     }  ~ 
@@ -226,14 +226,13 @@ class RestApi(host:String,port:Int,system:ActorSystem,@transient sc:SparkContext
   
   }
   /**
-   * 'prepare' describes the starting point of a data analytics process and
+   * 'analyze' describes the starting point of a data analytics process and
    * extracts multiple data dimensions from the customers' purchase history
-   * of a certaion Shopihy shop.
+   * of a certain Shopify shop.
    */
-  private def doPrepare[T](ctx:RequestContext) = {
-    
+  private def doAnalyze[T](ctx:RequestContext) = {
     /*
-     * A 'prepare' request starts a data processing pipeline and is accompanied 
+     * A 'analyze' request starts a data processing pipeline and is accompanied 
      * by the DataPipeline actor that is responsible for controlling the analytics 
      * pipeline
      */
@@ -257,19 +256,21 @@ class RestApi(host:String,port:Int,system:ActorSystem,@transient sc:SparkContext
      */
     pipeline ! StartPipeline(data)
 
+    val created_at_min = data("created_at_min")
+    val created_at_max = data("created_at_max")
+    
     val message = "Data analytics started."
-    ctx.complete(SimpleResponse(uid,message))
+    ctx.complete(SimpleResponse(uid,created_at_min,created_at_max,message))
 
   }
   
   private def doSynchronize[T](ctx:RequestContext) = {
-    
     /*
-     * A 'synchronize' request starts a processing pipeline to synchronize 
-     * the customer and product database of a Shopify store with an external
-     * Elasticsearch cluster
+     * A 'synchronize' request starts the 'synchronization' sub process individually
+     * and synchronizes the customer, product and order database of a Shopify store 
+     * with an external Elasticsearch cluster
      */
-    val pipeline = system.actorOf(Props(new SyncPipeline(requestCtx)))
+    val actor = system.actorOf(Props(new DataSynchronizer(requestCtx)))
 
     val params = getRequest(ctx)
     val req_params = params ++ setTimespan(params)
@@ -283,12 +284,15 @@ class RestApi(host:String,port:Int,system:ActorSystem,@transient sc:SparkContext
     val data = req_params.filter(kv => excludes.contains(kv._1) == false) ++ Map(Names.REQ_UID -> uid)
 
     /* 
-     * Delegate database synchronization to the SyncPipeline actor.
+     * Delegate database synchronization to the DataSynchronizer actor.
      */
-    pipeline ! StartPipeline(data)
+    actor ! StartSynchronize(data)
 
-    val message = "Database synchronization started."
-    ctx.complete(SimpleResponse(uid,message))
+    val created_at_min = data("created_at_min")
+    val created_at_max = data("created_at_max")
+    
+    val message = "Data synchronization started."
+    ctx.complete(SimpleResponse(uid,created_at_min,created_at_max,message))
 
   }
   /**

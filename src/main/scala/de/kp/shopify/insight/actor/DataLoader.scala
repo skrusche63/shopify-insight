@@ -22,102 +22,99 @@ import akka.actor.Props
 import de.kp.spark.core.Names
 
 import de.kp.shopify.insight._
-import de.kp.shopify.insight.actor.build._
+import de.kp.shopify.insight.actor.storage._
 
 import de.kp.shopify.insight.model._
 
 import scala.collection.mutable.ArrayBuffer
 import org.elasticsearch.common.xcontent.{XContentBuilder,XContentFactory}
 
-class DataBuilder(requestCtx:RequestContext) extends BaseActor {
+class DataLoader(requestCtx:RequestContext) extends BaseActor {
   
   private val STEPS = ArrayBuffer.empty[String]
-  private val STEPS_COMPLETE = 3
+  private val STEPS_COMPLETE = 4
 
   override def receive = {
 
-    case message:StartBuild => {
+    case message:StartLoad => {
 
       val req_params = message.data
       val uid = req_params(Names.REQ_UID)
-             
+ 
       val start = new java.util.Date().getTime.toString            
-      requestCtx.listener ! String.format("""[INFO][UID: %s] Data preparation request received at %s.""",uid,start)
+      requestCtx.listener ! String.format("""[INFO][UID: %s] Model loading request received at %s.""",uid,start)
 
       /**********************************************************************
        *      
-       *                       SUB PROCESS 'BUILD'
+       *                       SUB PROCESS 'LOAD'
        * 
        *********************************************************************/
       
-      createElasticIndexes(req_params)
+      createElasticIndexes(req_params)      
       /*
-       * Register this model building task in the respective
+       * Register this model loading task in the respective
        * 'database/tasks' index
        */
       registerTask(req_params)
       
       /*
-       * The ASRBuilder is responsible for building an association rule model
-       * from the data registered in the 'items' index
+       * The PRMLoader is responsible for loading the product relation
+       * model into the product/rules index
        */
-      val asr_builder = context.actorOf(Props(new ASRBuilder(requestCtx)))  
-      asr_builder ! StartBuild(message.data)
+      val prm_loader = context.actorOf(Props(new PRMLoader(requestCtx)))  
+      prm_loader ! StartLoad(message.data)
 
       /*
-       * The STMBuilder is responsible for building a state transition model
-       * from the data registered in the 'states' index
+       * The UFMLoader is responsible for loading the user purchase forecast
+       * model into the users/forecasts index
        */
-      val stm_builder = context.actorOf(Props(new STMBuilder(requestCtx)))  
-      stm_builder ! StartBuild(message.data)
+      val ufm_loader = context.actorOf(Props(new UFMLoader(requestCtx)))  
+      ufm_loader ! StartBuild(message.data)
       
       /*
-       * The HSMBuilder is responsible for building a hidden state model
-       * from the data registered in the 'states' index
+       * The ULMLoader is responsible for loading the user loyalty model
+       * into the users/loyalties index
        */
-      val hsm_builder = context.actorOf(Props(new HSMBuilder(requestCtx)))  
-      hsm_builder ! StartBuild(message.data)
+      val ulm_loader = context.actorOf(Props(new ULMLoader(requestCtx)))  
+      ulm_loader ! StartBuild(message.data)
+      
+      /*
+       * The URMLoader is responsible for loading the user recommendation
+       * model into the users/recommendations index
+       */
+      val urm_loader = context.actorOf(Props(new URMLoader(requestCtx)))  
+      urm_loader ! StartBuild(message.data)
       
     }    
-    case message:BuildFailed => {
+    case message:LoadFailed => {
       /*
-       * The Build actors (ASR,STM and HSM) already sent an error message 
+       * The Load actors (PRM,UFM,ULM and URM) already sent an error message 
        * to the message listener; what is left here is to forward the failed 
        * message to the data pipeline (parent)
        */
-      context.parent ! BuildFailed(message.data)
+      context.parent ! LoadFailed(message.data)
       context.stop(self)
       
     }    
-    case message:BuildFinished => {
+    case message:LoadFinished => {
       /*
-       * This message is sent by one of the Builder actors and indicates that the building
-       * of a certain model has been successfully finished. We distinguish the following
-       * model types:
-       * 
-       * ASR: Specifies the association rule model that is the basis for 'collection',
-       * 'cross-sell' and 'promotion' requests. 
-       * 
-       * STM: Specifies the state transition model that is the basis for purchase 
-       * forecasts, that have to be built from this model.
-       * 
-       * HSM: Specifies a hidden state model that is the basis for loyalty state
-       * forecasts, that have to be built from this model
+       * This message is sent by one of the Loader actors and indicates that 
+       * the loading of a certain model has been successfully finished.
        */  
       val model = message.data(Names.REQ_MODEL)
-      if (List("ASR","HSM","STM").contains(model)) STEPS += model
+      if (List("PRM","UFM","ULM","URM").contains(model)) STEPS += model
       
       if (STEPS.size == STEPS_COMPLETE) {
 
         val params = message.data.filter(kv => kv._1 == Names.REQ_MODEL)
-        context.parent ! BuildFinished(params)
+        context.parent ! LoadFinished(params)
       
         context.stop(self)
         
       } else {
         
         /* 
-         * Do nothing as thesub process is still going on
+         * Do nothing as the sub process is still going on
          */
         
       }
@@ -135,9 +132,9 @@ class DataBuilder(requestCtx:RequestContext) extends BaseActor {
   private def registerTask(params:Map[String,String]) = {
     
     val uid = params(Names.REQ_UID)
-    val key = "build:" + uid
+    val key = "load:" + uid
     
-    val task = "model building"
+    val task = "model loading"
     /*
      * Note, that we do not specify additional
      * payload data here
@@ -177,12 +174,38 @@ class DataBuilder(requestCtx:RequestContext) extends BaseActor {
      * The 'tasks' index (mapping) specified an administrative database
      * where all steps of a certain synchronization or data analytics
      * task are registered
+     * 
+     * The 'forecast' index (mapping) specifies a sales forecast database
+     * derived from the Markovian rules built by the Intent Recognition
+     * engine
+     * 
+     * The 'loyalty' index (mapping) specifies a user loyalty database
+     * derived from the Markovian hidden states built by the Intent Recognition
+     * engine
+     * 
+     * The 'recommendation' index (mapping) specifies a product recommendation
+     * database derived from the Association rules and the last items purchased
+     * 
+     * The 'rule' index (mapping) specifies the association rules database
+     * computed by the Association Analysis engine
      */
     
     if (requestCtx.createIndex(params,"database","tasks","task") == false)
       throw new Exception("Index creation for 'database/tasks' has been stopped due to an internal error.")
-   
-    requestCtx.listener ! String.format("""[INFO][UID: %s] Elasticsearch database/tasks index created.""",uid)
+    
+    if (requestCtx.createIndex(params,"users","forecasts","forecast") == false)
+      throw new Exception("Index creation for 'users/forecasts' has been stopped due to an internal error.")
+
+    if (requestCtx.createIndex(params,"users","loyalties","loyalties") == false)
+      throw new Exception("Index creation for 'users/loyalties' has been stopped due to an internal error.")
+            
+    if (requestCtx.createIndex(params,"users","recommendations","recommendation") == false)
+      throw new Exception("Index creation for 'users/recommendations' has been stopped due to an internal error.")
+            
+    if (requestCtx.createIndex(params,"products","rules","rule") == false)
+      throw new Exception("Index creation for 'products/rules' has been stopped due to an internal error.")
+  
+    requestCtx.listener ! String.format("""[INFO][UID: %s] Elasticsearch indexes created.""",uid)
     
   }
 

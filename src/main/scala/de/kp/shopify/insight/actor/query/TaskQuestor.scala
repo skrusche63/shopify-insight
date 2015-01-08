@@ -49,7 +49,11 @@ class TaskQuestor(requestCtx:RequestContext) extends BaseActor {
         case e:Exception => {
             
           requestCtx.listener ! String.format("""[ERROR][UID: %s] Task query failed: %s.""",uid,e.getMessage)
-          origin ! SimpleResponse(uid,e.getMessage)
+
+          val created_at_min = req_params("created_at_min")
+          val created_at_max = req_params("created_at_max")
+
+          origin ! SimpleResponse(uid,created_at_min,created_at_max,e.getMessage)
           
           context.stop(self)
           

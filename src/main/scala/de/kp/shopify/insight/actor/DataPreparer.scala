@@ -27,11 +27,17 @@ import de.kp.shopify.insight.model._
 import de.kp.shopify.spark.ElasticRDD
 import de.kp.shopify.insight.actor.prepare._
 
+import scala.collection.mutable.ArrayBuffer
+import org.elasticsearch.common.xcontent.{XContentBuilder,XContentFactory}
+
 /**
  * The DataPreparer is a pipeline that combines multiple 
  * preparer actors in a single functional unti
  */
 class DataPreparer(requestCtx:RequestContext) extends BaseActor {
+  
+  private val STEPS = ArrayBuffer.empty[String]
+  private val STEPS_COMPLETE = 9
   
   override def receive = {
     
@@ -42,91 +48,124 @@ class DataPreparer(requestCtx:RequestContext) extends BaseActor {
       
       try {
             
-         val start = new java.util.Date().getTime.toString            
-         requestCtx.listener ! String.format("""[INFO][UID: %s] Data preparation request received at %s.""",uid,start)
+        val start = new java.util.Date().getTime.toString            
+        requestCtx.listener ! String.format("""[INFO][UID: %s] Data preparation request received at %s.""",uid,start)
 
-         /*
-          * STEP #1: Retrieve orders from the database/orders index;
-          * note, that we do not need to set es.query as we need all
-          * orders registered till now
-          */
-         val esConfig = requestCtx.getESConfig
-         esConfig.set(Names.ES_RESOURCE,("database/orders"))
+        /**********************************************************************
+         *      
+         *                       SUB PROCESS 'PREPARE'
+         * 
+         *********************************************************************/
+      
+        createElasticIndexes(req_params)
+        /*
+         * Register this data preparation task in the respective
+         * 'database/tasks' index
+         */
+        registerTask(req_params)
 
-         val elasticRDD = new ElasticRDD(requestCtx.sparkContext)
+        /*
+         * STEP #1: Retrieve orders from the database/orders index;
+         * note, that we do not need to set es.query as we need all
+         * orders registered till now
+         */
+        val esConfig = requestCtx.getESConfig
+        esConfig.set(Names.ES_RESOURCE,("database/orders"))
+
+        val elasticRDD = new ElasticRDD(requestCtx.sparkContext)
          
-         val rawset = elasticRDD.read(esConfig)
-         val orders = elasticRDD.orders(rawset)
+        val rawset = elasticRDD.read(esConfig)
+        val orders = elasticRDD.orders(rawset)
          
-         /*
-          * STEP #2: Start ASRPreparer actor to create the ParquetASR table 
-          * from the purchase history. It is shared with the Association 
-          * Analysis engine. 
-          * 
-          * The transformed data are saved as a Parquet file.
-          */
-         val asr_preparer = context.actorOf(Props(new ASRPreparer(requestCtx,orders)))          
-         asr_preparer ! StartPrepare(req_params)
+        /*
+         * STEP #2: Start ASRPreparer actor to create the ParquetASR table 
+         * from the purchase history. It is shared with the Association 
+         * Analysis engine. 
+         * 
+         * The transformed data are saved as a Parquet file.
+         */
+        val asr_preparer = context.actorOf(Props(new ASRPreparer(requestCtx,orders)))          
+        asr_preparer ! StartPrepare(req_params)
 
-         /*
-          * STEP #3: Start STMPreparer actor to create the ParquetSTM table
-          * from the purchase history. It is shared with the Intent Recognition 
-          * engine. 
-          * 
-          * The transformed data are saved as a Parquet file.
-          */
-         val stm_preparer = context.actorOf(Props(new STMPreparer(requestCtx,orders)))          
-         stm_preparer ! StartPrepare(req_params)
+        /*
+         * STEP #3: Start STMPreparer actor to create the ParquetSTM table
+         * from the purchase history. It is shared with the Intent Recognition 
+         * engine. 
+         * 
+         * The transformed data are saved as a Parquet file.
+         */
+        val stm_preparer = context.actorOf(Props(new STMPreparer(requestCtx,orders)))          
+        stm_preparer ! StartPrepare(req_params)
          
-         /*
-          * STEP #4: Start ITPPreparer actor to create the ParquetITP table
-          * from the purchase history. This table specifies the user-specific 
-          * item engagement and is the starting point of persona analysis
-          * 
-          * The transformed data are saved as a Parquet file.
-          */
-         val itp_preparer = context.actorOf(Props(new ITPPreparer(requestCtx,orders)))          
-         itp_preparer ! StartPrepare(req_params)
+        /*
+         * STEP #4: Start ITPPreparer actor to create the ParquetITP table
+         * from the purchase history. This table specifies the user-specific 
+         * item engagement and is the starting point of persona analysis
+         * 
+         * The transformed data are saved as a Parquet file.
+         */
+        val itp_preparer = context.actorOf(Props(new ITPPreparer(requestCtx,orders)))          
+        itp_preparer ! StartPrepare(req_params)
          
-         /*
-          * STEP #5: Start FRPPreparer actor to create the ParquetFRP table 
-          * from the purchase history. This table is used to specify the
-          * temporal profile of a certain user.
-          * 
-          * The transformed data are saved as a Parquet file.
-          */
-         val frp_preparer = context.actorOf(Props(new FRPPreparer(requestCtx,orders)))          
-         frp_preparer ! StartPrepare(req_params)
+        /*
+         * STEP #5: Start FRPPreparer actor to create the ParquetFRP table 
+         * from the purchase history. This table is used to specify the
+         * temporal profile of a certain user.
+         * 
+         * The transformed data are saved as a Parquet file.
+         */
+        val frp_preparer = context.actorOf(Props(new FRPPreparer(requestCtx,orders)))          
+        frp_preparer ! StartPrepare(req_params)
 
-         /*
-          * STEP #6: Start DOWPreparer actor to create the ParquetDOW table 
-          * from the purchase history. This table is used to specify the
-          * temporal profile of a certain user.
-          * 
-          * The transformed data are saved as a Parquet file.
-          */
-         val dow_preparer = context.actorOf(Props(new DOWPreparer(requestCtx,orders)))          
-         dow_preparer ! StartPrepare(req_params)
+        /*
+         * STEP #6: Start DOWPreparer actor to create the ParquetDOW table 
+         * from the purchase history. This table is used to specify the
+         * temporal profile of a certain user.
+         * 
+         * The transformed data are saved as a Parquet file.
+         */
+        val dow_preparer = context.actorOf(Props(new DOWPreparer(requestCtx,orders)))          
+        dow_preparer ! StartPrepare(req_params)
 
-         /*
-          * STEP #7: Start HODPreparer actor to create the ParquetHOD table 
-          * from the purchase history. This table is used to specify the
-          * temporal profile of a certain user.
-          * 
-          * The transformed data are saved as a Parquet file.
-          */
-         val hod_preparer = context.actorOf(Props(new HODPreparer(requestCtx,orders)))          
-         hod_preparer ! StartPrepare(req_params)
+        /*
+         * STEP #7: Start HODPreparer actor to create the ParquetHOD table 
+         * from the purchase history. This table is used to specify the
+         * temporal profile of a certain user.
+         * 
+         * The transformed data are saved as a Parquet file.
+         */
+        val hod_preparer = context.actorOf(Props(new HODPreparer(requestCtx,orders)))          
+        hod_preparer ! StartPrepare(req_params)
 
-         /*
-          * STEP #8: Start RFMPreparer actor to create the ParquetRFM table 
-          * from the purchase history. This table is used to specify the
-          * temporal profile of a certain user.
-          * 
-          * The transformed data are saved as a Parquet file.
-          */
-         val rfm_preparer = context.actorOf(Props(new RFMPreparer(requestCtx,orders)))          
-         rfm_preparer ! StartPrepare(req_params)
+        /*
+         * STEP #8: Start RFMPreparer actor to create the ParquetRFM table 
+         * from the purchase history. This table is used to specify the
+         * temporal profile of a certain user.
+         * 
+         * The transformed data are saved as a Parquet file.
+         */
+        val rfm_preparer = context.actorOf(Props(new RFMPreparer(requestCtx,orders)))          
+        rfm_preparer ! StartPrepare(req_params)
+
+        /*
+         * STEP #9: Start LOCPreparer actor to create the ParquetRFM table 
+         * from the purchase history. This table is used to specify the
+         * geospatial profile of a certain user.
+         * 
+         * The transformed data are saved as a Parquet file.
+         */
+        val loc_preparer = context.actorOf(Props(new LOCPreparer(requestCtx,orders)))          
+        loc_preparer ! StartPrepare(req_params)
+        
+        /*
+         * STEP #10: Start CHNPreparer actor to create the ParquetCHN table 
+         * from the purchase history. This table is used to specify the
+         * churn profile of a certain user.
+         * 
+         * The transformed data are saved as a Parquet file.
+         */
+        val chn_preparer = context.actorOf(Props(new CHNPreparer(requestCtx,orders)))          
+        chn_preparer ! StartPrepare(req_params)
 
       } catch {
         case e:Exception => {
@@ -149,7 +188,89 @@ class DataPreparer(requestCtx:RequestContext) extends BaseActor {
   
     case message:PrepareFailed => {}
     
-    case message:PrepareFinished => {}
+    case message:PrepareFinished => {
+      /*
+       * This message is sent by one of the Preparer actors and indicates that the
+       * data preparation of a certain dimension has been successfully finished.
+       */  
+      val model = message.data(Names.REQ_MODEL)
+      if (List("ASR","STM","ITP","FRP","DOW","HOD","RFM","LOC","CHN").contains(model)) STEPS += model
+      
+      if (STEPS.size == STEPS_COMPLETE) {
+
+        val params = message.data.filter(kv => kv._1 == Names.REQ_MODEL)
+        context.parent ! PrepareFinished(params)
+      
+        context.stop(self)
+        
+      } else {
+        
+        /* 
+         * Do nothing as the sub process is still going on
+         */
+        
+      }
+      
+    }
+  }
+  
+  /**
+   * This method registers the data preparation task in the respective
+   * Elasticsearch index; this information supports administrative
+   * tasks such as the monitoring of this insight server
+   */
+  private def registerTask(params:Map[String,String]) = {
+    
+    val uid = params(Names.REQ_UID)
+    val key = "prepare:" + uid
+    
+    val task = "data preparation"
+    /*
+     * Note, that we do not specify additional
+     * payload data here
+     */
+    val builder = XContentFactory.jsonBuilder()
+	builder.startObject()
+	
+	/* key */
+	builder.field("key",key)
+	
+	/* task */
+	builder.field("task",task)
+	
+	/* timestamp */
+	builder.field("timestamp",params("timestamp").toLong)
+
+    /* created_at_min */
+	builder.field("created_at_min",params("created_at_min"))
+	
+    /* created_at_max */
+	builder.field("created_at_max",params("created_at_max"))
+	
+	builder.endObject()
+	/*
+	 * Register data in the 'database/tasks' index
+	 */
+	requestCtx.putSource("database","tasks",builder)
+
+  }
+
+  private def createElasticIndexes(params:Map[String,String]) {
+    
+    val uid = params(Names.REQ_UID)
+    /*
+     * Create search indexes (if not already present)
+     * 
+     * The 'tasks' index (mapping) specified an administrative database
+     * where all steps of a certain synchronization or data analytics
+     * task are registered
+     */
+    
+    if (requestCtx.createIndex(params,"database","tasks","task") == false)
+      throw new Exception("Index creation for 'database/tasks' has been stopped due to an internal error.")
+   
+    requestCtx.listener ! String.format("""[INFO][UID: %s] Elasticsearch database/tasks index created.""",uid)
+    
   }
 
 }

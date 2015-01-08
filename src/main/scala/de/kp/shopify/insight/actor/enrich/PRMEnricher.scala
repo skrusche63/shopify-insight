@@ -33,9 +33,6 @@ import de.kp.shopify.insight.actor._
 import de.kp.shopify.insight.model._
 
 import de.kp.shopify.insight.io._
-import de.kp.shopify.insight.elastic._
-
-import org.elasticsearch.common.xcontent.{XContentBuilder,XContentFactory}
 
 /**
  * PRMEnricher is an actor that uses an association rule model, transforms

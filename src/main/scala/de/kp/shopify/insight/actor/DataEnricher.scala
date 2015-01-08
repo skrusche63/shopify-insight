@@ -26,25 +26,31 @@ import de.kp.shopify.insight._
 import de.kp.shopify.insight.actor.enrich._
 import de.kp.shopify.insight.model._
 
-import scala.collection.mutable.Buffer
+import scala.collection.mutable.ArrayBuffer
 import org.elasticsearch.common.xcontent.{XContentBuilder,XContentFactory}
 
 class DataEnricher(requestCtx:RequestContext) extends BaseActor {
   
-  private val STEPS = Buffer.empty[String]
+  private val STEPS = ArrayBuffer.empty[String]
   private val STEPS_COMPLETE = 4
 
   override def receive = {
 
     case message:StartEnrich => {
 
+      val req_params = message.data
+      val uid = req_params(Names.REQ_UID)
+             
+      val start = new java.util.Date().getTime.toString            
+      requestCtx.listener ! String.format("""[INFO][UID: %s] Data enrichment request received at %s.""",uid,start)
+
       /**********************************************************************
        *      
        *                       SUB PROCESS 'ENRICH'
        * 
        *********************************************************************/
-
-      val req_params = message.data
+      
+      createElasticIndexes(req_params)
       /*
        * Register this data enrichment task in the respective
        * 'database/tasks' index
@@ -154,6 +160,24 @@ class DataEnricher(requestCtx:RequestContext) extends BaseActor {
 	 */
 	requestCtx.putSource("database","tasks",builder)
 
+  }
+
+  private def createElasticIndexes(params:Map[String,String]) {
+    
+    val uid = params(Names.REQ_UID)
+    /*
+     * Create search indexes (if not already present)
+     * 
+     * The 'tasks' index (mapping) specified an administrative database
+     * where all steps of a certain synchronization or data analytics
+     * task are registered
+     */
+    
+    if (requestCtx.createIndex(params,"database","tasks","task") == false)
+      throw new Exception("Index creation for 'database/tasks' has been stopped due to an internal error.")
+   
+    requestCtx.listener ! String.format("""[INFO][UID: %s] Elasticsearch database/tasks index created.""",uid)
+    
   }
   
 }

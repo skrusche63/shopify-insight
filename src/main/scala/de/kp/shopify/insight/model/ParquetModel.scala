@@ -95,7 +95,7 @@ case class ParquetUFM(
   step:Int,
   
   amount:Double,
-  timestamp:Double,
+  time:Double,
   
   state:String,
   score:Double

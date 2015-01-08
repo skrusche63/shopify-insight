@@ -43,7 +43,7 @@ case class StopActor()
  */
 case class StartPipeline(data:Map[String,String])
 
-case class SimpleResponse(uid:String,message:String)
+case class SimpleResponse(uid:String,created_at_min:String,created_at_max:String,message:String)
 
 /****************************************************************************
  * 
@@ -71,7 +71,7 @@ case class SynchronizeFinished(data:Map[String,String])
 
 /****************************************************************************
  * 
- *                      SUB PROCESS 'COLLECT'
+ *                      SUB PROCESS 'PREPARE'
  * 
  ***************************************************************************/
 
@@ -128,6 +128,18 @@ case class StartProfile(data:Map[String,String])
 case class ProfileFailed(data:Map[String,String])
 
 case class ProfileFinished(data:Map[String,String])
+
+/****************************************************************************
+ * 
+ *                      SUB PROCESS 'LOAD'
+ * 
+ ***************************************************************************/
+
+case class StartLoad(data:Map[String,String])
+
+case class LoadFailed(data:Map[String,String])
+
+case class LoadFinished(data:Map[String,String])
 
 case class Customer(
   /* 
