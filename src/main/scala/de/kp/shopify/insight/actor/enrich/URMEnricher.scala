@@ -18,6 +18,12 @@ package de.kp.shopify.insight.actor.enrich
 * If not, see <http://www.gnu.org/licenses/>.
 */
 
+import org.apache.spark.SparkContext
+import org.apache.spark.SparkContext._
+
+import org.apache.spark.sql.SQLContext
+import org.apache.spark.rdd.RDD
+
 import de.kp.spark.core.Names
 import de.kp.spark.core.model._
 
@@ -32,15 +38,11 @@ import de.kp.shopify.insight.elastic._
 import org.elasticsearch.common.xcontent.{XContentBuilder,XContentFactory}
 
 /**
- * RecommendationModeler is an actor that uses an association rule model, 
- * transforms the model into a user recommendation model and and registers 
- * the result in an ElasticSearch index.
- * 
- * This is part of the 'enrich' sub process that represents the third component 
- * of the data analytics pipeline.
- * 
+ * URMEnricher is an actor that uses an association rule model, 
+ * transforms the model into a user recommendation model and and 
+ * registers the result as a Parquet file.
  */
-class RecommendationModeler(requestCtx:RequestContext) extends BaseActor {
+class URMEnricher(requestCtx:RequestContext) extends BaseActor {
   
   private val COVERAGE_THRESHOLD = 0.25
 
@@ -54,12 +56,12 @@ class RecommendationModeler(requestCtx:RequestContext) extends BaseActor {
       try {
         
         requestCtx.listener ! String.format("""[INFO][UID: %s] User recommendation model building started.""",uid)
+        
         /*
-         * STEP #1: Transform Shopify orders into last transaction itemsets; these
-         * itemsets are then used as antecedents to filter those association rules
-         * that match the antecedents
+         * STEP #1: Load Parquet file with previously build customer state description
          */
-        val itemsets = transform(requestCtx.getOrders(req_params))
+        val store = String.format("""%s/ASR/%s""",requestCtx.getBase,uid)         
+        val parquetItems = readParquetItems(store)
          
         /*
          * STEP #2: Retrieve association rules from the Association Analysis engine
@@ -84,20 +86,22 @@ class RecommendationModeler(requestCtx:RequestContext) extends BaseActor {
                * STEP #3: Build product recommendations by merging the association
                * rules and the last transaction itemsets
                */            
-              val sources = toSources(req_params,res,itemsets)
-              /*
-               * STEP #2: Create search index (if not already present);
-               * the index is used to register the recommendations derived 
-               * from the association rule model
-               */
-              val handler = new ElasticClient()
+              val sc = requestCtx.sparkContext
+              val table = buildTable(res,parquetItems)
+        
+              val sqlCtx = new SQLContext(sc)
+              import sqlCtx.createSchemaRDD
 
-              if (handler.putSources("users","recommendations",sources) == false)
-                throw new Exception("Indexing processing has been stopped due to an internal error.")
+              /* 
+               * The RDD is implicitly converted to a SchemaRDD by createSchemaRDD, 
+               * allowing it to be stored using Parquet. 
+               */
+              val store = String.format("""%s/URM/%s""",requestCtx.getBase,uid)         
+              table.saveAsParquetFile(store)
 
               requestCtx.listener ! String.format("""[INFO][UID: %s] User recommendation model building finished.""",uid)
 
-              val data = Map(Names.REQ_UID -> uid,Names.REQ_MODEL -> "URECOM")            
+              val data = Map(Names.REQ_UID -> uid,Names.REQ_MODEL -> "URM")            
               context.parent ! EnrichFinished(data)           
             
               context.stop(self)
@@ -156,11 +160,13 @@ class RecommendationModeler(requestCtx:RequestContext) extends BaseActor {
 
   }
   
-  private def toSources(params:Map[String,String],response:ServiceResponse,itemsets:List[(String,String,List[Int])]):List[XContentBuilder] = {
+  private def buildTable(response:ServiceResponse,itemsets:RDD[(String,String,List[Int])]):RDD[ParquetURM] = {
             
-    val uid = response.data(Names.REQ_UID)
-    val rules = Serializer.deserializeRules(response.data(Names.REQ_RESPONSE))
-
+    val sc = requestCtx.sparkContext
+    
+    val threshold = sc.broadcast(COVERAGE_THRESHOLD)
+    val rules = sc.broadcast(Serializer.deserializeRules(response.data(Names.REQ_RESPONSE)))
+  
     itemsets.map(itemset => {
       
       val (site,user,items) = itemset
@@ -170,85 +176,79 @@ class RecommendationModeler(requestCtx:RequestContext) extends BaseActor {
        * rules where antecedent and consequent are completely disjunct; finally sort
        * new rules by a) ratio AND b) confidence AND c) support and take best element 
        */
-      val new_rules = rules.items.map(rule => {
+      val new_rules = rules.value.items.map(rule => {
 
         val support = rule.support.toDouble / rule.total
         val coverage = items.intersect(rule.antecedent).length.toDouble / items.length
         
         (items,rule.consequent,support,rule.confidence,coverage)
       
-      }).filter(r => (r._1.intersect(r._2).size > 0) && r._5 > COVERAGE_THRESHOLD)
-
+      }).filter(r => (r._1.intersect(r._2).size > 0) && r._5 > threshold.value)
       /* 
        * Build recommendation score for each rule from support, confidence and coverage,
        * and find best rule with highest score 
        */
       val sorted_rules = new_rules.map(x => (x._1,x._2,x._3 * x._4 * x._5)).sortBy(x => -x._3)
-          
-      val builder = XContentFactory.jsonBuilder()
-      builder.startObject()
+      val recommendations = sorted_rules.map(x => (x._2.toSeq,x._3)).toSeq
       
-      /* uid */
-      builder.field(Names.UID_FIELD,params(Names.REQ_UID))
-      
-      /* timestamp */
-      builder.field(Names.TIMESTAMP_FIELD,params("timestamp"))
-
-	  /* created_at_min */
-	  builder.field("created_at_min",params("created_at_min"))
-
-	  /* created_at_max */
-	  builder.field("created_at_max",params("created_at_max"))
-      
-      /* site */
-      builder.field(Names.SITE_FIELD,site)
-      
-      /* user */
-      builder.field(Names.USER_FIELD,user)
-      
-      /* recommendations */
-      builder.startArray("recommendations")
-      
-      for (sorted_rule <- sorted_rules) {
-        
-        builder.startObject()
-          
-        /* consequent */
-        builder.startArray("consequent")
-        sorted_rule._2.foreach(v => builder.value(v))
-        builder.endArray
-      
-        /* score */
-        builder.field("score",sorted_rule._3)
-        
-        builder.endObject()
-        
-      }
-    
-      builder.endArray()
-      
-      builder.endObject()        
-      builder
+      ParquetURM(site,user,recommendations)
 
     })
  
   }
-  private def transform(orders:List[Order]):List[(String,String,List[Int])] = {
-    
-    /*
-     * Group orders by site & user
-     */
-    val result = orders.groupBy(o => (o.site,o.user)).map(o => {
+  /**
+   * This method reads the Parquet file that specifies the item representation 
+   * for all customers that have purchased since the start of the collection 
+   * of the Shopify orders.
+   */
+  private def readParquetItems(store:String):RDD[(String,String,List[Int])] = {
 
-      val (site,user) = o._1
-      val (timestamp,itemset) = o._2.map(v => (v.timestamp,v.items)).toList.sortBy(_._1).last
+    val sqlCtx = new SQLContext(requestCtx.sparkContext)
+    import sqlCtx.createSchemaRDD
+    
+    /* 
+     * Read in the parquet file created above.  Parquet files are self-describing 
+     * so the schema is preserved. The result of loading a Parquet file is also a 
+     * SchemaRDD. 
+     */
+    val parquetFile = sqlCtx.parquetFile(store)
+    val metadata = parquetFile.schema.fields.zipWithIndex
+    
+    val rawset = parquetFile.map(row => {
+
+      val values = row.iterator.zipWithIndex.map(x => (x._2,x._1)).toMap
+      val data = metadata.map(entry => {
       
-      (site,user,itemset.map(_.item))
+        val (field,col) = entry
+      
+        val colname = field.name
+        val colvalu = values(col)
+      
+        (colname,colvalu)
+          
+      }).toMap
+
+      val site = data("site").asInstanceOf[String]
+      val user = data("user").asInstanceOf[String]
+
+      val group = data("group").asInstanceOf[String]
+      val item = data("item").asInstanceOf[Int]
+      
+      (site,user,group,item)
       
     })
     
-    result.toList 
-    
-  }
-  
+    rawset.groupBy(x => (x._1,x._2)).map(p => {
+
+      val (site,user) = p._1
+      /*
+       * Constrain to the last two transactions and retrieve
+       * the respective timestamp and amount
+       */
+      val items = p._2.map(_._4).toList
+      (site,user,items)
+      
+    })
+
+  }  
 }

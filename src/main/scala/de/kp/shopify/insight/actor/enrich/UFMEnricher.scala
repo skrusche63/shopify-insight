@@ -33,25 +33,16 @@ import de.kp.shopify.insight.actor._
 import de.kp.shopify.insight.model._
 
 import de.kp.shopify.insight.io._
-import de.kp.shopify.insight.elastic._
+import de.kp.shopify.insight.analytics.StateHandler
 
-import de.kp.shopify.insight.analytics._
+import scala.collection.mutable.ArrayBuffer
 
-import scala.collection.mutable.{ArrayBuffer,HashMap}
-import org.elasticsearch.common.xcontent.{XContentBuilder,XContentFactory}
-
-/**
- * ForecastModeler is an actor that analyzes Shopify orders of a certain time interval 
- * (last 30 days from now on) and computes from the last two transactions on a per 
- * user basis a forecast of n steps with respect to next amount and datetime
- * 
- * This is part of the 'enrich' sub process that represents the third component of 
- * the data analytics pipeline.
- * 
- */
 private case class MarkovStep(step:Int,amount:Float,time:Long,state:String,score:Double)
- 
-class ForecastModeler(requestCtx:RequestContext) extends BaseActor {
+/**
+ * The UFMEnricher is responsible for building the customer-specific
+ * purchase forecast model.
+ */
+class UFMEnricher(requestCtx:RequestContext) extends BaseActor {
 
   override def receive = {
    
@@ -65,8 +56,7 @@ class ForecastModeler(requestCtx:RequestContext) extends BaseActor {
         requestCtx.listener ! String.format("""[INFO][UID: %s] Purchase forecast model building started.""",uid)
         
         /*
-         * STEP #1: Transform Shopify orders into purchases; these purchases are used 
-         * to compute n-step ahead forecasts with respect to purchase amount and time
+         * STEP #1: Load Parquet file with previously build customer state description
          */
         val store = String.format("""%s/STM/%s""",requestCtx.getBase,uid)         
         val parquetStates = readParquetStates(store)
@@ -99,14 +89,22 @@ class ForecastModeler(requestCtx:RequestContext) extends BaseActor {
 
             } else {
 
-              val sources = toSources(req_params,res,parquetStates)
+              val sc = requestCtx.sparkContext
+              val table = buildTable(res,parquetStates)
+        
+              val sqlCtx = new SQLContext(sc)
+              import sqlCtx.createSchemaRDD
 
-              if (requestCtx.putSources("users","forecasts",sources) == false)
-                throw new Exception("Indexing processing has been stopped due to an internal error.")
+              /* 
+               * The RDD is implicitly converted to a SchemaRDD by createSchemaRDD, 
+               * allowing it to be stored using Parquet. 
+               */
+              val store = String.format("""%s/UFM/%s""",requestCtx.getBase,uid)         
+              table.saveAsParquetFile(store)
 
               requestCtx.listener ! String.format("""[INFO][UID: %s] Purchase forecast model building finished.""",uid)
 
-              val data = Map(Names.REQ_UID -> uid,Names.REQ_MODEL -> "UFORCM")            
+              val data = Map(Names.REQ_UID -> uid,Names.REQ_MODEL -> "UFM")            
               context.parent ! EnrichFinished(data)           
             
               context.stop(self)
@@ -148,9 +146,7 @@ class ForecastModeler(requestCtx:RequestContext) extends BaseActor {
 
   }  
 
-  private def toSources(params:Map[String,String],response:ServiceResponse,parquetStates:RDD[(String,String,Float,Long,String)]):List[XContentBuilder] = {
-
-    val uid = params(Names.REQ_UID)
+  private def buildTable(response:ServiceResponse,parquetStates:RDD[(String,String,Float,Long,String)]):RDD[ParquetUFM] = {
     
     /*
      * A set of Markovian rules (i.e. a relation between a certain state and a sequence
@@ -173,54 +169,9 @@ class ForecastModeler(requestCtx:RequestContext) extends BaseActor {
       val (site,user,amount,time,state) = p
       
       val forecasts = buildForecasts(amount,time,lookup.value(state))
-      forecasts.map(x => {
-          
-        val builder = XContentFactory.jsonBuilder()
-        builder.startObject()
-       
-        /********** METADATA **********/
-        
-        /* uid */
-        builder.field("uid",params("uid"))
-       
-        /* timestamp */
-        builder.field("timestamp",params("timestamp"))
-
-	    /* created_at_min */
-	    builder.field("created_at_min",params("created_at_min"))
-
-	    /* created_at_max */
-	    builder.field("created_at_max",params("created_at_max"))
-      
-        /* site */
-        builder.field("site",site)
-      
-        /********** FORECAST DATA **********/
-        
-        /* user */
-        builder.field("user",user)
-        
-        /* step */
-        builder.field("step",x.step)
-        
-        /* amount */
-        builder.field("amount",x.amount)
-        
-        /* time */
-        builder.field("time",x.time)
-        
-        /* state */
-        builder.field("state",x.state)
-        
-        /* score */
-        builder.field("score",x.score)
-        
-        builder.endObject()
-        builder
-        
-      })
+      forecasts.map(x => ParquetUFM(site,user,x.step,x.amount,x.time,x.state,x.score))
     
-    }).collect.toList
+    })
     
   }
   /*

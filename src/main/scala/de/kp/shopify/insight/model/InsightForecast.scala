@@ -80,7 +80,7 @@ case class InsightForecast(
   state:String,
 
   @JsonProperty("amount")
-  amount:Float,
+  amount:Double,
 
   @JsonProperty("time")
   time:Long,

@@ -33,14 +33,9 @@ import de.kp.shopify.insight.actor.BaseActor
 import de.kp.shopify.insight.model._
 
 import de.kp.shopify.insight.io._
-import de.kp.shopify.insight.elastic._
+import de.kp.shopify.insight.analytics.StateHandler
 
-import de.kp.shopify.insight.analytics._
-
-import scala.collection.mutable.ArrayBuffer
-import org.elasticsearch.common.xcontent.{XContentBuilder,XContentFactory}
-
-class LoyaltyModeler(requestCtx:RequestContext) extends BaseActor {
+class ULMEnricher(requestCtx:RequestContext) extends BaseActor {
 
   override def receive = {
    
@@ -86,18 +81,23 @@ class LoyaltyModeler(requestCtx:RequestContext) extends BaseActor {
               context.stop(self)
 
             } else {
-            
-              val trajectories = toSources(req_params,res,parquetStates,lookup)
-            
-              /*
-               * STEP #3: Register the trajectories derived from the hidden state model
+ 
+              val sc = requestCtx.sparkContext
+              val table = buildTable(res,parquetStates,lookup)
+        
+              val sqlCtx = new SQLContext(sc)
+              import sqlCtx.createSchemaRDD
+
+              /* 
+               * The RDD is implicitly converted to a SchemaRDD by createSchemaRDD, 
+               * allowing it to be stored using Parquet. 
                */
-              if (requestCtx.putSources("users","loyalties",trajectories) == false)
-                throw new Exception("Indexing processing has been stopped due to an internal error.")
+              val store = String.format("""%s/ULM/%s""",requestCtx.getBase,uid)         
+              table.saveAsParquetFile(store)
 
               requestCtx.listener ! String.format("""[INFO][UID: %s] User loyalty model building finished.""",uid)
 
-              val data = Map(Names.REQ_UID -> uid,Names.REQ_MODEL -> "ULOYAM")            
+              val data = Map(Names.REQ_UID -> uid,Names.REQ_MODEL -> "ULM")            
               context.parent ! EnrichFinished(data)           
             
               context.stop(self)
@@ -144,7 +144,7 @@ class LoyaltyModeler(requestCtx:RequestContext) extends BaseActor {
   /**
    * Buid user loyalty trajectories
    */
-  private def toSources(params:Map[String,String],response:ServiceResponse,parquetStates:RDD[(String,String,String)],lookup:Map[String,Int]):List[XContentBuilder] = {
+  private def buildTable(response:ServiceResponse,parquetStates:RDD[(String,String,String)],lookup:Map[String,Int]):RDD[ParquetULM] = {
     
     val sc = requestCtx.sparkContext
     val states = response.data(Names.REQ_RESPONSE).split(";").zipWithIndex.map(x => (x._2,x._1)).toMap    
@@ -177,51 +177,10 @@ class LoyaltyModeler(requestCtx:RequestContext) extends BaseActor {
        */
       val ratio = states.map(x => if (x._2 == "L") 0 else if (x._2 == "N") 1 else 2).sum.toDouble / (2 * states.size).toDouble
       val rating = Math.round(5 * ratio).toInt
-          
-      val builder = XContentFactory.jsonBuilder()
-      builder.startObject()
-       
-      /********** METADATA **********/
-        
-      /* uid */
-      builder.field("uid",params("uid"))
-       
-      /* timestamp */
-      builder.field("timestamp",params("timestamp"))
-
-	  /* created_at_min */
-	  builder.field("created_at_min",params("created_at_min"))
-
-	  /* created_at_max */
-	  builder.field("created_at_max",params("created_at_max"))
       
-      /* site */
-      builder.field("site",site)
-      
-      /********** LOYALTY DATA **********/
-      
-      /* user */
-      builder.field("user",user)
-      
-      /* trajectory */
-      builder.field("trajectory",trajectory.toList)
-      
-      /* low */
-      builder.field("low",low)
-      
-      /* norm */
-      builder.field("norm",norm)
-      
-      /* high */
-      builder.field("high",high)
-      
-      /* rating */
-      builder.field("rating",rating)
-      
-      builder.endObject()
-      builder
-      
-    }).collect.toList
+      ParquetULM(site,user,trajectory,low,norm,high,rating)
+     
+    })
   
   }
   

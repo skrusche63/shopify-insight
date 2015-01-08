@@ -18,6 +18,12 @@ package de.kp.shopify.insight.actor.enrich
 * If not, see <http://www.gnu.org/licenses/>.
 */
 
+import org.apache.spark.SparkContext
+import org.apache.spark.SparkContext._
+
+import org.apache.spark.sql.SQLContext
+import org.apache.spark.rdd.RDD
+
 import de.kp.spark.core.Names
 import de.kp.spark.core.model._
 
@@ -32,15 +38,11 @@ import de.kp.shopify.insight.elastic._
 import org.elasticsearch.common.xcontent.{XContentBuilder,XContentFactory}
 
 /**
- * RelationModeler is an actor that uses an association rule model, transforms
- * the model into a product rule model (PRM) and and registers the result in an
- * ElasticSearch index.
- * 
- * This is part of the 'enrich' sub process that represents the third component of 
- * the data analytics pipeline.
- * 
+ * PRMEnricher is an actor that uses an association rule model, transforms
+ * the model into a product rule model (PRM) and registers the result as a
+ * Parquet file.
  */
-class RelationModeler(requestCtx:RequestContext) extends BaseActor {
+class PRMEnricher(requestCtx:RequestContext) extends BaseActor {
 
   override def receive = {
    
@@ -70,14 +72,22 @@ class RelationModeler(requestCtx:RequestContext) extends BaseActor {
 
             } else {
 
-              val sources = toSources(req_params,res)
+              val sc = requestCtx.sparkContext
+              val table = buildTable(res)
+        
+              val sqlCtx = new SQLContext(sc)
+              import sqlCtx.createSchemaRDD
 
-              if (requestCtx.putSources("products","rules",sources) == false)
-                throw new Exception("Indexing processing has been stopped due to an internal error.")
+              /* 
+               * The RDD is implicitly converted to a SchemaRDD by createSchemaRDD, 
+               * allowing it to be stored using Parquet. 
+               */
+              val store = String.format("""%s/PRM/%s""",requestCtx.getBase,uid)         
+              table.saveAsParquetFile(store)
 
               requestCtx.listener ! String.format("""[INFO][UID: %s] Product relation model building finished.""",uid)
 
-              val data = Map(Names.REQ_UID -> uid,Names.REQ_MODEL -> "PRELAM")            
+              val data = Map(Names.REQ_UID -> uid,Names.REQ_MODEL -> "PRM")            
               context.parent ! EnrichFinished(data)           
             
               context.stop(self)
@@ -133,51 +143,16 @@ class RelationModeler(requestCtx:RequestContext) extends BaseActor {
 
   }
   
-  private def toSources(params:Map[String,String],response:ServiceResponse):List[XContentBuilder] = {
+  private def buildTable(response:ServiceResponse):RDD[ParquetPRM] = {
             
-    val uid = response.data(Names.REQ_UID)
+    val sc = requestCtx.sparkContext
     val rules = Serializer.deserializeRules(response.data(Names.REQ_RESPONSE))
    
-    rules.items.map(rule => {
-      
-      val builder = XContentFactory.jsonBuilder()
-      builder.startObject()
-      
-      /* uid */
-      builder.field(Names.UID_FIELD,params(Names.REQ_UID))
-      
-      /* timestamp */
-      builder.field(Names.TIMESTAMP_FIELD,params("timestamp"))
-
-	  /* created_at_min */
-	  builder.field("created_at_min",params("created_at_min"))
-
-	  /* created_at_max */
-	  builder.field("created_at_max",params("created_at_max"))
-	  
-	  /* antecedent */
-	  builder.startArray("antecedent")
-	  rule.antecedent.foreach(v => builder.value(v))
-	  builder.endArray()
-	  
-	  /* consequent */
-	  builder.startArray("consequent")
-	  rule.antecedent.foreach(v => builder.value(v))
-	  builder.endArray()
-
-	  /* support */
-	  builder.field("support",rule.support)
-	  
-	  /* total */
-	  builder.field("total",rule.total)
-	  
-	  /* confidence */
-	  builder.field("confidence",rule.confidence)
-	  
-	  builder.endObject()
-      builder
-      
+    val relations = rules.items.map(rule => {
+      ParquetPRM(rule.antecedent,rule.consequent,rule.support,rule.total,rule.confidence)	  
     })
+    
+    sc.parallelize(relations)
     
   }
   

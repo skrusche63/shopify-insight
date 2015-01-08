@@ -170,7 +170,10 @@ class RFMPreparer(requestCtx:RequestContext,orders:RDD[InsightOrder]) extends Ba
           /********** MONETARY **********/
           
           /*
-           * We use the quantiles description to divide
+           * The monetary dimension is considered to determine
+           * high value, profitable and unprofitable customers.
+           * 
+           * To this end the quantiles method is used to divide
            * all the users into three segments:
            * 
            * a) low value::    0 < value < 0.25 boundary
@@ -211,7 +214,9 @@ class RFMPreparer(requestCtx:RequestContext,orders:RDD[InsightOrder]) extends Ba
 
         /* 
          * The RDD is implicitly converted to a SchemaRDD by createSchemaRDD, 
-         * allowing it to be stored using Parquet. 
+         * allowing it to be stored as Parquet file. Note, that the Parquet
+         * file specifies a certain RFM model that takes all registered orders
+         * up to now into account. This is way this an integrative model.
          */
         val store = String.format("""%s/RFM/%s""",requestCtx.getBase,uid)         
         table.saveAsParquetFile(store)

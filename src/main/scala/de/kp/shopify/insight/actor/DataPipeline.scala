@@ -23,39 +23,15 @@ import akka.actor.Props
 import de.kp.spark.core.Names
 
 import de.kp.shopify.insight._
-
-import de.kp.shopify.insight.actor.build._
-import de.kp.shopify.insight.actor.enrich._
 import de.kp.shopify.insight.actor.profile._
 
-import de.kp.shopify.insight.elastic._
 import de.kp.shopify.insight.model._
-
-import org.joda.time.DateTime
-import org.joda.time.format.DateTimeFormat
-
-import scala.collection.mutable.{ArrayBuffer,HashMap}
 import org.elasticsearch.common.xcontent.{XContentBuilder,XContentFactory}
 
 class DataPipeline(requestCtx:RequestContext) extends BaseActor {
-  
-  private val MODELS = ArrayBuffer.empty[String]
-  private val MODELS_COMPLETE = 4
-  /*
-   * Reference to the remote Akka context to interact with
-   * the Association Analysis and also the Intent Recognition
-   * engine of Predictiveworks
-   */
+
   override def receive = {
     
-    /*
-     * The data pipeline starts with a 'collection' of the Shopify orders
-     * of a certain time period; the default is 30 days back from now;
-     * 
-     * the DataPipeline actor appends additional request parameters for the
-     * Shopify REST API to restrict the orders, to paid and closed orders
-     * from the last 30, 60 or 90 days 
-     */
     case message:StartPipeline => {
       
       /**********************************************************************
@@ -116,47 +92,29 @@ class DataPipeline(requestCtx:RequestContext) extends BaseActor {
     }    
     case message:PrepareFinished => {
       /*
-       * This message is sent by a collector actor and indicates that the data collection
-       * sub process has been finished. Note, that this collector (child) is responsible 
-       * for stopping itself, and NOT the DataPipeline.
+       * This message is sent by a DataPreparer actor and indicates that the data 
+       * preparation sub process has been finished. Note, that this actor (child) 
+       * is responsible for stopping itself, and NOT the DataPipeline.
        * 
-       * After having received this message, the DataPipeline actor starts to build the models;
-       * to this end, actually three different models have to built by invoking the Association
-       * Analysis and Intent Recognition engine of Predictiveworks.
+       * After having received this message, the DataPipeline actor starts to build 
+       * the models; to this end, the DataBuilder actor is invoked.
        */
 
       /**********************************************************************
        *      
-       *                       SUB PROCESS 'ENRICH'
+       *                       SUB PROCESS 'BUILD'
        * 
        *********************************************************************/
       
-      /*
-       * The ASRBuilder is responsible for building an association rule model
-       * from the data registered in the 'items' index
-       */
-      val asr_builder = context.actorOf(Props(new ASRBuilder(requestCtx)))  
-      asr_builder ! StartBuild(message.data)
-
-      /*
-       * The STMBuilder is responsible for building a state transition model
-       * from the data registered in the 'states' index
-       */
-      val stm_builder = context.actorOf(Props(new STMBuilder(requestCtx)))  
-      stm_builder ! StartBuild(message.data)
-      
-      /*
-       * The HSMBuilder is responsible for building a hidden state model
-       * from the data registered in the 'states' index
-       */
-      val hsm_builder = context.actorOf(Props(new HSMBuilder(requestCtx)))  
-      hsm_builder ! StartBuild(message.data)
+      val actor = context.actorOf(Props(new DataBuilder(requestCtx)))  
+      actor ! StartBuild(message.data)
       
     }    
     case message:BuildFailed => {
       /*
-       * The Builder actors (ASR,STM and HSM) already sent an error message to the message 
-       * listener; no additional notification has to be done, so just stop the pipeline
+       * The DataBuilder actors (ASR,STM and HSM) already sent an error message to 
+       * the message listener; no additional notification has to be done, so just 
+       * stop the pipeline
        */
       requestCtx.clear
       context.stop(self)
@@ -164,105 +122,47 @@ class DataPipeline(requestCtx:RequestContext) extends BaseActor {
     }    
     case message:BuildFinished => {
       /*
-       * This message is sent by one of the Builder actors and indicates that the building
-       * of a certain model has been successfully finished. We distinguish the following
-       * model types:
+       * This message is sent by the DataBuilder actor and indicates that the model
+       * building sub process has been successfully finished. Note, that this actor 
+       * (child) is responsible for stopping itself, and NOT the DataPipeline.
        * 
-       * ASR: Specifies the association rule model that is the basis for 'collection',
-       * 'cross-sell' and 'promotion' requests. 
-       * 
-       * STM: Specifies the state transition model that is the basis for purchase 
-       * forecasts, that have to be built from this model.
-       * 
-       * HSM: Specifies a hidden state model that is the basis for loyalty state
-       * forecasts, that have to be built from this model
+       * After having received this message, the DataPipeline actor starts to enrich 
+       * the enrich the shop data by applying the respective models
        */  
-      val model = message.data(Names.REQ_MODEL)
-      if (model == "ASR") {
-        /*
-         * The RelationModeler is responsible for building a product rule model and
-         * registering the result in an Elasticsearch index
-         * 
-         * ASR -> PRELAM
-         */
-        val prelam_modeler = context.actorOf(Props(new RelationModeler(requestCtx)))  
-        prelam_modeler ! StartEnrich(message.data)
-        /*
-         * The RecommendationModeler is responsible for building a product recommendation
-         *  model and registering the result in an Elasticsearch index
-         * 
-         * ASR -> URECOM
-         */
-        val urecom_modeler = context.actorOf(Props(new RecommendationModeler(requestCtx)))  
-        urecom_modeler ! StartEnrich(message.data)
-        
-      } else if (model == "STM") {
-        /*
-         * The ForecastModeler is responsible for building a purchase forecast model
-         * and registering the result in an Elasticsearch index
-         * 
-         * STM -> UFORCM
-         */
-        val uforcm_modeler = context.actorOf(Props(new ForecastModeler(requestCtx)))  
-        uforcm_modeler ! StartEnrich(message.data)
-        
-      } else if (model == "HSM") {
-        /*
-         * The LoyaltyModeler is responsible for building a user loyalty model
-         * and registering the result in an Elasticsearch index
-         * 
-         * HSM -> ULOYAM
-         */
-        val uloya_modeler = context.actorOf(Props(new LoyaltyModeler(requestCtx)))  
-        uloya_modeler ! StartEnrich(message.data)
-        
-      } else {
-        
-        /* 
-         * Do nothing as the model description is implemented and cannot be
-         * manipulated by external requests: A model other than the ones
-         * specified cannot appear
-         */
-        
-      }
+
+      /**********************************************************************
+       *      
+       *                       SUB PROCESS 'ENRICH'
+       * 
+       *********************************************************************/
+      
+      val actor = context.actorOf(Props(new DataEnricher(requestCtx)))  
+      actor ! StartEnrich(message.data)
       
     }
     case message:EnrichFailed => {
       /*
-       * The Enrich actors (URECOM,PRELAM,UFORCM and ULOYAM) already sent an error message 
-       * to the message listener; no additional notification has to be done, so just stop 
-       * the pipeline
+       * The Enrich actors (PRM,UFM,ULM and URM) already sent an error message to the 
+       * message listener; no additional notification has to be done, so just stop the 
+       * pipeline
        */
       requestCtx.clear
       context.stop(self)
 
     }
     case message:EnrichFinished => {
-      /*
-       * Collect the models built by the enrichment sub processes
-       */
-      val model = message.data(Names.REQ_MODEL)
-      if (List("PRELAM","UFORCM","ULOYAM","URECOM").contains(model)) MODELS += model
       
-      if (MODELS.size == MODELS_COMPLETE) {
-        /*
-         * The final step within the data analytics pipeline
-         * is the generation of product and user profiles
-         */
-      
-        /********************************************************************
-         *      
-         *                     SUB PROCESS 'PROFILE'
-         * 
-         *******************************************************************/
+      /********************************************************************
+       *      
+       *                     SUB PROCESS 'PROFILE'
+       * 
+       *******************************************************************/
          
-        val user_profiler = context.actorOf(Props(new UserProfiler(requestCtx)))
-        user_profiler ! StartProfile(message.data)
+      val user_profiler = context.actorOf(Props(new UserProfiler(requestCtx)))
+      user_profiler ! StartProfile(message.data)
          
-        val product_profiler = context.actorOf(Props(new ProductProfiler(requestCtx)))  
-        product_profiler ! StartProfile(message.data)
-        
-      }
+      val product_profiler = context.actorOf(Props(new ProductProfiler(requestCtx)))  
+      product_profiler ! StartProfile(message.data)
       
     }
     case message:ProfileFailed => {

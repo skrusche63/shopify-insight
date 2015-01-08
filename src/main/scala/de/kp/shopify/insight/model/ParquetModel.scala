@@ -73,7 +73,59 @@ case class ParquetREC(
   days:Int,
   state:String
 )
+/**
+ * ParquetPRM is a data structure that specifies product relation
+ * rules that form the basis for cross-selling, promotions etc
+ */
+case class ParquetPRM(
+  antecedent:Seq[Int],
+  consequent:Seq[Int],
+  support:Int,
+  total:Long,
+  confidence:Double
+)
+/**
+ * ParquetUFM is a data structure that specifies the customer-specific
+ * purchase forecasts
+ */
+case class ParquetUFM(
+  site:String,
+  user:String,
+  
+  step:Int,
+  
+  amount:Double,
+  timestamp:Double,
+  
+  state:String,
+  score:Double
+)
+/**
+ * ParquetULM is a data structure that specifies the customer-specific
+ * loyalty forecasts
+ */
+case class ParquetULM(
+  site:String,
+  user:String,
 
+  trajectory:Seq[String],
+  
+  low:Double,
+  norm:Double,
+  high:Double,
+  
+  rating:Int
+)
+/**
+ * ParquetURM is a data structure that specifies customer-specific
+ * product recommendations derived from association rules and the
+ * last transaction of the customer
+ */
+case class ParquetURM(
+  site:String,
+  user:String,
+  recommendations:Seq[(Seq[Int],Double)]
+)
 /**
  * TODO: Integrate Jollydays project and defines calendars
  * for holidays 
