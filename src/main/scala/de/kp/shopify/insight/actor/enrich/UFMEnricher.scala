@@ -33,16 +33,16 @@ import de.kp.shopify.insight.actor._
 import de.kp.shopify.insight.model._
 
 import de.kp.shopify.insight.io._
-import de.kp.shopify.insight.analytics.StateHandler
-
 import scala.collection.mutable.ArrayBuffer
 
-private case class MarkovStep(step:Int,amount:Float,time:Long,state:String,score:Double)
+private case class MarkovStep(step:Int,amount:Double,time:Long,state:String,score:Double)
 /**
  * The UFMEnricher is responsible for building the customer-specific
  * purchase forecast model.
  */
 class UFMEnricher(requestCtx:RequestContext) extends BaseActor {
+        
+  private val DAY = 24 * 60 * 60 * 1000 // day in milliseconds
 
   override def receive = {
    
@@ -59,14 +59,14 @@ class UFMEnricher(requestCtx:RequestContext) extends BaseActor {
          * STEP #1: Load Parquet file with previously build customer state description
          */
         val store = String.format("""%s/STM/%s""",requestCtx.getBase,uid)         
-        val parquetStates = readParquetStates(store)
+        val parquetFile = readParquetStates(store)
       
         requestCtx.listener ! String.format("""[INFO][UID: %s] Parquet states successfully retrieved.""",uid)
 
         /*
          * Retrieve list of distinct states from user specific parquet states 
          */
-        val states = parquetStates.map(x => x._5).collect.distinct
+        val states = parquetFile.map(x => x.state).collect.distinct
         /*
          * STEP #2: Retrieve Markovian rules from Intent Recognition engine, combine
          * rules and purchases into a user specific set of purchase forecasts
@@ -90,7 +90,7 @@ class UFMEnricher(requestCtx:RequestContext) extends BaseActor {
             } else {
 
               val sc = requestCtx.sparkContext
-              val table = buildTable(res,parquetStates)
+              val table = buildTable(res,parquetFile)
         
               val sqlCtx = new SQLContext(sc)
               import sqlCtx.createSchemaRDD
@@ -146,7 +146,7 @@ class UFMEnricher(requestCtx:RequestContext) extends BaseActor {
 
   }  
 
-  private def buildTable(response:ServiceResponse,parquetStates:RDD[(String,String,Float,Long,String)]):RDD[ParquetUFM] = {
+  private def buildTable(response:ServiceResponse,parquetStates:RDD[ParquetSTM]):RDD[ParquetUFM] = {
     
     /*
      * A set of Markovian rules (i.e. a relation between a certain state and a sequence
@@ -159,17 +159,10 @@ class UFMEnricher(requestCtx:RequestContext) extends BaseActor {
      * to the Intent Recognition engine are distinct
      */
     val lookup = requestCtx.sparkContext.broadcast(rules.items.map(rule => (rule.antecedent,rule.consequent)).toMap)
-    
-    /*
-     * Compute next probable purchase amount and time by combining the Markovian
-     * rules and the purchases retrieved from the Shopify store
-     */
-    parquetStates.flatMap(p => {
+    parquetStates.flatMap(x => {
       
-      val (site,user,amount,time,state) = p
-      
-      val forecasts = buildForecasts(amount,time,lookup.value(state))
-      forecasts.map(x => ParquetUFM(site,user,x.step,x.amount,x.time,x.state,x.score))
+      val forecasts = buildForecasts(x,lookup.value(x.state))
+      forecasts.map(v => ParquetUFM(x.site,x.user,v.step,v.amount,v.time,v.state,v.score))
     
     })
     
@@ -178,20 +171,60 @@ class UFMEnricher(requestCtx:RequestContext) extends BaseActor {
    * The Intent Recognition engine returns a list of Markovian states; the ordering
    * of these states reflects the number of steps looked ahead
    */
-  private def buildForecasts(amount:Float,time:Long,states:List[MarkovState]):List[MarkovStep] = {
+  private def buildForecasts(state:ParquetSTM,states:List[MarkovState]):List[MarkovStep] = {
    
     val result = ArrayBuffer.empty[MarkovStep]
     val steps = states.size
     
     if (steps == 0) return result.toList
     
+    /*
+     * Retrieve quantile boundaries
+     */
+    val r_b1 = state.r_b1
+    val r_b2 = state.r_b2
+    val r_b3 = state.r_b3
+    val r_b4 = state.r_b4
+    val r_b5 = state.r_b5
+
+    val s_b1 = state.s_b1
+    val s_b2 = state.s_b2
+    val s_b3 = state.s_b3
+    val s_b4 = state.s_b4
+    val s_b5 = state.s_b5
+    
     (0 until steps).foreach(i => {
       
       val markovState = states(i)
+        
+      /* 
+       * A MarkovState is a string that describes an amount
+       * and timespan representation in terms of integers
+       * from 1..5
+       */
+      val astate = markovState.name(0).toInt
+      val sstate = markovState.name(1).toInt
+
+      val ratio = (
+        if (astate == 1) (r_b1 + 0) * 0.5
+        else if (astate == 2) (r_b2 + r_b1) * 0.5
+        else if (astate == 3) (r_b3 + r_b2) * 0.5
+        else if (astate == 4) (r_b4 + r_b3) * 0.5
+        else (r_b5 + r_b4) * 0.5
+      )
+
+      val span = (
+        if (sstate == 1) (s_b5 + s_b4) * 0.5
+        else if (sstate == 2) (s_b4 + s_b3) * 0.5
+        else if (sstate == 3) (s_b3 + s_b2) * 0.5
+        else if (sstate == 4) (s_b2 + s_b1) * 0.5
+        else (s_b1 + 0) * 0.5
+      )
+
       if (i == 0) {
         
-        val next_amount = StateHandler.nextAmount(markovState.name, amount)
-        val next_time   = StateHandler.nextDate(markovState.name, time)
+        val next_amount = state.amount * ratio
+        val next_time = Math.round(span) * DAY + state.timestamp
         
         result += MarkovStep(i+1,next_amount,next_time,markovState.name,markovState.probability)
       
@@ -199,8 +232,8 @@ class UFMEnricher(requestCtx:RequestContext) extends BaseActor {
         
         val previousStep = result(i-1)
         
-        val next_amount = StateHandler.nextAmount(markovState.name, previousStep.amount)
-        val next_time   = StateHandler.nextDate(markovState.name, previousStep.time)
+        val next_amount = previousStep.amount * ratio
+        val next_time   = Math.round(span) * DAY + previousStep.time
         
         result += MarkovStep(i+1,next_amount,next_time,markovState.name,markovState.probability)
         
@@ -236,7 +269,7 @@ class UFMEnricher(requestCtx:RequestContext) extends BaseActor {
    * for all customers that have purchased at least twice since the start of the 
    * collection of the Shopify orders.
    */
-  private def readParquetStates(store:String):RDD[(String,String,Float,Long,String)] = {
+  private def readParquetStates(store:String):RDD[ParquetSTM] = {
 
     val sqlCtx = new SQLContext(requestCtx.sparkContext)
     import sqlCtx.createSchemaRDD
@@ -266,35 +299,50 @@ class UFMEnricher(requestCtx:RequestContext) extends BaseActor {
       val site = data("site").asInstanceOf[String]
       val user = data("user").asInstanceOf[String]
 
-      val amount = data("amount").asInstanceOf[Float]
+      val amount = data("amount").asInstanceOf[Double]
       val timestamp = data("timestamp").asInstanceOf[Long]
       
-      (site,user,amount,timestamp)
+      /*
+       * Quantile boundaries for the amount ratio
+       * and timespan with respect to subsequent
+       * purchase transactions
+       */
+      val r_b1 = data("r_b1").asInstanceOf[Double]
+      val r_b2 = data("r_b2").asInstanceOf[Double]
+      val r_b3 = data("r_b3").asInstanceOf[Double]
+      val r_b4 = data("r_b4").asInstanceOf[Double]
+      val r_b5 = data("r_b5").asInstanceOf[Double]
+
+      val s_b1 = data("s_b1").asInstanceOf[Double]
+      val s_b2 = data("s_b2").asInstanceOf[Double]
+      val s_b3 = data("s_b3").asInstanceOf[Double]
+      val s_b4 = data("s_b4").asInstanceOf[Double]
+      val s_b5 = data("s_b5").asInstanceOf[Double]
+
+      val state = data("state").asInstanceOf[String]
+            
+      ParquetSTM(
+          site,
+          user,
+          amount,
+          timestamp,
+          r_b1,
+          r_b2,
+          r_b3,
+          r_b4,
+          r_b5,
+          s_b1,
+          s_b2,
+          s_b3,
+          s_b4,
+          s_b5,
+          state
+      )
       
     })
     
-    rawset.groupBy(x => (x._1,x._2)).filter(_._2.size > 1).map(p => {
-
-      val (site,user) = p._1
-      /*
-       * Constrain to the last two transactions and retrieve
-       * the respective timestamp and amount
-       */
-      val orders = p._2.toSeq.sortBy(_._4).reverse.take(2)
-      
-      val (last_amount,last_time) = (orders.head._3,orders.head._4)
-      val (prev_amount,prev_time) = (orders.last._3,orders.last._4)
-        
-      /* 
-       * Determine first sub state from amount and second
-       * sub state from time elapsed between these orders
-       * */
-      val astate = StateHandler.stateByAmount(last_amount,prev_amount)
-      val tstate = StateHandler.stateByTime(last_time,prev_time)
-      
-      val last_state = astate + tstate
-      (site,user,last_amount,last_time,last_state)
-      
+    rawset.groupBy(x => (x.site,x.user)).filter(_._2.size > 1).map(x => {
+      x._2.toSeq.sortBy(_.timestamp).last      
     })
 
   }

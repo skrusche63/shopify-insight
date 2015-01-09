@@ -234,31 +234,47 @@ case class ParquetLOC(
   lat:Double,
   lon:Double
 )
-/**
- * ParquetRFM is a data structure that specifies an e-commerce
- * RFM table, extended by the quantiles for the respective RFM
- * attributes.
+
+/**********************************************************************
+ *      
+ *                       SUB PROCESS 'PREPARE'
  * 
- * Quantiles are used later on to segment customers due to their
- * respective RFM attributes.  
+ *********************************************************************/
+
+/**
+ * ParquetRFM is a data structure that specifies a marketing RFM table
  */
 case class ParquetRFM(
   site:String,
   user:String,
 
   today:Long,
-  
-  R:Int,
-  R_segment:String,
-  R_quantiles:String,
-  
-  F:Int,
-  F_segment:String,
-  F_quantiles:String,
-  
-  M:Double,
-  M_segment:String,
-  M_Quantiles:String
+  /*
+   * recency, frequency and monetary describe the original
+   * values extracted from the orders under consideration
+   */
+  recency:Int,
+  frequency:Int,
+  monetary:Double,
+  /*
+   * rval, fval and mval specifies the original values with
+   * respect to a quantiles (5) distribution, where the vals
+   * are between 1..5, and 5 indicates the highest value for
+   * the respective business company
+   */
+  rval:Int,  
+  fval:Int,  
+  mval:Int,
+  /*
+   * rfm_type divides the customer RFM space into 8 different
+   * customer categories, 1..8, where 1 indicates the most
+   * valuable customer for the respective business company.
+   * 
+   * The rfm_type is derived from the average values for R, F
+   * and M and assigned the state, H or L, if the respective
+   * value is above or below the average value
+   */
+  rfm_type:Int
 )
 
 /**
@@ -276,8 +292,32 @@ case class ParquetSTM(
   site:String,
   user:String,
   
-  amount:Float,
+  amount:Double,
   timestamp:Long,
   
+  /*
+   * We need to provide the quantile boundaries for amount ratio
+   * and timespan with the customer specific state description 
+   * in order to re-interpret the predicted states in terms of
+   * amounts and timespans
+   */
+  r_b1:Double,
+  r_b2:Double,
+  r_b3:Double,
+  r_b4:Double,
+  r_b5:Double,
+  
+  s_b1:Double,
+  s_b2:Double,
+  s_b3:Double,
+  s_b4:Double,
+  s_b5:Double,
+  
+  /*
+   * This is the state specification of the respective customer
+   * amount and timespan; note, that the state refers to the
+   * timestamp above
+   */
   state:String
+
 ) 

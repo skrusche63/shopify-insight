@@ -41,7 +41,7 @@ case class InsightOrder(
   
   user:String,
   
-  amount:Float,
+  amount:Double,
   timestamp:Long,
   
   group:String,

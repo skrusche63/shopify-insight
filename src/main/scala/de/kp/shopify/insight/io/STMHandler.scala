@@ -49,17 +49,10 @@ class STMHandler {
     data += Names.REQ_ALGORITHM -> "MARKOV"
     data += Names.REQ_INTENT    -> "STATE"
     
-    data += Names.REQ_SOURCE -> "ELASTIC"
-    /*
-     * Add index & mapping internally as the requestor does not
-     * know the Elasticsearch index structure; the index MUST be
-     * identical to that index, that has been created during the
-     * 'collection' phase
-     */
-    data += Names.REQ_SOURCE_INDEX -> "users"
-    data += Names.REQ_SOURCE_TYPE  -> "states"
-      
-    data += Names.REQ_QUERY -> QueryBuilder.get("ELASTIC","state")   
+    data += Names.REQ_SOURCE -> "PARQUET"
+
+    // TODO
+    
     data.toMap
     
   }

@@ -48,7 +48,7 @@ class RFMPreparer(requestCtx:RequestContext,orders:RDD[InsightOrder]) extends Ba
    * prameter for the QTree semigroup
    */
   private val K = 6
-  private val QUANTILES = List(0.25,0.50,0.75,1.00)
+  private val QUANTILES = List(0.20,0.40,0.60,0.80,1.00)
   
   override def receive = {
     
@@ -86,19 +86,19 @@ class RFMPreparer(requestCtx:RequestContext,orders:RDD[InsightOrder]) extends Ba
           val s0 = p._2.map(x => (x.amount,x.timestamp)).toList.sortBy(_._2)      
 
           val today = new DateTime().getMillis
-          val R = ((s0.map(_._2).last - today) / DAY).toInt
+          val recency = ((s0.map(_._2).last - today) / DAY).toInt
           /*
            * Frequency is the total number of orders made by
            * a certain customer during the whole lifetime
            */
-          val F = s0.size 
+          val frequency = s0.size 
           /* 
            * Monetary attribute is calculated as the sum
            * of all order values 
            */
-          val M = s0.map(_._1).sum
+          val monetary = s0.map(_._1).sum
           
-          (site,user,today,R,F,M)
+          (site,user,today,recency,frequency,monetary)
 
         })
         
@@ -118,97 +118,179 @@ class RFMPreparer(requestCtx:RequestContext,orders:RDD[InsightOrder]) extends Ba
  
         val m_quantiles = sc.broadcast(MQuantiles(rawset))
         
-        val table = rawset.map(x => {
+        val dataset = rawset.map(x => {
           
-          val (site,user,today,r,f,m) = x
+          val (site,user,today,recency,frequency,monetary) = x
+          
+          /*
+           * We introduce a rating from 1..5 for the recency, frequency and monetary
+           * attribute, and assign 5 to most valuable value, 4 to a less valuable etc;
+           * note, that we use numeric values for the respective ratings as we compute
+           * statistics from them and also do clustering with respect to the RFM values
+           */
 
           /********** RECENCY ***********/
       
-          /*
-           * We use the quantiles description to divide
-           * all the users into three segments:
-           * 
-           * a) high value::    0 < value < 0.25 boundary
-           * b) medium value:: 0.25 boundary <= value < 0.75 boundary
-           * c) low value::   0.75 boundary <= value
-           */
-          val r_b1 = r_quantiles.value(0.25)
-          val r_b2 = r_quantiles.value(0.75)
-      
-          val r_segment = (
-            if (r < r_b1) "H"
-            else if (r_b1 <= r && r < r_b2) "M"
-            else if (r_b2 <= r) "L"
-            else "-"  
+          val r_b1 = r_quantiles.value(0.20)
+          val r_b2 = r_quantiles.value(0.40)
+          val r_b3 = r_quantiles.value(0.60)
+          val r_b4 = r_quantiles.value(0.80)
+          
+          val rval = (
+            if (recency < r_b1) 5
+            else if (r_b1 <= recency && recency < r_b2) 4
+            else if (r_b2 <= recency && recency < r_b3) 3
+            else if (r_b3 <= recency && recency < r_b4) 2
+            else if (r_b4 <= recency) 1
+            else 0  
           )
-          
-          val r_quantiles_str = r_quantiles.value.map(v => String.format("""%s:%s""",v._1.toString,v._2.toString)).mkString(",")
-          
-          
+                    
           /********** FREQUENCY *********/
       
-          /*
-           * We use the quantiles description to divide
-           * all the users into three segments:
-           * 
-           * a) low value::    0 < value < 0.25 boundary
-           * b) medium value:: 0.25 boundary <= value < 0.75 boundary
-           * c) high value::   0.75 boundary <= value
-           */
-          val f_b1 = f_quantiles.value(0.25)
-          val f_b2 = f_quantiles.value(0.75)
+          val f_b1 = r_quantiles.value(0.20)
+          val f_b2 = r_quantiles.value(0.40)
+          val f_b3 = r_quantiles.value(0.60)
+          val f_b4 = r_quantiles.value(0.80)
       
-          val f_segment = (
-            if (f < f_b1) "L"
-            else if (f_b1 <= f && f < f_b2) "M"
-            else if (f_b2 <= f) "H"
-            else "-"  
+          val fval = (
+            if (frequency < f_b1) 1
+            else if (f_b1 <= frequency && frequency < f_b2) 2
+            else if (f_b2 <= frequency && frequency < f_b3) 3
+            else if (f_b3 <= frequency && frequency < f_b4) 4
+            else if (f_b4 <= frequency) 5
+            else 0  
           )
-          
-          val f_quantiles_str = f_quantiles.value.map(v => String.format("""%s:%s""",v._1.toString,v._2.toString)).mkString(",")
 
           /********** MONETARY **********/
           
-          /*
-           * The monetary dimension is considered to determine
-           * high value, profitable and unprofitable customers.
-           * 
-           * To this end the quantiles method is used to divide
-           * all the users into three segments:
-           * 
-           * a) low value::    0 < value < 0.25 boundary
-           * b) medium value:: 0.25 boundary <= value < 0.75 boundary
-           * c) high value::   0.75 boundary <= value
-           */
-          val m_b1 = m_quantiles.value(0.25)
-          val m_b2 = m_quantiles.value(0.75)
+          val m_b1 = r_quantiles.value(0.20)
+          val m_b2 = r_quantiles.value(0.40)
+          val m_b3 = r_quantiles.value(0.60)
+          val m_b4 = r_quantiles.value(0.80)
       
-          val m_segment = (
-            if (m < m_b1) "L"
-            else if (m_b1 <= m && m < m_b2) "M"
-            else if (m_b2 <= m) "H"
-            else "-"  
+          val mval = (
+            if (monetary < m_b1) 1
+            else if (m_b1 <= monetary && monetary < m_b2) 2
+            else if (m_b2 <= monetary && monetary < m_b3) 3
+            else if (m_b3 <= monetary && monetary < m_b4) 4
+            else if (m_b4 <= monetary) 5
+            else 0  
           )
+
+          val RFM = String.format("""%s%s%s""",rval.toString,fval.toString,mval.toString).toInt
           
-          val m_quantiles_str = m_quantiles.value.map(v => String.format("""%s:%s""",v._1.toString,v._2.toString)).mkString(",")
-          
-          ParquetRFM(
-              site,
-              user,
-              today,
-              r,
-              r_segment,
-              r_quantiles_str,
-              f,
-              f_segment,
-              f_quantiles_str,
-              m,
-              m_segment,
-              m_quantiles_str
-           )
+          (site,user,today,recency,rval,frequency,fval,monetary,mval)
         
         })
+        /*
+         * From the respective rating values, we derive statistical parameters 
+         * and finally use these parameters to divide the customer RFM space 
+         * into 8 different customer types 
+         */
+        val r_stats = sc.broadcast(dataset.map(_._5).stats())
+        val f_stats = sc.broadcast(dataset.map(_._7).stats())
+        val m_stats = sc.broadcast(dataset.map(_._9).stats())
         
+        val table = dataset.map(x => {
+          
+          val (site,user,today,recency,rval,frequency,fval,monetary,mval) = x
+          
+          val r_mean = r_stats.value.mean
+          val r_state = if (rval > r_mean) "H" else "L"
+          
+          val f_mean = f_stats.value.mean
+          val f_state = if (fval > f_mean) "H" else "L"
+          
+          val m_mean = m_stats.value.mean
+          val m_state = if (mval > m_mean) "H" else "L"
+          /*
+           * From the evaluation of the R,F,M values with respect to
+           * the 
+           */
+          val rfm_state = r_state + f_state + m_state          
+          val rfm_type = rfm_state match {
+            
+            case "HHH" =>           
+              /*
+               * MOST VALUABLE
+               * 
+               * This customer is specified as category "1"
+               * that indicates the most valuable customer
+               */
+              1
+            case "HLH" =>
+              /*
+               * VALUABLE
+               * 
+               * This customer is specified as category "2"
+               * that indicates valuable customers
+               */
+              2
+            case "HHL" =>
+              /*
+               * SHOPPER
+               * 
+               * This customer is specified as category "3"
+               * that indicates shoppers
+               */
+              3
+            case "HLL" => 
+              /*
+               * FIRST-TIMER
+               * 
+               * This customer is specified as category "4"
+               * that indicate customers that have recently
+               * joined the company
+               */
+              4
+            case "LHH" => 
+              /*
+               * CHURNER
+               * 
+               * This customer is specified as category "5"
+               * that indicates potential churners; note, that
+               * is kind of churn detection is not really used
+               * as an alternative method is supported here
+               */
+              5
+            case "LHL" => 
+              /*
+               * FREQUENT
+               * 
+               * This customer is specified as category "6"
+               * that indicates frequent buyers
+               */
+              6
+            case "LLH" => 
+              /*
+               * SPENDER
+               * 
+               * This customer is specified as category "7"
+               * that indicates spenders
+               */
+              7
+            case "LLL" => 
+              /*
+               * UNCERTAIN
+               * 
+               * This customer is specified as category "8"
+               * that indicates uncertain customers or those
+               * with a high cost than profit rate
+               */
+              8
+              
+            case _ => throw new Exception("Unknown RFM state detected.")
+          
+          }
+        
+          ParquetRFM(site,user,today,recency,frequency,monetary,rval,fval,mval,rfm_type)
+          
+        })
+        
+        /*
+         * The next step is to derive statistics from the R,F and M part of
+         * the segmented customer base computed above
+         */
         val sqlCtx = new SQLContext(sc)
         import sqlCtx.createSchemaRDD
 
@@ -246,7 +328,7 @@ class RFMPreparer(requestCtx:RequestContext,orders:RDD[InsightOrder]) extends Ba
   
   }
   
-  private def RQuantiles(dataset:RDD[(String,String,Long,Int,Int,Float)]):Map[Double,Double] = {
+  private def RQuantiles(dataset:RDD[(String,String,Long,Int,Int,Double)]):Map[Double,Double] = {
     
     implicit val semigroup = new QTreeSemigroup[Double](K)
     
@@ -264,7 +346,7 @@ class RFMPreparer(requestCtx:RequestContext,orders:RDD[InsightOrder]) extends Ba
     
   }
   
-  private def FQuantiles(dataset:RDD[(String,String,Long,Int,Int,Float)]):Map[Double,Double] = {
+  private def FQuantiles(dataset:RDD[(String,String,Long,Int,Int,Double)]):Map[Double,Double] = {
     
     implicit val semigroup = new QTreeSemigroup[Double](K)
     
@@ -282,7 +364,7 @@ class RFMPreparer(requestCtx:RequestContext,orders:RDD[InsightOrder]) extends Ba
     
   }
   
-  private def MQuantiles(dataset:RDD[(String,String,Long,Int,Int,Float)]):Map[Double,Double] = {
+  private def MQuantiles(dataset:RDD[(String,String,Long,Int,Int,Double)]):Map[Double,Double] = {
     
     implicit val semigroup = new QTreeSemigroup[Double](K)
     

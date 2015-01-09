@@ -81,12 +81,12 @@ class RestApi(host:String,port:Int,system:ActorSystem,@transient sc:SparkContext
 
   private def routes:Route = {
     /*
-     * A 'analyze' request supports the generation of multiple insight models 
+     * A 'learn' request supports the generation of multiple insight models 
      */
-    path("analyze") { 
+    path("learn") { 
 	  post {
 	    respondWithStatus(OK) {
-	      ctx => doAnalyze(ctx)
+	      ctx => doLearn(ctx)
 	    }
 	  }
     }  ~ 
@@ -226,11 +226,11 @@ class RestApi(host:String,port:Int,system:ActorSystem,@transient sc:SparkContext
   
   }
   /**
-   * 'analyze' describes the starting point of a data analytics process and
+   * 'learn' describes the starting point of a data analytics process and
    * extracts multiple data dimensions from the customers' purchase history
    * of a certain Shopify shop.
    */
-  private def doAnalyze[T](ctx:RequestContext) = {
+  private def doLearn[T](ctx:RequestContext) = {
     /*
      * A 'analyze' request starts a data processing pipeline and is accompanied 
      * by the DataPipeline actor that is responsible for controlling the analytics 

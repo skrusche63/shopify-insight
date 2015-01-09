@@ -76,6 +76,17 @@ class DataPreparer(requestCtx:RequestContext) extends BaseActor {
          
         val rawset = elasticRDD.read(esConfig)
         val orders = elasticRDD.orders(rawset)
+
+        /*
+         * STEP #2: Start RFMPreparer actor to create the ParquetRFM table 
+         * from the purchase history. RFM Analysis is the starting point
+         * for all other preparation steps as this analysis segments the
+         * customer base under consideration to 8 different customer types.
+         * 
+         * 
+         */
+        val rfm_preparer = context.actorOf(Props(new RFMPreparer(requestCtx,orders)))          
+        rfm_preparer ! StartPrepare(req_params)
          
         /*
          * STEP #2: Start ASRPreparer actor to create the ParquetASR table 
@@ -136,16 +147,6 @@ class DataPreparer(requestCtx:RequestContext) extends BaseActor {
          */
         val hod_preparer = context.actorOf(Props(new HODPreparer(requestCtx,orders)))          
         hod_preparer ! StartPrepare(req_params)
-
-        /*
-         * STEP #8: Start RFMPreparer actor to create the ParquetRFM table 
-         * from the purchase history. This table is used to specify the
-         * temporal profile of a certain user.
-         * 
-         * The transformed data are saved as a Parquet file.
-         */
-        val rfm_preparer = context.actorOf(Props(new RFMPreparer(requestCtx,orders)))          
-        rfm_preparer ! StartPrepare(req_params)
 
         /*
          * STEP #9: Start LOCPreparer actor to create the ParquetRFM table 
