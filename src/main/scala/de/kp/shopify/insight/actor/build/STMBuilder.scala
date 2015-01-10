@@ -17,9 +17,7 @@ package de.kp.shopify.insight.actor.build
 * 
 * If not, see <http://www.gnu.org/licenses/>.
 */
-
 import akka.actor.Props
-
 import de.kp.spark.core.Names
 
 import de.kp.spark.core.actor._
@@ -40,7 +38,7 @@ import de.kp.shopify.insight.actor.BaseActor
  * component of the data analytics pipeline.
  * 
  */
-class STMBuilder(requestCtx:RequestContext) extends BaseActor {
+class STMBuilder(requestCtx:RequestContext) extends BaseActor(requestCtx) {
   
   private val config = requestCtx.getConfig
   

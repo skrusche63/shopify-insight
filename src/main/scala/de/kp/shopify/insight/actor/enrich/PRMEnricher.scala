@@ -21,7 +21,6 @@ package de.kp.shopify.insight.actor.enrich
 import org.apache.spark.SparkContext
 import org.apache.spark.SparkContext._
 
-import org.apache.spark.sql.SQLContext
 import org.apache.spark.rdd.RDD
 
 import de.kp.spark.core.Names
@@ -39,7 +38,9 @@ import de.kp.shopify.insight.io._
  * the model into a product rule model (PRM) and registers the result as a
  * Parquet file.
  */
-class PRMEnricher(requestCtx:RequestContext) extends BaseActor {
+class PRMEnricher(requestCtx:RequestContext) extends BaseActor(requestCtx) {
+  
+  import sqlc.createSchemaRDD
 
   override def receive = {
    
@@ -69,11 +70,7 @@ class PRMEnricher(requestCtx:RequestContext) extends BaseActor {
 
             } else {
 
-              val sc = requestCtx.sparkContext
               val table = buildTable(res)
-        
-              val sqlCtx = new SQLContext(sc)
-              import sqlCtx.createSchemaRDD
 
               /* 
                * The RDD is implicitly converted to a SchemaRDD by createSchemaRDD, 
@@ -142,9 +139,7 @@ class PRMEnricher(requestCtx:RequestContext) extends BaseActor {
   
   private def buildTable(response:ServiceResponse):RDD[ParquetPRM] = {
             
-    val sc = requestCtx.sparkContext
-    val rules = Serializer.deserializeRules(response.data(Names.REQ_RESPONSE))
-   
+    val rules = Serializer.deserializeRules(response.data(Names.REQ_RESPONSE))  
     val relations = rules.items.map(rule => {
       ParquetPRM(rule.antecedent,rule.consequent,rule.support,rule.total,rule.confidence)	  
     })

@@ -19,8 +19,6 @@ package de.kp.shopify.insight.actor.prepare
 */
 
 import org.apache.spark.SparkContext._
-import org.apache.spark.sql.SQLContext
-
 import org.apache.spark.rdd.RDD
 
 import com.twitter.algebird._
@@ -40,7 +38,7 @@ import de.kp.shopify.insight.actor.BaseActor
  * last transaction is far away from the "normal" behavior of the
  * respective customer
  */
-class CHNPreparer(requestCtx:RequestContext,orders:RDD[InsightOrder]) extends BaseActor {
+class CHNPreparer(requestCtx:RequestContext,orders:RDD[InsightOrder]) extends BaseActor(requestCtx) {
         
   private val DAY = 24 * 60 * 60 * 1000 // day in milliseconds
   /*
@@ -61,7 +59,8 @@ class CHNPreparer(requestCtx:RequestContext,orders:RDD[InsightOrder]) extends Ba
    */
   private val AMOUNT_THRESHOLD   = 0.1
   private val TIMESPAN_THRESHOLD = 0.9
-  
+        
+  import sqlc.createSchemaRDD
   override def receive = {
     
     case msg:StartPrepare => {
@@ -70,8 +69,6 @@ class CHNPreparer(requestCtx:RequestContext,orders:RDD[InsightOrder]) extends Ba
       val uid = req_params(Names.REQ_UID)
       
       try {
-
-        val sc = requestCtx.sparkContext
 
         val s0 = orders.map(x => (x.site,x.user,x.amount,x.timestamp)).groupBy(x => (x._1,x._2)).filter(_._2.size > 1)
         val table = s0.map(x => {
@@ -128,10 +125,6 @@ class CHNPreparer(requestCtx:RequestContext,orders:RDD[InsightOrder]) extends Ba
           )
           
         })
-        
-        val sqlCtx = new SQLContext(sc)
-        import sqlCtx.createSchemaRDD
-
         /* 
          * The RDD is implicitly converted to a SchemaRDD by createSchemaRDD, 
          * allowing it to be stored using Parquet. 

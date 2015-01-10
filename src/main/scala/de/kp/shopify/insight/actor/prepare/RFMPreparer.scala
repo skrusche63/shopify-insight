@@ -19,9 +19,8 @@ package de.kp.shopify.insight.actor.prepare
 */
 
 import org.apache.spark.SparkContext._
-import org.apache.spark.sql.SQLContext
-
 import org.apache.spark.rdd.RDD
+
 import org.joda.time.DateTime
 
 import com.twitter.algebird._
@@ -40,7 +39,7 @@ import de.kp.shopify.insight.actor.BaseActor
  * going through complex mathematics.
  * 
  */
-class RFMPreparer(requestCtx:RequestContext,orders:RDD[InsightOrder]) extends BaseActor {
+class RFMPreparer(requestCtx:RequestContext,orders:RDD[InsightOrder]) extends BaseActor(requestCtx) {
         
   private val DAY = 24 * 60 * 60 * 1000 // day in milliseconds
   /*
@@ -50,6 +49,7 @@ class RFMPreparer(requestCtx:RequestContext,orders:RDD[InsightOrder]) extends Ba
   private val K = 6
   private val QUANTILES = List(0.20,0.40,0.60,0.80,1.00)
   
+  import sqlc.createSchemaRDD
   override def receive = {
     
     case msg:StartPrepare => {
@@ -77,7 +77,6 @@ class RFMPreparer(requestCtx:RequestContext,orders:RDD[InsightOrder]) extends Ba
          *   is just the sum of all order values.
          *   
          */
-        val sc = requestCtx.sparkContext
         val rawset = orders.groupBy(x => (x.site,x.user)).map(p => {
 
           val (site,user) = p._1  
@@ -191,7 +190,7 @@ class RFMPreparer(requestCtx:RequestContext,orders:RDD[InsightOrder]) extends Ba
         val f_stats = sc.broadcast(dataset.map(_._7).stats())
         val m_stats = sc.broadcast(dataset.map(_._9).stats())
         
-        val table = dataset.map(x => {
+        val tableRFM = dataset.map(x => {
           
           val (site,user,today,recency,rval,frequency,fval,monetary,mval) = x
           
@@ -286,23 +285,32 @@ class RFMPreparer(requestCtx:RequestContext,orders:RDD[InsightOrder]) extends Ba
           ParquetRFM(site,user,today,recency,frequency,monetary,rval,fval,mval,rfm_type)
           
         })
-        
-        /*
-         * The next step is to derive statistics from the R,F and M part of
-         * the segmented customer base computed above
-         */
-        val sqlCtx = new SQLContext(sc)
-        import sqlCtx.createSchemaRDD
-
         /* 
          * The RDD is implicitly converted to a SchemaRDD by createSchemaRDD, 
          * allowing it to be stored as Parquet file. Note, that the Parquet
          * file specifies a certain RFM model that takes all registered orders
-         * up to now into account. This is way this an integrative model.
+         * up to now into account.
          */
-        val store = String.format("""%s/RFM/%s""",requestCtx.getBase,uid)         
-        table.saveAsParquetFile(store)
+        val store_rfm = String.format("""%s/RFM/%s""",requestCtx.getBase,uid)         
+        tableRFM.saveAsParquetFile(store_rfm)
 
+        requestCtx.listener ! String.format("""[INFO][UID: %s] RFM preparation finished.""",uid)
+
+        /*
+         * We need to store the ParquetCST table as well; this table assigns
+         * a certain customer (site,user) to a specific customer type
+         */
+        val tableCST = tableRFM.map(x => {ParquetCST(x.site,x.user,x.rfm_type)})
+
+        val store_cst = String.format("""%s/CST/%s""",requestCtx.getBase,uid)         
+        tableCST.saveAsParquetFile(store_cst)
+
+        requestCtx.listener ! String.format("""[INFO][UID: %s] CST preparation finished.""",uid)
+        
+        /* 
+         * Finally we inform the DataPreparer that the RFM preparation step
+         * has been finished successfully
+         */
         val params = Map(Names.REQ_MODEL -> "RFM") ++ req_params
         context.parent ! PrepareFinished(params)
         
@@ -312,7 +320,7 @@ class RFMPreparer(requestCtx:RequestContext,orders:RDD[InsightOrder]) extends Ba
            * In case of an error the message listener gets informed, and also
            * the data processing pipeline in order to stop further sub processes 
            */
-          requestCtx.listener ! String.format("""[ERROR][UID: %s] RFM preparation exception: %s.""",uid,e.getMessage)
+          requestCtx.listener ! String.format("""[ERROR][UID: %s] RFM or CST preparation exception: %s.""",uid,e.getMessage)
           
           val params = Map(Names.REQ_MESSAGE -> e.getMessage) ++ req_params
           context.parent ! PrepareFailed(params)

@@ -40,7 +40,7 @@ import de.kp.shopify.insight.actor.BaseActor
  * component of the data analytics pipeline.
  * 
  */
-class HSMBuilder(requestCtx:RequestContext) extends BaseActor {
+class HSMBuilder(requestCtx:RequestContext) extends BaseActor(requestCtx) {
   
   private val config = requestCtx.getConfig
   

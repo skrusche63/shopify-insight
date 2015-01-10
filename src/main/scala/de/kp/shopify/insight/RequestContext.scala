@@ -19,6 +19,8 @@ package de.kp.shopify.insight
 */
 
 import org.apache.spark.SparkContext
+import org.apache.spark.sql.SQLContext
+
 import akka.actor.ActorRef
 
 import de.kp.spark.core.Names
@@ -55,6 +57,8 @@ class RequestContext(
   val JSON_MAPPER = new ObjectMapper()  
   JSON_MAPPER.registerModule(DefaultScalaModule)
 
+  val sqlCtx = new SQLContext(sparkContext)
+
   /*
    * Determine Shopify access parameters from the configuration file 
    * (application.conf). Configuration is the accessor to this file.
@@ -72,12 +76,6 @@ class RequestContext(
    * this variable is used to access the engines of Predictiveworks
    */
   private val remoteContext = new RemoteContext()
-  /*
-   * Reference to the Shopify orders of the last 30, 60 or 90 days; as these
-   * data are used more than once, the server context is an appropriate place
-   * to keep them transiently
-   */
-  private val shopifyOrders = Buffer.empty[Order]
   /*
    * Heartbeat & timeout configuration in seconds
    */
@@ -110,18 +108,6 @@ class RequestContext(
    * The timeout interval used to supervise actor interaction
    */
   def getTimeout = time
-
-  /**
-   * Reset all memory consuming data structures
-   */
-  def clear {
-    shopifyOrders.clear
-  }
-  /**
-   * The internal order buffer MUST be cleared when a new data analytics
-   * pipeline starts
-   */
-  def clearOrders = shopifyOrders.clear
   /**
    * The subsequent methods wrap the respective methods from the Elasticsearch
    * client and makes access to the multiple search indexes available from the
@@ -246,7 +232,7 @@ class RequestContext(
    */
   def getOrders(req_params:Map[String,String]):List[Order] = {
     
-    if (shopifyOrders.isEmpty == false) return shopifyOrders.toList
+    val orders = Buffer.empty[Order]
     
     val start = new java.util.Date().getTime
     /*
@@ -274,7 +260,7 @@ class RequestContext(
        * of 250 orders per request
        */
       val data = order_params.filter(kv => excludes.contains(kv._1) == false) ++ Map("limit" -> "250","page" -> page.toString)
-      shopifyOrders ++= shopifyClient.getOrders(order_params).map(order => new ShopifyMapper().extractOrder(apikey,order))
+      orders ++= shopifyClient.getOrders(order_params).map(order => new ShopifyMapper().extractOrder(apikey,order))
              
       page += 1
               
@@ -283,19 +269,7 @@ class RequestContext(
     val end = new java.util.Date().getTime
     listener ! String.format("""[UID: %s] Orders loaded in %s milli seconds.""",uid,(end-start).toString)
  
-    shopifyOrders.toList
-    
-  }
-  
-  /**
-   * This method transforms retrieved orders into a list of purchases;
-   * a 'purchase' is represented by an AmountObject
-   */
-  def getPurchases(params:Map[String,String]):List[AmountObject] = {
-    
-    if (shopifyOrders.isEmpty) return List.empty[AmountObject]
-    /* Transform orders into AmountObject representation */
-    shopifyOrders.map(x => AmountObject(x.site,x.user,x.timestamp,x.amount)).toList
+    orders.toList
     
   }
   

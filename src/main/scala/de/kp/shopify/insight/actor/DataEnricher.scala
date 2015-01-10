@@ -29,7 +29,7 @@ import de.kp.shopify.insight.model._
 import scala.collection.mutable.ArrayBuffer
 import org.elasticsearch.common.xcontent.{XContentBuilder,XContentFactory}
 
-class DataEnricher(requestCtx:RequestContext) extends BaseActor {
+class DataEnricher(requestCtx:RequestContext) extends BaseActor(requestCtx) {
   
   private val STEPS = ArrayBuffer.empty[String]
   private val STEPS_COMPLETE = 4

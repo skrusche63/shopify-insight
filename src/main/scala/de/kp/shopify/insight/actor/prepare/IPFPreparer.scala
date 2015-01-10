@@ -1,0 +1,253 @@
+package de.kp.shopify.insight.actor.prepare
+/* Copyright (c) 2014 Dr. Krusche & Partner PartG
+* 
+* This file is part of the Shopify-Insight project
+* (https://github.com/skrusche63/shopify-insight).
+* 
+* Shopify-Insight is free software: you can redistribute it and/or modify it under the
+* terms of the GNU General Public License as published by the Free Software
+* Foundation, either version 3 of the License, or (at your option) any later
+* version.
+* 
+* Shopify-Insight is distributed in the hope that it will be useful, but WITHOUT ANY
+* WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
+* A PARTICULAR PURPOSE. See the GNU General Public License for more details.
+* You should have received a copy of the GNU General Public License along with
+* Shopify-Insight. 
+* 
+* If not, see <http://www.gnu.org/licenses/>.
+*/
+
+import org.apache.spark.SparkContext._
+import org.apache.spark.rdd.RDD
+
+import com.twitter.algebird._
+import com.twitter.algebird.Operators._
+
+import de.kp.spark.core.Names
+
+import de.kp.shopify.insight._
+import de.kp.shopify.insight.model._
+
+import de.kp.shopify.insight.actor.BaseActor
+
+/** 
+ * The IPFPreparer is responsible for a quantile-based segmentation of
+ * purchased items with respect to the customer and purchase frequency.
+ * 
+ * The respective frequencies are specified by rating numbers from 1..5,
+ * where 5 means the highest valuable value from a business perspective.
+ * 
+ * The items that refer to a certain purchase period of time and a specific
+ * customer type (with respect to the prior RFM segmentation) are mapped
+ * onto a two dimensional space and divided into 25 different segments 
+ * due to the selected quantile mechanism, from 11 to 55.
+ * 
+ * Items in the 55 segment have the highest customer and also purchase
+ * frequency, while 11 describes items with the lowest customer and also
+ * purchase frequency.
+ */
+class IPFPreparer(requestCtx:RequestContext,customer:Int,orders:RDD[InsightOrder]) extends BaseActor(requestCtx) {
+  /*
+   * The parameter K is used as an initialization 
+   * prameter for the QTree semigroup
+   */
+  private val K = 6
+  private val QUANTILES = List(0.20,0.40,0.60,0.80,1.00)
+  
+  import sqlc.createSchemaRDD
+  override def receive = {
+    
+    case msg:StartPrepare => {
+
+      val req_params = msg.data
+      val uid = req_params(Names.REQ_UID)
+      
+      try {
+        /*
+         * STEP #1: Restrict the purchase orders to those items and attributes
+         * that are relevant for the item segmentation task; this encloses a
+         * filtering with respect to customer type, if different from '0'
+         */
+        val ctype = sc.broadcast(customer)
+
+        val ds = orders.flatMap(x => x.items.map(v => (x.site,x.user,v.item,v.quantity)))
+        val filteredDS = (if (customer == 0) {
+          /*
+           * This customer type indicates that ALL customer types
+           * have to be taken into account when computing the item
+           * segmentation 
+           */
+          ds
+          
+        } else {
+          /*
+           * Load the Parquet file that specifies the customer type specification 
+           * and filter those customers that match the provided customer type
+           */
+          val parquetCST = readCST(uid).filter(x => x._2 == ctype.value)      
+          ds.map(x => ((x._1,x._2),(x._3,x._4))).join(parquetCST).map(x => {
+            
+            val ((site,user),((item,quantity),rfm_type)) = x
+            (site,user,item,quantity)
+            
+          })
+        })       
+        /*
+         * STEP #2: Build item customer frequency distribution; note, that
+         * we are not interested here, how often a certain customer has
+         * bought a specific product.
+         * 
+         * The data base used here describes the purchases customers have 
+         * made within a certain period of time. This implies, that we are 
+         * NOT faced with zero values, i.e. items with zero purchase frequency
+         */
+        val ds1 = filteredDS.groupBy(_._3).map(x => (x._1,x._2.size))
+        val c_quantiles = sc.broadcast(quantiles(ds1.map(_._2.toDouble).sortBy(x => x)))        
+        /*
+         * STEP #3: Build item purchase frequency distribution; here we are
+         * not interested into the specific user, but the purchase quantity
+         */
+        val ds2 = filteredDS.groupBy(_._3).map(x => (x._1, x._2.map(_._4).sum))
+        val p_quantiles = sc.broadcast(quantiles(ds2.map(_._2.toDouble).sortBy(x => x)))
+        /*
+         * STEP #4: Build customer purchase space from customer frquency 
+         * and purchase frequency; frequency values with the highest value
+         * for the business company are assigned a 5, less valuable 4 and
+         * so forth.
+         */
+        val ds3 = ds1.map(x => {
+          
+          val (item,freq) = x
+          
+          val b1 = c_quantiles.value(0.20)
+          val b2 = c_quantiles.value(0.40)
+          val b3 = c_quantiles.value(0.60)
+          val b4 = c_quantiles.value(0.80)
+      
+          val cval = (
+            if (freq < b1) 1
+            else if (b1 <= freq && freq < b2) 2
+            else if (b2 <= freq && freq < b3) 3
+            else if (b3 <= freq && freq < b4) 4
+            else if (b4 <= freq) 5
+            else 0  
+          )
+
+          (item,(freq,cval))
+          
+        })
+        
+        val ds4 = ds2.map(x => {
+          
+          val (item,freq) = x
+          
+          val b1 = p_quantiles.value(0.20)
+          val b2 = p_quantiles.value(0.40)
+          val b3 = p_quantiles.value(0.60)
+          val b4 = p_quantiles.value(0.80)
+      
+          val pval = (
+            if (freq < b1) 1
+            else if (b1 <= freq && freq < b2) 2
+            else if (b2 <= freq && freq < b3) 3
+            else if (b3 <= freq && freq < b4) 4
+            else if (b4 <= freq) 5
+            else 0  
+          )
+
+          (item,(freq,pval))
+          
+        })
+        
+        val table = ds3.join(ds4).map(x => {
+          
+          val item = x._1
+          val ((cfreq,cval),(pfreq,pval)) = x._2
+          
+          ParquetIPF(item,cfreq,pfreq,cval,pval,ctype.value)
+        
+        })
+
+        val store = String.format("""%s/IFP-0%s/%s""",requestCtx.getBase,customer.toString,uid)         
+        table.saveAsParquetFile(store)
+
+        requestCtx.listener ! String.format("""[INFO][UID: %s] IFP preparation for customer type '%s' finished.""",uid,customer.toString)
+
+        val params = Map(Names.REQ_MODEL -> "IFP") ++ req_params
+        context.parent ! PrepareFinished(params)
+
+      } catch {
+        case e:Exception => {
+          /* 
+           * In case of an error the message listener gets informed, and also
+           * the data processing pipeline in order to stop further sub processes 
+           */
+          requestCtx.listener ! String.format("""[ERROR][UID: %s] IFP preparation exception: %s.""",uid,e.getMessage)
+          
+          val params = Map(Names.REQ_MESSAGE -> e.getMessage) ++ req_params
+          context.parent ! PrepareFailed(params)
+        
+        }
+
+      } finally {
+        
+        context.stop(self)
+        
+      }
+    }
+  
+  }
+  
+  private def quantiles(dataset:RDD[Double]):Map[Double,Double] = {
+    
+    implicit val semigroup = new QTreeSemigroup[Double](K)
+    
+    val qtree = dataset.map(v => QTree(v)).reduce(_ + _) 
+    QUANTILES.map(x => {
+      
+      val (lower,upper) = qtree.quantileBounds(x)
+      val mean = (lower + upper) / 2
+
+      (x,mean)
+      
+    }).toMap
+    
+  }
+  
+  /**
+   * This method loads the customer type description from the
+   * Parquet file that has been created by the RFMPreparer
+   */
+  private def readCST(uid:String):RDD[((String,String),Int)] = {
+
+    val store = String.format("""%s/CST/%s""",requestCtx.getBase,uid)         
+    
+    val parquetFile = sqlc.parquetFile(store)
+    val metadata = parquetFile.schema.fields.zipWithIndex
+    
+    parquetFile.map(row => {
+
+      val values = row.iterator.zipWithIndex.map(x => (x._2,x._1)).toMap
+      val data = metadata.map(entry => {
+      
+        val (field,col) = entry
+      
+        val colname = field.name
+        val colvalu = values(col)
+      
+        (colname,colvalu)
+          
+      }).toMap
+
+      val site = data("site").asInstanceOf[String]
+      val user = data("user").asInstanceOf[String]
+      
+      val rfm_type = data("rfm_type").asInstanceOf[Int]
+      ((site,user),rfm_type)      
+    
+    })
+    
+  }
+  
+}

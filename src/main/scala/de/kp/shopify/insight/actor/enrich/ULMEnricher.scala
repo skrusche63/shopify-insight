@@ -21,7 +21,6 @@ package de.kp.shopify.insight.actor.enrich
 import org.apache.spark.SparkContext
 import org.apache.spark.SparkContext._
 
-import org.apache.spark.sql.SQLContext
 import org.apache.spark.rdd.RDD
 
 import de.kp.spark.core.Names
@@ -35,8 +34,9 @@ import de.kp.shopify.insight.model._
 import de.kp.shopify.insight.io._
 import de.kp.shopify.insight.analytics.StateHandler
 
-class ULMEnricher(requestCtx:RequestContext) extends BaseActor {
-
+class ULMEnricher(requestCtx:RequestContext) extends BaseActor(requestCtx) {
+        
+  import sqlc.createSchemaRDD
   override def receive = {
    
     case message:StartEnrich => {
@@ -82,12 +82,7 @@ class ULMEnricher(requestCtx:RequestContext) extends BaseActor {
 
             } else {
  
-              val sc = requestCtx.sparkContext
               val table = buildTable(res,parquetStates,lookup)
-        
-              val sqlCtx = new SQLContext(sc)
-              import sqlCtx.createSchemaRDD
-
               /* 
                * The RDD is implicitly converted to a SchemaRDD by createSchemaRDD, 
                * allowing it to be stored using Parquet. 
@@ -146,7 +141,6 @@ class ULMEnricher(requestCtx:RequestContext) extends BaseActor {
    */
   private def buildTable(response:ServiceResponse,parquetStates:RDD[(String,String,String)],lookup:Map[String,Int]):RDD[ParquetULM] = {
     
-    val sc = requestCtx.sparkContext
     val states = response.data(Names.REQ_RESPONSE).split(";").zipWithIndex.map(x => (x._2,x._1)).toMap    
     
     val observ_lookup = sc.broadcast(lookup)
@@ -207,16 +201,12 @@ class ULMEnricher(requestCtx:RequestContext) extends BaseActor {
    * collection of the Shopify orders.
    */
   private def readParquetStates(store:String):RDD[(String,String,String)] = {
-
-    val sqlCtx = new SQLContext(requestCtx.sparkContext)
-    import sqlCtx.createSchemaRDD
-    
     /* 
      * Read in the parquet file created above.  Parquet files are self-describing 
      * so the schema is preserved. The result of loading a Parquet file is also a 
      * SchemaRDD. 
      */
-    val parquetFile = sqlCtx.parquetFile(store)
+    val parquetFile = sqlc.parquetFile(store)
     val metadata = parquetFile.schema.fields.zipWithIndex
     
     val rawset = parquetFile.map(row => {

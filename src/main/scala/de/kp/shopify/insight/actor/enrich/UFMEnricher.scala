@@ -21,7 +21,6 @@ package de.kp.shopify.insight.actor.enrich
 import org.apache.spark.SparkContext
 import org.apache.spark.SparkContext._
 
-import org.apache.spark.sql.SQLContext
 import org.apache.spark.rdd.RDD
 
 import de.kp.spark.core.Names
@@ -40,9 +39,11 @@ private case class MarkovStep(step:Int,amount:Double,time:Long,state:String,scor
  * The UFMEnricher is responsible for building the customer-specific
  * purchase forecast model.
  */
-class UFMEnricher(requestCtx:RequestContext) extends BaseActor {
+class UFMEnricher(requestCtx:RequestContext) extends BaseActor(requestCtx) {
         
   private val DAY = 24 * 60 * 60 * 1000 // day in milliseconds
+        
+  import sqlc.createSchemaRDD
 
   override def receive = {
    
@@ -89,11 +90,7 @@ class UFMEnricher(requestCtx:RequestContext) extends BaseActor {
 
             } else {
 
-              val sc = requestCtx.sparkContext
               val table = buildTable(res,parquetFile)
-        
-              val sqlCtx = new SQLContext(sc)
-              import sqlCtx.createSchemaRDD
 
               /* 
                * The RDD is implicitly converted to a SchemaRDD by createSchemaRDD, 
@@ -270,16 +267,13 @@ class UFMEnricher(requestCtx:RequestContext) extends BaseActor {
    * collection of the Shopify orders.
    */
   private def readParquetStates(store:String):RDD[ParquetSTM] = {
-
-    val sqlCtx = new SQLContext(requestCtx.sparkContext)
-    import sqlCtx.createSchemaRDD
     
     /* 
      * Read in the parquet file created above.  Parquet files are self-describing 
      * so the schema is preserved. The result of loading a Parquet file is also a 
      * SchemaRDD. 
      */
-    val parquetFile = sqlCtx.parquetFile(store)
+    val parquetFile = sqlc.parquetFile(store)
     val metadata = parquetFile.schema.fields.zipWithIndex
     
     val rawset = parquetFile.map(row => {

@@ -41,7 +41,7 @@ import de.kp.shopify.insight.actor.BaseActor
  * actor is the PARENT actor of this actor
  * 
  */
-class ASRBuilder(requestCtx:RequestContext) extends BaseActor {
+class ASRBuilder(requestCtx:RequestContext) extends BaseActor(requestCtx) {
   
   private val config = requestCtx.getConfig
   

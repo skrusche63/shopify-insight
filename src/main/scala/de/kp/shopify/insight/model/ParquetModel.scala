@@ -276,6 +276,50 @@ case class ParquetRFM(
    */
   rfm_type:Int
 )
+/**
+ * ParquetCST is a data structure that specifies a Parquet
+ * table that assigns customers to a certain customer type.
+ * 
+ * The customer type (1..8) is the main segmentation mechanism
+ * and used to apply data mining and model building to datasets
+ * for certain customer types. E.g. '1' specifies the most
+ * valuable customer type, and purchase forecast modeling is 
+ * performed with respect to these different types.
+ * 
+ * It makes definitely no sense to e.g. build a state transition
+ * model for customers that exist in completely different sub
+ * spaces of the RFM space. 
+ */
+case class ParquetCST(
+  site:String,
+  user:String,
+  rfm_type:Int
+)
+/**
+ * ParquetIPF is a data structure that specifies a Parquet
+ * file that assigns frequencies to a certain product or 
+ * item. The data record can be computed with respect to
+ * a certain customer type (rfm_type)
+ */
+case class ParquetIPF(
+  item:Int,
+  /* The customer and purchase frequency */
+  customer:Int,
+  purchase:Int,
+  /*
+   * cval and pval speciy the original values with respect 
+   * to a quantiles (5) distribution, where the vals are 
+   * between 1..5, and 5 indicates the highest value for
+   * the respective business company
+   */
+  cval:Int,
+  pval:Int,
+  /* 
+   * The customer type the customer and purchase 
+   * segmentation is referred to
+   */
+  rfm_type:Int
+)
 
 /**
  * ParquetASR is a data structure that is shared with Predictiveworks'

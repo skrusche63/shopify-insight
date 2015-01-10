@@ -16,7 +16,7 @@ import scala.collection.mutable.ArrayBuffer
 import org.elasticsearch.index.query._
 import scala.collection.mutable.Buffer
 
-class UserQuestor(requestCtx:RequestContext) extends BaseActor {
+class UserQuestor(requestCtx:RequestContext) extends BaseActor(requestCtx) {
 
   def receive = {
     

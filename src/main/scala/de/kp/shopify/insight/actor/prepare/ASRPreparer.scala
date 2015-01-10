@@ -19,8 +19,6 @@ package de.kp.shopify.insight.actor.prepare
 */
 
 import org.apache.spark.SparkContext._
-import org.apache.spark.sql.SQLContext
-
 import org.apache.spark.rdd.RDD
 
 import de.kp.spark.core.Names
@@ -30,7 +28,9 @@ import de.kp.shopify.insight.model._
 
 import de.kp.shopify.insight.actor.BaseActor
 
-class ASRPreparer(requestCtx:RequestContext,orders:RDD[InsightOrder]) extends BaseActor {
+class ASRPreparer(requestCtx:RequestContext,orders:RDD[InsightOrder]) extends BaseActor(requestCtx) {
+
+  import sqlc.createSchemaRDD
   
   override def receive = {
     
@@ -41,12 +41,7 @@ class ASRPreparer(requestCtx:RequestContext,orders:RDD[InsightOrder]) extends Ba
       
       try {
 
-        val sc = requestCtx.sparkContext
         val table = orders.flatMap(x => x.items.map(v => ParquetASR(x.site,x.user,x.group,v.item)))
-
-        val sqlCtx = new SQLContext(sc)
-        import sqlCtx.createSchemaRDD
-
         /* 
          * The RDD is implicitly converted to a SchemaRDD by createSchemaRDD, 
          * allowing it to be stored using Parquet. 

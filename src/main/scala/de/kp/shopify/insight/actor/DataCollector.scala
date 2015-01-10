@@ -27,12 +27,12 @@ import de.kp.shopify.insight._
 import de.kp.shopify.insight.model._
 import de.kp.shopify.insight.elastic._
 
-import de.kp.shopify.insight.actor.synchronize._
+import de.kp.shopify.insight.actor.collect._
 
 import scala.collection.mutable.ArrayBuffer
 import org.elasticsearch.common.xcontent.{XContentBuilder,XContentFactory}
 
-class DataSynchronizer(requestCtx:RequestContext) extends BaseActor {
+class DataCollector(requestCtx:RequestContext) extends BaseActor(requestCtx) {
   
   private val STEPS = ArrayBuffer.empty[String]
   private val STEPS_COMPLETE = 3
@@ -51,7 +51,7 @@ class DataSynchronizer(requestCtx:RequestContext) extends BaseActor {
         
         /**********************************************************************
          *      
-         *                       SUB PROCESS 'SYNCHRONIZE'
+         *                       SUB PROCESS 'COLLECT'
          * 
          *********************************************************************/
 
@@ -80,8 +80,6 @@ class DataSynchronizer(requestCtx:RequestContext) extends BaseActor {
            * data from a certain Shopify store and stop the synchronization pipeline
            */
           requestCtx.listener ! e.getMessage
-          
-          requestCtx.clear
           context.stop(self)
           
         }

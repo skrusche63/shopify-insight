@@ -29,7 +29,7 @@ import de.kp.shopify.insight._
 import de.kp.shopify.insight.actor._
 import de.kp.shopify.insight.model._
 
-class ProductProfiler(requestCtx:RequestContext) extends BaseActor {
+class ProductProfiler(requestCtx:RequestContext) extends BaseActor(requestCtx) {
 
   override def receive = {
    

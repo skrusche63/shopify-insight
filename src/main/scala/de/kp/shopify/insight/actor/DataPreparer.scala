@@ -34,7 +34,7 @@ import org.elasticsearch.common.xcontent.{XContentBuilder,XContentFactory}
  * The DataPreparer is a pipeline that combines multiple 
  * preparer actors in a single functional unti
  */
-class DataPreparer(requestCtx:RequestContext) extends BaseActor {
+class DataPreparer(requestCtx:RequestContext) extends BaseActor(requestCtx) {
   
   private val STEPS = ArrayBuffer.empty[String]
   private val STEPS_COMPLETE = 9
@@ -82,54 +82,44 @@ class DataPreparer(requestCtx:RequestContext) extends BaseActor {
          * from the purchase history. RFM Analysis is the starting point
          * for all other preparation steps as this analysis segments the
          * customer base under consideration to 8 different customer types.
-         * 
-         * 
          */
         val rfm_preparer = context.actorOf(Props(new RFMPreparer(requestCtx,orders)))          
         rfm_preparer ! StartPrepare(req_params)
          
         /*
-         * STEP #2: Start ASRPreparer actor to create the ParquetASR table 
+         * STEP #3: Start ASRPreparer actor to create the ParquetASR table 
          * from the purchase history. It is shared with the Association 
          * Analysis engine. 
-         * 
-         * The transformed data are saved as a Parquet file.
          */
         val asr_preparer = context.actorOf(Props(new ASRPreparer(requestCtx,orders)))          
         asr_preparer ! StartPrepare(req_params)
 
         /*
-         * STEP #3: Start STMPreparer actor to create the ParquetSTM table
+         * STEP #4: Start STMPreparer actor to create the ParquetSTM table
          * from the purchase history. It is shared with the Intent Recognition 
          * engine. 
-         * 
-         * The transformed data are saved as a Parquet file.
          */
         val stm_preparer = context.actorOf(Props(new STMPreparer(requestCtx,orders)))          
         stm_preparer ! StartPrepare(req_params)
          
         /*
-         * STEP #4: Start ITPPreparer actor to create the ParquetITP table
+         * STEP #5: Start ITPPreparer actor to create the ParquetITP table
          * from the purchase history. This table specifies the user-specific 
          * item engagement and is the starting point of persona analysis
-         * 
-         * The transformed data are saved as a Parquet file.
          */
         val itp_preparer = context.actorOf(Props(new ITPPreparer(requestCtx,orders)))          
         itp_preparer ! StartPrepare(req_params)
          
         /*
-         * STEP #5: Start FRPPreparer actor to create the ParquetFRP table 
+         * STEP #6: Start FRPPreparer actor to create the ParquetFRP table 
          * from the purchase history. This table is used to specify the
          * temporal profile of a certain user.
-         * 
-         * The transformed data are saved as a Parquet file.
          */
         val frp_preparer = context.actorOf(Props(new FRPPreparer(requestCtx,orders)))          
         frp_preparer ! StartPrepare(req_params)
 
         /*
-         * STEP #6: Start DOWPreparer actor to create the ParquetDOW table 
+         * STEP #7: Start DOWPreparer actor to create the ParquetDOW table 
          * from the purchase history. This table is used to specify the
          * temporal profile of a certain user.
          * 
@@ -139,7 +129,7 @@ class DataPreparer(requestCtx:RequestContext) extends BaseActor {
         dow_preparer ! StartPrepare(req_params)
 
         /*
-         * STEP #7: Start HODPreparer actor to create the ParquetHOD table 
+         * STEP #8: Start HODPreparer actor to create the ParquetHOD table 
          * from the purchase history. This table is used to specify the
          * temporal profile of a certain user.
          * 
@@ -152,8 +142,6 @@ class DataPreparer(requestCtx:RequestContext) extends BaseActor {
          * STEP #9: Start LOCPreparer actor to create the ParquetRFM table 
          * from the purchase history. This table is used to specify the
          * geospatial profile of a certain user.
-         * 
-         * The transformed data are saved as a Parquet file.
          */
         val loc_preparer = context.actorOf(Props(new LOCPreparer(requestCtx,orders)))          
         loc_preparer ! StartPrepare(req_params)
@@ -162,8 +150,6 @@ class DataPreparer(requestCtx:RequestContext) extends BaseActor {
          * STEP #10: Start CHNPreparer actor to create the ParquetCHN table 
          * from the purchase history. This table is used to specify the
          * churn profile of a certain user.
-         * 
-         * The transformed data are saved as a Parquet file.
          */
         val chn_preparer = context.actorOf(Props(new CHNPreparer(requestCtx,orders)))          
         chn_preparer ! StartPrepare(req_params)
@@ -187,7 +173,15 @@ class DataPreparer(requestCtx:RequestContext) extends BaseActor {
       
     }
   
-    case message:PrepareFailed => {}
+    case message:PrepareFailed => {
+      /*
+       * The Prepare actors already sent an error message to the message listener; 
+       * what is left here is to forward the failed message to the data pipeline (parent)
+       */
+      context.parent ! PrepareFailed(message.data)
+      context.stop(self)
+      
+    }
     
     case message:PrepareFinished => {
       /*
@@ -195,7 +189,7 @@ class DataPreparer(requestCtx:RequestContext) extends BaseActor {
        * data preparation of a certain dimension has been successfully finished.
        */  
       val model = message.data(Names.REQ_MODEL)
-      if (List("ASR","STM","ITP","FRP","DOW","HOD","RFM","LOC","CHN").contains(model)) STEPS += model
+      if (List("ASR","CHN","DOW","FRP","HOD","ITP","LOC","RFM","STM").contains(model)) STEPS += model
       
       if (STEPS.size == STEPS_COMPLETE) {
 
@@ -205,11 +199,9 @@ class DataPreparer(requestCtx:RequestContext) extends BaseActor {
         context.stop(self)
         
       } else {
-        
-        /* 
-         * Do nothing as the sub process is still going on
+        /*
+         * do nothing 
          */
-        
       }
       
     }

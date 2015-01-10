@@ -35,10 +35,10 @@ import de.kp.shopify.insight.elastic._
 import org.elasticsearch.common.xcontent.{XContentBuilder,XContentFactory}
 
 /**
- * The PRMLoader stores the product relation model in the server layer,
+ * The UMPLoader stores the customers' movement profile in the server layer,
  * i.e. in an Elasticsearch index.
  */
-class PRMLoader(requestCtx:RequestContext) extends BaseActor(requestCtx) {
+class UMPLoader(requestCtx:RequestContext) extends BaseActor(requestCtx) {
 
   override def receive = {
    
@@ -49,21 +49,21 @@ class PRMLoader(requestCtx:RequestContext) extends BaseActor(requestCtx) {
       
       try {
         
-        requestCtx.listener ! String.format("""[INFO][UID: %s] Product relation model load request received.""",uid)
+        requestCtx.listener ! String.format("""[INFO][UID: %s] Customer movement profile load request received.""",uid)
         
-        val store = String.format("""%s/PRM/%s""",requestCtx.getBase,uid)         
+        val store = String.format("""%s/LOC/%s""",requestCtx.getBase,uid)         
         val parquetFile = extract(store)
 
         requestCtx.listener ! String.format("""[INFO][UID: %s] Parquet file successfully retrieved.""",uid)
         
         val sources = transform(req_params,parquetFile)
 
-        if (requestCtx.putSources("products","rules",sources) == false)
+        if (requestCtx.putSources("users","locations",sources) == false)
           throw new Exception("Loading process has been stopped due to an internal error.")
 
-        requestCtx.listener ! String.format("""[INFO][UID: %s] Product relation model loading finished.""",uid)
+        requestCtx.listener ! String.format("""[INFO][UID: %s] Customer movement profile loading finished.""",uid)
 
-        val data = Map(Names.REQ_UID -> uid,Names.REQ_MODEL -> "PRM")            
+        val data = Map(Names.REQ_UID -> uid,Names.REQ_MODEL -> "UMP")            
         context.parent ! LoadFinished(data)           
             
         context.stop(self)
@@ -71,7 +71,7 @@ class PRMLoader(requestCtx:RequestContext) extends BaseActor(requestCtx) {
       } catch {
         case e:Exception => {
                     
-          requestCtx.listener ! String.format("""[ERROR][UID: %s] Product relation model loading failed due to an internal error.""",uid)
+          requestCtx.listener ! String.format("""[ERROR][UID: %s] Customer movement profile loading failed due to an internal error.""",uid)
           
           val params = Map(Names.REQ_MESSAGE -> e.getMessage) ++ message.data
 
@@ -85,7 +85,7 @@ class PRMLoader(requestCtx:RequestContext) extends BaseActor(requestCtx) {
     
   }
 
-  private def extract(store:String):RDD[ParquetPRM] = {
+  private def extract(store:String):RDD[ParquetLOC] = {
     
     /* 
      * Read in the parquet file created above.  Parquet files are self-describing 
@@ -109,27 +109,67 @@ class PRMLoader(requestCtx:RequestContext) extends BaseActor(requestCtx) {
           
       }).toMap
 
-      val antecedent = data("antecedent").asInstanceOf[Seq[Int]]
-      val consequent = data("consequent").asInstanceOf[Seq[Int]]
+      val site = data("site").asInstanceOf[String]
+      val user = data("user").asInstanceOf[String]
       
-      val support = data("support").asInstanceOf[Int]
-      val total = data("total").asInstanceOf[Long]
+      val ip_address = data("ip_address").asInstanceOf[String]
+      val timestamp = data("timestamp").asInstanceOf[Long]
 
-      val confidence = data("confidence").asInstanceOf[Double]
-      
-      ParquetPRM(antecedent,consequent,support,total,confidence)
+      val countryname = data("countryname").asInstanceOf[String]
+      val countrycode = data("countrycode").asInstanceOf[String]
+
+      val region = data("region").asInstanceOf[String]
+      val regionname = data("regionname").asInstanceOf[String]
+
+      val areacode = data("areacode").asInstanceOf[Int]
+      val dmacode = data("dmacode").asInstanceOf[Int]
+
+      val metrocode = data("metrocode").asInstanceOf[Int]
+      val city = data("city").asInstanceOf[String]
+ 
+      val postalcode = data("postalcode").asInstanceOf[String]
+
+      val lat = data("lat").asInstanceOf[Double]
+      val lon = data("lon").asInstanceOf[Double]
+
+      ParquetLOC(
+          site,
+          user,
+  
+          ip_address,
+          timestamp,
+    
+          countryname,
+          countrycode,
+
+          region,
+          regionname,
+  
+          areacode,
+          dmacode,
+  
+          metrocode,
+          city,
+  
+          postalcode,
+	  
+          lat,
+          lon
+      )
       
     })
 
   }
   
-  private def transform(params:Map[String,String],rules:RDD[ParquetPRM]):List[XContentBuilder] = {
+  private def transform(params:Map[String,String],dataset:RDD[ParquetLOC]):List[XContentBuilder] = {
             
     val uid = params(Names.REQ_UID)
-    rules.map(rule => {
+    dataset.map(x => {
       
       val builder = XContentFactory.jsonBuilder()
       builder.startObject()
+      
+      /********** METADATA **********/
       
       /* uid */
       builder.field(Names.UID_FIELD,params(Names.REQ_UID))
@@ -142,31 +182,64 @@ class PRMLoader(requestCtx:RequestContext) extends BaseActor(requestCtx) {
 
 	  /* created_at_max */
 	  builder.field("created_at_max",params("created_at_max"))
-	  
-	  /* antecedent */
-	  builder.startArray("antecedent")
-	  rule.antecedent.foreach(v => builder.value(v))
-	  builder.endArray()
-	  
-	  /* consequent */
-	  builder.startArray("consequent")
-	  rule.antecedent.foreach(v => builder.value(v))
-	  builder.endArray()
 
-	  /* support */
-	  builder.field("support",rule.support)
+	  /* site */
+	  builder.field("site",x.site)
+      
+      /********** USER DATA **********/
+
+	  /* user */
+	  builder.field("user",x.user)
+
+	  /* ip_address */
+	  builder.field("ip_address",x.ip_address)
+
+	  /* time */
+	  builder.field("time",x.timestamp)
+
+	  /* countryname */
+	  builder.field("countryname",x.countryname)
+
+	  /* countrycode */
+	  builder.field("countrycode",x.countrycode)
+
+	  /* region */
+	  builder.field("region",x.region)
+
+	  /* regionname */
+	  builder.field("regionname",x.regionname)
+
+	  /* areacode */
+	  builder.field("areacode",x.areacode)
+
+	  /* dmacode */
+	  builder.field("dmacode",x.dmacode)
+
+	  /* metrocode */
+	  builder.field("metrocode",x.metrocode)
+
+	  /* city */
+	  builder.field("city",x.city)
+
+	  /* postalcode */
+	  builder.field("postalcode",x.postalcode)
+
+	  /* location */
+	  builder.startObject("location")
 	  
-	  /* total */
-	  builder.field("total",rule.total)
+	  /* lat */
+	  builder.field("lat",x.lat)
+
+	  /* lon */
+	  builder.field("lon",x.lon)
 	  
-	  /* confidence */
-	  builder.field("confidence",rule.confidence)
+	  builder.endObject()
 	  
 	  builder.endObject()
       builder
       
     }).collect.toList
-    
+
   }
   
 }

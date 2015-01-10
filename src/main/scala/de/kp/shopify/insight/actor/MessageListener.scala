@@ -18,7 +18,12 @@ package de.kp.shopify.insight.actor
 * If not, see <http://www.gnu.org/licenses/>.
 */
 
-class MessageListener extends BaseActor {
+import de.kp.spark.core.actor.RootActor
+import de.kp.shopify.insight.{Configuration,RequestContext}
+
+class MessageListener extends RootActor(Configuration) {
+
+  implicit val ec = context.dispatcher
 
   override def receive = {
     

@@ -32,7 +32,7 @@ import de.kp.shopify.insight.model._
 import scala.collection.JavaConversions._
 import scala.collection.mutable.Buffer
 
-class ProductQuestor(requestCtx:RequestContext) extends BaseActor {
+class ProductQuestor(requestCtx:RequestContext) extends BaseActor(requestCtx) {
   
   private val COVERAGE_THRESHOLD = 0.25
   

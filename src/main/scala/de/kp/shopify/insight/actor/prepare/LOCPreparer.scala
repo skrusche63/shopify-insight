@@ -19,8 +19,6 @@ package de.kp.shopify.insight.actor.prepare
 */
 
 import org.apache.spark.SparkContext._
-import org.apache.spark.sql.SQLContext
-
 import org.apache.spark.rdd.RDD
 
 import de.kp.spark.core.Names
@@ -31,8 +29,9 @@ import de.kp.shopify.insight.model._
 import de.kp.shopify.insight.actor.BaseActor
 import de.kp.shopify.insight.geoip.LocationFinder
 
-class LOCPreparer(requestCtx:RequestContext,orders:RDD[InsightOrder]) extends BaseActor {
+class LOCPreparer(requestCtx:RequestContext,orders:RDD[InsightOrder]) extends BaseActor(requestCtx) {
   
+  import sqlc.createSchemaRDD
   override def receive = {
     
     case msg:StartPrepare => {
@@ -41,8 +40,6 @@ class LOCPreparer(requestCtx:RequestContext,orders:RDD[InsightOrder]) extends Ba
       val uid = req_params(Names.REQ_UID)
       
       try {
-
-        val sc = requestCtx.sparkContext
         
         val table = orders.groupBy(x => (x.site,x.user)).flatMap(x => {
           
@@ -81,10 +78,6 @@ class LOCPreparer(requestCtx:RequestContext,orders:RDD[InsightOrder]) extends Ba
           })
           
         })
-
-        val sqlCtx = new SQLContext(sc)
-        import sqlCtx.createSchemaRDD
-
         /* 
          * The RDD is implicitly converted to a SchemaRDD by createSchemaRDD, 
          * allowing it to be stored using Parquet. 

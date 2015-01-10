@@ -26,7 +26,7 @@ import de.kp.shopify.insight.actor.BaseActor
 import de.kp.shopify.insight.elastic._
 import de.kp.shopify.insight.model._
 
-class TaskQuestor(requestCtx:RequestContext) extends BaseActor {
+class TaskQuestor(requestCtx:RequestContext) extends BaseActor(requestCtx) {
 
   def receive = {
     

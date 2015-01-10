@@ -43,7 +43,7 @@ import de.kp.shopify.insight.actor.BaseActor
  * twice.
  * 
  */
-class STMPreparer(requestCtx:RequestContext,orders:RDD[InsightOrder]) extends BaseActor {
+class STMPreparer(requestCtx:RequestContext,orders:RDD[InsightOrder]) extends BaseActor(requestCtx) {
         
   private val DAY = 24 * 60 * 60 * 1000 // day in milliseconds
   /*
@@ -53,6 +53,7 @@ class STMPreparer(requestCtx:RequestContext,orders:RDD[InsightOrder]) extends Ba
   private val K = 6
   private val QUANTILES = List(0.20,0.40,0.60,0.80,1.00)
   
+  import sqlc.createSchemaRDD
   override def receive = {
     
     case msg:StartPrepare => {
@@ -61,8 +62,6 @@ class STMPreparer(requestCtx:RequestContext,orders:RDD[InsightOrder]) extends Ba
       val uid = req_params(Names.REQ_UID)
       
       try {
-
-        val sc = requestCtx.sparkContext
 
         /*
          * STEP #1: We calculate the amount ratios and timespans from
@@ -190,10 +189,6 @@ class STMPreparer(requestCtx:RequestContext,orders:RDD[InsightOrder]) extends Ba
 
           })
         })
-        
-        val sqlCtx = new SQLContext(sc)
-        import sqlCtx.createSchemaRDD
-
         /* 
          * The RDD is implicitly converted to a SchemaRDD by createSchemaRDD, 
          * allowing it to be stored using Parquet. 

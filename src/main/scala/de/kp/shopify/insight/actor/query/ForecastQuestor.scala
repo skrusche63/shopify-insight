@@ -29,7 +29,7 @@ import de.kp.shopify.insight.model._
 import org.elasticsearch.index.query._
 import scala.collection.mutable.Buffer
 
-class ForecastQuestor(requestCtx:RequestContext) extends BaseActor {
+class ForecastQuestor(requestCtx:RequestContext) extends BaseActor(requestCtx) {
 
   def receive = {
     

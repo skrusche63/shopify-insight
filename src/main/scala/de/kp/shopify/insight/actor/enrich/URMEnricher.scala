@@ -21,7 +21,6 @@ package de.kp.shopify.insight.actor.enrich
 import org.apache.spark.SparkContext
 import org.apache.spark.SparkContext._
 
-import org.apache.spark.sql.SQLContext
 import org.apache.spark.rdd.RDD
 
 import de.kp.spark.core.Names
@@ -42,9 +41,10 @@ import org.elasticsearch.common.xcontent.{XContentBuilder,XContentFactory}
  * transforms the model into a user recommendation model and and 
  * registers the result as a Parquet file.
  */
-class URMEnricher(requestCtx:RequestContext) extends BaseActor {
+class URMEnricher(requestCtx:RequestContext) extends BaseActor(requestCtx) {
   
   private val COVERAGE_THRESHOLD = 0.25
+  import sqlc.createSchemaRDD
 
   override def receive = {
    
@@ -86,12 +86,7 @@ class URMEnricher(requestCtx:RequestContext) extends BaseActor {
                * STEP #3: Build product recommendations by merging the association
                * rules and the last transaction itemsets
                */            
-              val sc = requestCtx.sparkContext
               val table = buildTable(res,parquetItems)
-        
-              val sqlCtx = new SQLContext(sc)
-              import sqlCtx.createSchemaRDD
-
               /* 
                * The RDD is implicitly converted to a SchemaRDD by createSchemaRDD, 
                * allowing it to be stored using Parquet. 
@@ -161,9 +156,7 @@ class URMEnricher(requestCtx:RequestContext) extends BaseActor {
   }
   
   private def buildTable(response:ServiceResponse,itemsets:RDD[(String,String,List[Int])]):RDD[ParquetURM] = {
-            
-    val sc = requestCtx.sparkContext
-    
+   
     val threshold = sc.broadcast(COVERAGE_THRESHOLD)
     val rules = sc.broadcast(Serializer.deserializeRules(response.data(Names.REQ_RESPONSE)))
   
@@ -202,16 +195,12 @@ class URMEnricher(requestCtx:RequestContext) extends BaseActor {
    * of the Shopify orders.
    */
   private def readParquetItems(store:String):RDD[(String,String,List[Int])] = {
-
-    val sqlCtx = new SQLContext(requestCtx.sparkContext)
-    import sqlCtx.createSchemaRDD
-    
     /* 
      * Read in the parquet file created above.  Parquet files are self-describing 
      * so the schema is preserved. The result of loading a Parquet file is also a 
      * SchemaRDD. 
      */
-    val parquetFile = sqlCtx.parquetFile(store)
+    val parquetFile = sqlc.parquetFile(store)
     val metadata = parquetFile.schema.fields.zipWithIndex
     
     val rawset = parquetFile.map(row => {

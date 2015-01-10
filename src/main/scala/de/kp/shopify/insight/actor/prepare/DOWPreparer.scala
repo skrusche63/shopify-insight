@@ -19,9 +19,8 @@ package de.kp.shopify.insight.actor.prepare
 */
 
 import org.apache.spark.SparkContext._
-import org.apache.spark.sql.SQLContext
-
 import org.apache.spark.rdd.RDD
+
 import org.joda.time.DateTime
 
 import de.kp.spark.core.Names
@@ -31,8 +30,9 @@ import de.kp.shopify.insight.model._
 
 import de.kp.shopify.insight.actor.BaseActor
 
-class DOWPreparer(requestCtx:RequestContext,orders:RDD[InsightOrder]) extends BaseActor {
+class DOWPreparer(requestCtx:RequestContext,orders:RDD[InsightOrder]) extends BaseActor(requestCtx) {
   
+  import sqlc.createSchemaRDD
   override def receive = {
     
     case msg:StartPrepare => {
@@ -41,8 +41,6 @@ class DOWPreparer(requestCtx:RequestContext,orders:RDD[InsightOrder]) extends Ba
       val uid = req_params(Names.REQ_UID)
       
       try {
-
-        val sc = requestCtx.sparkContext
 
         val s0 = orders.map(x => (x.site,x.user,x.timestamp)).groupBy(x => (x._1,x._2)).filter(_._2.size > 1)
         val table = s0.flatMap(x => {
@@ -67,10 +65,6 @@ class DOWPreparer(requestCtx:RequestContext,orders:RDD[InsightOrder]) extends Ba
               total))
           
         })
-        
-        val sqlCtx = new SQLContext(sc)
-        import sqlCtx.createSchemaRDD
-
         /* 
          * The RDD is implicitly converted to a SchemaRDD by createSchemaRDD, 
          * allowing it to be stored using Parquet. 

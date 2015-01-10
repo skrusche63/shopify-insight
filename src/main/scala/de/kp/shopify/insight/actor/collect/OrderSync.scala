@@ -1,4 +1,4 @@
-package de.kp.shopify.insight.actor.synchronize
+package de.kp.shopify.insight.actor.collect
 /* Copyright (c) 2014 Dr. Krusche & Partner PartG
  * 
  * This file is part of the Shopify-Insight project
@@ -31,7 +31,7 @@ import de.kp.shopify.insight._
 import de.kp.shopify.insight.actor._
 import de.kp.shopify.insight.model._
 
-class OrderSync(requestCtx:RequestContext) extends BaseActor {
+class OrderSync(requestCtx:RequestContext) extends BaseActor(requestCtx) {
         
   private val DAY = 24 * 60 * 60 * 1000 // day in milliseconds
 

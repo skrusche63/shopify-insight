@@ -29,10 +29,10 @@ import de.kp.shopify.insight.model._
 import scala.collection.mutable.ArrayBuffer
 import org.elasticsearch.common.xcontent.{XContentBuilder,XContentFactory}
 
-class DataLoader(requestCtx:RequestContext) extends BaseActor {
+class DataLoader(requestCtx:RequestContext) extends BaseActor(requestCtx) {
   
   private val STEPS = ArrayBuffer.empty[String]
-  private val STEPS_COMPLETE = 4
+  private val STEPS_COMPLETE = 5
 
   override def receive = {
 
@@ -85,6 +85,13 @@ class DataLoader(requestCtx:RequestContext) extends BaseActor {
       val urm_loader = context.actorOf(Props(new URMLoader(requestCtx)))  
       urm_loader ! StartBuild(message.data)
       
+      /*
+       * The UMPLoader is responsible for loading the user movement
+       * profile into the users/locations index
+       */
+      val ump_loader = context.actorOf(Props(new UMPLoader(requestCtx)))  
+      ump_loader ! StartBuild(message.data)
+      
     }    
     case message:LoadFailed => {
       /*
@@ -102,7 +109,7 @@ class DataLoader(requestCtx:RequestContext) extends BaseActor {
        * the loading of a certain model has been successfully finished.
        */  
       val model = message.data(Names.REQ_MODEL)
-      if (List("PRM","UFM","ULM","URM").contains(model)) STEPS += model
+      if (List("PRM","UFM","ULM","UMP","URM").contains(model)) STEPS += model
       
       if (STEPS.size == STEPS_COMPLETE) {
 
@@ -179,6 +186,9 @@ class DataLoader(requestCtx:RequestContext) extends BaseActor {
      * derived from the Markovian rules built by the Intent Recognition
      * engine
      * 
+     * The 'location' index (mapping) specifies a user movement database
+     * derived from IP addresses and timestamps provided by user orders
+     * 
      * The 'loyalty' index (mapping) specifies a user loyalty database
      * derived from the Markovian hidden states built by the Intent Recognition
      * engine
@@ -186,7 +196,7 @@ class DataLoader(requestCtx:RequestContext) extends BaseActor {
      * The 'recommendation' index (mapping) specifies a product recommendation
      * database derived from the Association rules and the last items purchased
      * 
-     * The 'rule' index (mapping) specifies the association rules database
+     * The 'rule' index (mapping) specifies a product association rule database
      * computed by the Association Analysis engine
      */
     
@@ -196,7 +206,10 @@ class DataLoader(requestCtx:RequestContext) extends BaseActor {
     if (requestCtx.createIndex(params,"users","forecasts","forecast") == false)
       throw new Exception("Index creation for 'users/forecasts' has been stopped due to an internal error.")
 
-    if (requestCtx.createIndex(params,"users","loyalties","loyalties") == false)
+    if (requestCtx.createIndex(params,"users","locations","location") == false)
+      throw new Exception("Index creation for 'users/locations' has been stopped due to an internal error.")
+
+    if (requestCtx.createIndex(params,"users","loyalties","loyalty") == false)
       throw new Exception("Index creation for 'users/loyalties' has been stopped due to an internal error.")
             
     if (requestCtx.createIndex(params,"users","recommendations","recommendation") == false)

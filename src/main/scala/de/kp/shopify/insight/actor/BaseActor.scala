@@ -18,11 +18,16 @@ package de.kp.shopify.insight.actor
 * If not, see <http://www.gnu.org/licenses/>.
 */
 
-import de.kp.spark.core.actor.RootActor
-import de.kp.shopify.insight.Configuration
+import org.apache.spark.sql.SQLContext
 
-abstract class BaseActor extends RootActor(Configuration) {
+import de.kp.spark.core.actor.RootActor
+import de.kp.shopify.insight.{Configuration,RequestContext}
+
+abstract class BaseActor(requestCtx:RequestContext) extends RootActor(Configuration) {
 
   implicit val ec = context.dispatcher
+  
+  protected val sc = requestCtx.sparkContext
+  protected val sqlc = requestCtx.sqlCtx
 
 }

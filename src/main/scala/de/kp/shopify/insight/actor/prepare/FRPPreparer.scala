@@ -19,8 +19,6 @@ package de.kp.shopify.insight.actor.prepare
 */
 
 import org.apache.spark.SparkContext._
-import org.apache.spark.sql.SQLContext
-
 import org.apache.spark.rdd.RDD
 
 import de.kp.spark.core.Names
@@ -35,10 +33,11 @@ import de.kp.shopify.insight.actor.BaseActor
  * of days from all orders registered so far, and for every customer
  * that has purchased at least twice
  */
-class FRPPreparer(requestCtx:RequestContext,orders:RDD[InsightOrder]) extends BaseActor {
+class FRPPreparer(requestCtx:RequestContext,orders:RDD[InsightOrder]) extends BaseActor(requestCtx) {
         
   private val DAY = 24 * 60 * 60 * 1000 // day in milliseconds
   
+  import sqlc.createSchemaRDD
   override def receive = {
     
     case msg:StartPrepare => {
@@ -48,7 +47,6 @@ class FRPPreparer(requestCtx:RequestContext,orders:RDD[InsightOrder]) extends Ba
       
       try {
 
-        val sc = requestCtx.sparkContext
         /*
          * Calculate the timespan in days and the associated preference
          * for each user that has been made at least two purchases 
@@ -102,10 +100,6 @@ class FRPPreparer(requestCtx:RequestContext,orders:RDD[InsightOrder]) extends Ba
               total))
           
         })
-        
-        val sqlCtx = new SQLContext(sc)
-        import sqlCtx.createSchemaRDD
-
         /* 
          * The RDD is implicitly converted to a SchemaRDD by createSchemaRDD, 
          * allowing it to be stored using Parquet. 

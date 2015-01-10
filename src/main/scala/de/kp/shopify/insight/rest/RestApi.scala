@@ -91,14 +91,14 @@ class RestApi(host:String,port:Int,system:ActorSystem,@transient sc:SparkContext
 	  }
     }  ~ 
     /*
-     * A 'synchronize' request supports the creation or update of the customer, product 
+     * A 'collect' request supports the creation or update of the customer, product 
      * and order database as respective Elasticsearch indexes, and represents a copy
      * of the customer, product and order data of a certain Shopify store
      */
-    path("synchronize") {
+    path("collect") {
 	  post {
 	    respondWithStatus(OK) {
-	      ctx => doSynchronize(ctx)
+	      ctx => doCollect(ctx)
 	    }
 	  }
     }  ~ 
@@ -209,7 +209,7 @@ class RestApi(host:String,port:Int,system:ActorSystem,@transient sc:SparkContext
     }  ~ 
     /*
      * 'task' requests focus on the registered tasks, i.e. either
-     * 'prepare' or 'synchronize' tasks; this request is necessary
+     * 'prepare' or 'collect' tasks; this request is necessary
      * to retrieve the 'uid' of a certain task
      * 
      * The following parameters are required:
@@ -264,13 +264,13 @@ class RestApi(host:String,port:Int,system:ActorSystem,@transient sc:SparkContext
 
   }
   
-  private def doSynchronize[T](ctx:RequestContext) = {
+  private def doCollect[T](ctx:RequestContext) = {
     /*
-     * A 'synchronize' request starts the 'synchronization' sub process individually
-     * and synchronizes the customer, product and order database of a Shopify store 
+     * A 'collect' request starts the 'synchronization' sub process individually
+     * and collects the customer, product and order database of a Shopify store 
      * with an external Elasticsearch cluster
      */
-    val actor = system.actorOf(Props(new DataSynchronizer(requestCtx)))
+    val actor = system.actorOf(Props(new DataCollector(requestCtx)))
 
     val params = getRequest(ctx)
     val req_params = params ++ setTimespan(params)
@@ -284,7 +284,7 @@ class RestApi(host:String,port:Int,system:ActorSystem,@transient sc:SparkContext
     val data = req_params.filter(kv => excludes.contains(kv._1) == false) ++ Map(Names.REQ_UID -> uid)
 
     /* 
-     * Delegate database synchronization to the DataSynchronizer actor.
+     * Delegate database synchronization to the DataCollector actor.
      */
     actor ! StartSynchronize(data)
 

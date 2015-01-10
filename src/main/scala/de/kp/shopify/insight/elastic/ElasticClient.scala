@@ -155,6 +155,15 @@ class ElasticClient {
          */
         val builder = new ESForecastBuilder().createBuilder(mapping)
         create(index,mapping,builder)
+
+      } else if (topic == "location") {
+        /*
+         * Topic 'location' is indexed by the LOCLoader and does not require 
+         * a metadata specification as these data are not shared with predictive
+         * engines
+         */
+        val builder = new ESLocationBuilder().createBuilder(mapping)
+        create(index,mapping,builder)
         
       } else if (topic == "loyalty") {
         /*

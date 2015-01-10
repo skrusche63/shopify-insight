@@ -1,4 +1,4 @@
-package de.kp.shopify.insight.actor.synchronize
+package de.kp.shopify.insight.actor.collect
 /* Copyright (c) 2014 Dr. Krusche & Partner PartG
  * 
  * This file is part of the Shopify-Insight project
@@ -28,13 +28,10 @@ import de.kp.shopify.insight._
 import de.kp.shopify.insight.actor._
 import de.kp.shopify.insight.model._
 
-class ProductSync(requestCtx:RequestContext) extends BaseActor {
+class CustomerSync(requestCtx:RequestContext) extends BaseActor(requestCtx) {
 
   override def receive = {
-    /*
-     * Retrieve all Shopify products of a certain store via the 
-     * REST interface and register them in an Elasticsearch index
-     */
+
     case message:StartSynchronize => {
       
       val req_params = message.data
@@ -44,34 +41,34 @@ class ProductSync(requestCtx:RequestContext) extends BaseActor {
 
         val writer = new ElasticWriter()
 
-        if (writer.open("database","products") == false)
-          throw new Exception("Product database cannot be opened.")
+        if (writer.open("database","customers") == false)
+          throw new Exception("Customer database cannot be opened.")
       
-        requestCtx.listener ! String.format("""[INFO][UID: %s] Product base synchronization started.""",uid)
+        requestCtx.listener ! String.format("""[INFO][UID: %s] Customer base synchronization started.""",uid)
             
         val start = new java.util.Date().getTime            
-        val products = requestCtx.getProducts(req_params)
+        val customers = requestCtx.getCustomers(req_params)
        
-        requestCtx.listener ! String.format("""[INFO][UID: %s] Product base loaded.""",uid)
+        requestCtx.listener ! String.format("""[INFO][UID: %s] Customer base loaded.""",uid)
 
-        val ids = products.map(_.id)
-        val sources = products.map(toSource(_))
+        val ids = customers.map(_.id)
+        val sources = customers.map(x=> toSource(req_params,x))
         
-        writer.writeBulkJSON("database", "products", ids, sources)
+        writer.writeBulkJSON("database", "customers", ids, sources)
         writer.close()
         
         val end = new java.util.Date().getTime
-        requestCtx.listener ! String.format("""[INFO][UID: %s] Product base synchronization finished in %s ms.""",uid,(end-start).toString)
-        
-        val params = Map(Names.REQ_MODEL -> "PRODUCT") ++ req_params
+        requestCtx.listener ! String.format("""[INFO][UID: %s] Customer base synchronization finished in %s ms.""",uid,(end-start).toString)
+         
+        val params = Map(Names.REQ_MODEL -> "CUSTOMER") ++ req_params
 
-        context.parent ! SynchronizeFinished(req_params)
+        context.parent ! SynchronizeFinished(params)
         context.stop(self)
         
       } catch {
         case e:Exception => {
 
-          requestCtx.listener ! String.format("""[ERROR][UID: %s] Product base synchronization failed due to an internal error.""",uid)
+          requestCtx.listener ! String.format("""[ERROR][UID: %s] Customer base synchronization failed due to an internal error.""",uid)
           
           val params = Map(Names.REQ_MESSAGE -> e.getMessage) ++ req_params
 
@@ -86,55 +83,41 @@ class ProductSync(requestCtx:RequestContext) extends BaseActor {
       
   }
 
-  private def toSource(product:Product):XContentBuilder = {
-           
+  private def toSource(params:Map[String,String],customer:Customer):XContentBuilder = {
+    
+    val timestamp = params("timestamp").toLong
+    
     val builder = XContentFactory.jsonBuilder()
 	builder.startObject()
 	
 	/* site */
-	builder.field(Names.SITE_FIELD,product.site)
+	builder.field("site",customer.site)
 	
 	/* id */
-	builder.field("id",product.id)
+	builder.field("id",customer.id)
 	
-	/* name */
-	builder.field("name",product.name)
+	/* first_name */
+	builder.field("first_name",customer.firstName)
 	
-	/* category */
-	builder.field("category",product.category)
+	/* last_name */
+	builder.field("last_name",customer.lastName)
 	
-	/* tags */
-	builder.field("tags",product.tags)
+	/* signup_date */
+	builder.field("signup_date",customer.created_at)
 	
-	/* images */
-	builder.startArray("images")
-	
-	for (image <- product.images) {
-	  
-	  builder.startObject()
-	  
-	  /* id */
-	  builder.field("id",image.id)
-	  
-	  /* position */
-	  builder.field("position",image.position)
-	  
-	  /* source */
-	  builder.field("source",image.src)
+	/* last_sync */
+	builder.field("last_sync",timestamp)
 
-	  builder.endObject()
-	
-	}
-	
-    builder.endArray()
-	
-	/* vendor */
-	builder.field("vendor",product.vendor)
-	
+    builder.field("email",customer.emailAddress)
+    builder.field("email_verified",customer.emailVerified)
+
+    builder.field("accepts_marketing",customer.marketing)
+
+    builder.field("operational_state",customer.state)
+
 	builder.endObject()
-   
     builder
     
   }
-
+ 
 }

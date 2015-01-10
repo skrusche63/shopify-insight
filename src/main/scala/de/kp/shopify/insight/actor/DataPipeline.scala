@@ -28,7 +28,7 @@ import de.kp.shopify.insight.actor.profile._
 import de.kp.shopify.insight.model._
 import org.elasticsearch.common.xcontent.{XContentBuilder,XContentFactory}
 
-class DataPipeline(requestCtx:RequestContext) extends BaseActor {
+class DataPipeline(requestCtx:RequestContext) extends BaseActor(requestCtx) {
 
   override def receive = {
     
@@ -36,17 +36,17 @@ class DataPipeline(requestCtx:RequestContext) extends BaseActor {
       
       /**********************************************************************
        *      
-       *                       SUB PROCESS 'SYNCHRONIZE'
+       *                       SUB PROCESS 'COLLECT'
        * 
        *********************************************************************/
        
       val req_params = message.data
       /*
-       * Send request to DataPreparer actor and inform requestor
+       * Send request to DataCollector actor and inform requestor
        * that the tracking process has been started. Error and
        * interim messages of this process are sent to the listener
        */
-      val actor = context.actorOf(Props(new DataSynchronizer(requestCtx)))          
+      val actor = context.actorOf(Props(new DataCollector(requestCtx)))          
       actor ! StartSynchronize(req_params)
       
     }       
@@ -56,7 +56,6 @@ class DataPipeline(requestCtx:RequestContext) extends BaseActor {
        * listener; no additional notification has to be done, so just stop the 
        * pipeline
        */
-      requestCtx.clear
       context.stop(self)
        
     }
@@ -91,7 +90,6 @@ class DataPipeline(requestCtx:RequestContext) extends BaseActor {
        * The DataPreparer actor already sent an error message to the message listener;
        * no additional notification has to be done, so just stop the pipeline
        */
-      requestCtx.clear
       context.stop(self)
       
     }    
@@ -111,7 +109,10 @@ class DataPipeline(requestCtx:RequestContext) extends BaseActor {
        * 
        *********************************************************************/
       
-      val actor = context.actorOf(Props(new DataBuilder(requestCtx)))  
+      // TODO
+      val customerType = 1
+      
+      val actor = context.actorOf(Props(new DataBuilder(requestCtx,customerType)))  
       actor ! StartBuild(message.data)
       
     }    
@@ -121,7 +122,6 @@ class DataPipeline(requestCtx:RequestContext) extends BaseActor {
        * the message listener; no additional notification has to be done, so just 
        * stop the pipeline
        */
-      requestCtx.clear
       context.stop(self)
       
     }    
@@ -151,7 +151,6 @@ class DataPipeline(requestCtx:RequestContext) extends BaseActor {
        * message listener; no additional notification has to be done, so just stop the 
        * pipeline
        */
-      requestCtx.clear
       context.stop(self)
 
     }

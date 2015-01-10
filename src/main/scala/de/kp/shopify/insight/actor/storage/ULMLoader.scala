@@ -21,7 +21,6 @@ package de.kp.shopify.insight.actor.storage
 import org.apache.spark.SparkContext
 import org.apache.spark.SparkContext._
 
-import org.apache.spark.sql.SQLContext
 import org.apache.spark.rdd.RDD
 
 import de.kp.spark.core.Names
@@ -39,7 +38,7 @@ import org.elasticsearch.common.xcontent.{XContentBuilder,XContentFactory}
  * The ULMLoader stores the user loyalty model in the server layer,
  * i.e. in an Elasticsearch index.
  */
-class ULMLoader(requestCtx:RequestContext) extends BaseActor {
+class ULMLoader(requestCtx:RequestContext) extends BaseActor(requestCtx) {
 
   override def receive = {
    
@@ -141,16 +140,13 @@ class ULMLoader(requestCtx:RequestContext) extends BaseActor {
   }
  
   private def extract(store:String):RDD[ParquetULM] = {
-
-    val sqlCtx = new SQLContext(requestCtx.sparkContext)
-    import sqlCtx.createSchemaRDD
     
     /* 
      * Read in the parquet file created above.  Parquet files are self-describing 
      * so the schema is preserved. The result of loading a Parquet file is also a 
      * SchemaRDD. 
      */
-    val parquetFile = sqlCtx.parquetFile(store)
+    val parquetFile = sqlc.parquetFile(store)
     val metadata = parquetFile.schema.fields.zipWithIndex
     
     parquetFile.map(row => {
