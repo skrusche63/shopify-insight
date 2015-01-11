@@ -59,15 +59,15 @@ case class AnalyzeFinished(data:Map[String,String])
 
 /****************************************************************************
  * 
- *                      SUB PROCESS 'SYNCHRONIZE'
+ *                      SUB PROCESS 'COLLECT'
  * 
  ***************************************************************************/
 
-case class StartSynchronize(data:Map[String,String])
+case class StartCollect()
 
-case class SynchronizeFailed(data:Map[String,String])
+case class CollectFailed(data:Map[String,String])
 
-case class SynchronizeFinished(data:Map[String,String])
+case class CollectFinished(data:Map[String,String])
 
 /****************************************************************************
  * 
@@ -271,6 +271,19 @@ case class OrderItem(
    * market basket analysis
    */
   quantity:Int = 0,
+  /*
+   * The category assigned to a certain product, this field
+   * can be used to group similar products or to determine
+   * customer preferences
+   */
+  category:String,  
+  /*
+   * The vendor of a certain item; this field and also the
+   * respective category is filled by an additional request
+   * to the product database
+   */
+  vendor:String,
+  
   /*
    * Currency used with the respective order    
    */     

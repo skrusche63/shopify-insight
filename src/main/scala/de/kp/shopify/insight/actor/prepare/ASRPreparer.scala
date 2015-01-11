@@ -26,9 +26,12 @@ import de.kp.spark.core.Names
 import de.kp.shopify.insight._
 import de.kp.shopify.insight.model._
 
-import de.kp.shopify.insight.actor.BaseActor
-
-class ASRPreparer(requestCtx:RequestContext,orders:RDD[InsightOrder]) extends BaseActor(requestCtx) {
+/**
+ * The ASRPreparer prepares the purchase transactions of a certain
+ * period of time and a specific customer type for association rule
+ * mining with Predictiveworks' Association Analysis engine
+ */
+class ASRPreparer(requestCtx:RequestContext,customer:Int,orders:RDD[InsightOrder]) extends BasePreparer(requestCtx) {
 
   import sqlc.createSchemaRDD
   
@@ -38,16 +41,58 @@ class ASRPreparer(requestCtx:RequestContext,orders:RDD[InsightOrder]) extends Ba
 
       val req_params = msg.data      
       val uid = req_params(Names.REQ_UID)
+             
+      val start = new java.util.Date().getTime.toString            
+      requestCtx.listener ! String.format("""[INFO][UID: %s] ASR preparation request received at %s.""",uid,start)
       
       try {
-
-        val table = orders.flatMap(x => x.items.map(v => ParquetASR(x.site,x.user,x.group,v.item)))
+        /*
+         * Association rule mining determines items that are frequently
+         * bought together; to this end, we filter those transactions
+         * with more than one item purchased 
+         */
+        val ds = orders.filter(x => x.items.size > 1).flatMap(x => x.items.map(v => (x.site,x.user,x.group,v.item)))
+        /*
+         * STEP #1: Restrict the purchase orders to those records that match
+         * the provided customer type. In case of customer type = '0', the 
+         * 'user' provided with the ParquetASR table is the customer itself.
+         * 
+         * In all other cases, the 'user' attribute is replaced by the customer
+         * type and the respective transactions are assigned to this type
+         */
+        val ctype = sc.broadcast(customer)
+        val table = (if (customer == 0) {
+          /*
+           * This customer type indicates that ALL customer types
+           * have to be taken into account when computing the item
+           * segmentation 
+           */
+          ds.map(x => ParquetASR(x._1,x._2,x._3,x._4))
+          
+        } else {
+          /*
+           * Load the Parquet file that specifies the customer type specification 
+           * and filter those customers that match the provided customer type
+           */
+          val parquetCST = readCST(uid).filter(x => x._2 == ctype.value)      
+          ds.map(x => ((x._1,x._2),(x._3,x._4))).join(parquetCST).map(x => {
+            
+            val ((site,user),((group,item),rfm_type)) = x
+            /*
+             * Note, that we replace the 'user' by the respective rfm_type
+             */
+            ParquetASR(site,rfm_type.toString,group,item)
+            
+          })
+        })               
         /* 
          * The RDD is implicitly converted to a SchemaRDD by createSchemaRDD, 
          * allowing it to be stored using Parquet. 
          */
-        val store = String.format("""%s/ASR/%s""",requestCtx.getBase,uid)         
+        val store = String.format("""%s/ASR-%s/%s""",requestCtx.getBase,customer.toString,uid)         
         table.saveAsParquetFile(store)
+
+        requestCtx.listener ! String.format("""[INFO][UID: %s] ASR preparation for customer type '%s' finished.""",uid,customer.toString)
 
         val params = Map(Names.REQ_MODEL -> "ASR") ++ req_params
         context.parent ! PrepareFinished(params)
@@ -58,7 +103,7 @@ class ASRPreparer(requestCtx:RequestContext,orders:RDD[InsightOrder]) extends Ba
            * In case of an error the message listener gets informed, and also
            * the data processing pipeline in order to stop further sub processes 
            */
-          requestCtx.listener ! String.format("""[ERROR][UID: %s] ARS preparation exception: %s.""",uid,e.getMessage)
+          requestCtx.listener ! String.format("""[ERROR][UID: %s] ASR preparation exception: %s.""",uid,e.getMessage)
           
           val params = Map(Names.REQ_MESSAGE -> e.getMessage) ++ req_params
           context.parent ! PrepareFailed(params)

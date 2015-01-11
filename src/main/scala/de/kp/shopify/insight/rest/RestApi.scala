@@ -270,8 +270,6 @@ class RestApi(host:String,port:Int,system:ActorSystem,@transient sc:SparkContext
      * and collects the customer, product and order database of a Shopify store 
      * with an external Elasticsearch cluster
      */
-    val actor = system.actorOf(Props(new DataCollector(requestCtx)))
-
     val params = getRequest(ctx)
     val req_params = params ++ setTimespan(params)
 
@@ -286,7 +284,8 @@ class RestApi(host:String,port:Int,system:ActorSystem,@transient sc:SparkContext
     /* 
      * Delegate database synchronization to the DataCollector actor.
      */
-    actor ! StartSynchronize(data)
+    val actor = system.actorOf(Props(new DataCollector(requestCtx,data)))
+    actor ! StartCollect
 
     val created_at_min = data("created_at_min")
     val created_at_max = data("created_at_max")

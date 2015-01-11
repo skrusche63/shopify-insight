@@ -21,7 +21,10 @@ package de.kp.shopify.insight.model
 case class InsightOrderItem(
   
   item:Int,
-  quantity:Int
+  quantity:Int,
+
+  category:String,
+  vendor:String
   
 )
 

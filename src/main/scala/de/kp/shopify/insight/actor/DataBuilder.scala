@@ -38,12 +38,10 @@ import org.elasticsearch.common.xcontent.{XContentBuilder,XContentFactory}
  * The DataBuilder is distinguished by the 8 different customer types
  * defined in the context of this insight server.
  */
-class DataBuilder(requestCtx:RequestContext,customerType:Int) extends BaseActor(requestCtx) {
+class DataBuilder(requestCtx:RequestContext) extends BaseActor(requestCtx) {
   
   private val STEPS = ArrayBuffer.empty[String]
   private val STEPS_COMPLETE = 3
-  
-  import sqlc.createSchemaRDD
 
   override def receive = {
 
@@ -67,30 +65,7 @@ class DataBuilder(requestCtx:RequestContext,customerType:Int) extends BaseActor(
        * 'database/tasks' index
        */
       registerTask(req_params)
-      val ctype = sc.broadcast(customerType)
-        
-      /*
-       * STEP #1: Load the Parquet file that specifies the customer type
-       * specification and filter those customers that match the provided
-       * customer type
-       */
-      val parquetCST = readCST(uid).filter(x => x._2 == ctype.value)      
-      /*
-       * STEP #2: Load the Parquet file that describes the customer item
-       * relation, join result with customer type specification and store
-       * result as Parquet file again, but with a slightly different path
-       */
-      readASR(uid).join(parquetCST).map(x => {
-        
-        val (site,user) = x._1
-        val ((group,item),skip) = x._2
-        
-        ParquetASR(site,user,group,item)
-        
-      }).saveAsParquetFile(
-        String.format("""%s/ASR-0%s/%s""",requestCtx.getBase,customerType.toString,uid)       
-      )
-      
+     
       /*
        * The ASRBuilder is responsible for building an association rule model
        * from the data registered in the 'items' index
@@ -219,72 +194,5 @@ class DataBuilder(requestCtx:RequestContext,customerType:Int) extends BaseActor(
     requestCtx.listener ! String.format("""[INFO][UID: %s] Elasticsearch database/tasks index created.""",uid)
     
   }
-  
-  private def readASR(uid:String):RDD[((String,String),(String,Int))] = {
 
-    val store = String.format("""%s/ASR/%s""",requestCtx.getBase,uid)         
-   
-    val parquetFile = sqlc.parquetFile(store)
-    val metadata = parquetFile.schema.fields.zipWithIndex
-    
-    parquetFile.map(row => {
-
-      val values = row.iterator.zipWithIndex.map(x => (x._2,x._1)).toMap
-      val data = metadata.map(entry => {
-      
-        val (field,col) = entry
-      
-        val colname = field.name
-        val colvalu = values(col)
-      
-        (colname,colvalu)
-          
-      }).toMap
-
-      val site = data("site").asInstanceOf[String]
-      val user = data("user").asInstanceOf[String]
-      
-      val group = data("group").asInstanceOf[String]
-      
-      val item = data("item").asInstanceOf[Int]
-      ((site,user),(group,item))      
-    
-    })
-    
-  }
-  
-  /**
-   * This method loads the customer type description from the
-   * Parquet file that has been created by the RFMPreparer
-   */
-  private def readCST(uid:String):RDD[((String,String),Int)] = {
-
-    val store = String.format("""%s/CST/%s""",requestCtx.getBase,uid)         
-    
-    val parquetFile = sqlc.parquetFile(store)
-    val metadata = parquetFile.schema.fields.zipWithIndex
-    
-    parquetFile.map(row => {
-
-      val values = row.iterator.zipWithIndex.map(x => (x._2,x._1)).toMap
-      val data = metadata.map(entry => {
-      
-        val (field,col) = entry
-      
-        val colname = field.name
-        val colvalu = values(col)
-      
-        (colname,colvalu)
-          
-      }).toMap
-
-      val site = data("site").asInstanceOf[String]
-      val user = data("user").asInstanceOf[String]
-      
-      val rfm_type = data("rfm_type").asInstanceOf[Int]
-      ((site,user),rfm_type)      
-    
-    })
-    
-  }
 }

@@ -28,17 +28,16 @@ import de.kp.shopify.insight._
 import de.kp.shopify.insight.actor._
 import de.kp.shopify.insight.model._
 
-class ProductSync(requestCtx:RequestContext) extends BaseActor(requestCtx) {
+class ProductCollector(ctx:RequestContext,params:Map[String,String]) extends BaseActor(ctx) {
 
   override def receive = {
     /*
      * Retrieve all Shopify products of a certain store via the 
      * REST interface and register them in an Elasticsearch index
      */
-    case message:StartSynchronize => {
+    case message:StartCollect => {
       
-      val req_params = message.data
-      val uid = req_params(Names.REQ_UID)
+      val uid = params(Names.REQ_UID)
       
       try {
 
@@ -47,12 +46,12 @@ class ProductSync(requestCtx:RequestContext) extends BaseActor(requestCtx) {
         if (writer.open("database","products") == false)
           throw new Exception("Product database cannot be opened.")
       
-        requestCtx.listener ! String.format("""[INFO][UID: %s] Product base synchronization started.""",uid)
+        ctx.listener ! String.format("""[INFO][UID: %s] Product base synchronization started.""",uid)
             
         val start = new java.util.Date().getTime            
-        val products = requestCtx.getProducts(req_params)
+        val products = ctx.getProducts(params)
        
-        requestCtx.listener ! String.format("""[INFO][UID: %s] Product base loaded.""",uid)
+        ctx.listener ! String.format("""[INFO][UID: %s] Product base loaded.""",uid)
 
         val ids = products.map(_.id)
         val sources = products.map(toSource(_))
@@ -61,21 +60,21 @@ class ProductSync(requestCtx:RequestContext) extends BaseActor(requestCtx) {
         writer.close()
         
         val end = new java.util.Date().getTime
-        requestCtx.listener ! String.format("""[INFO][UID: %s] Product base synchronization finished in %s ms.""",uid,(end-start).toString)
+        ctx.listener ! String.format("""[INFO][UID: %s] Product base synchronization finished in %s ms.""",uid,(end-start).toString)
         
-        val params = Map(Names.REQ_MODEL -> "PRODUCT") ++ req_params
+        val new_params = Map(Names.REQ_MODEL -> "PRODUCT") ++ params
 
-        context.parent ! SynchronizeFinished(req_params)
+        context.parent ! CollectFinished(new_params)
         context.stop(self)
         
       } catch {
         case e:Exception => {
 
-          requestCtx.listener ! String.format("""[ERROR][UID: %s] Product base synchronization failed due to an internal error.""",uid)
+          ctx.listener ! String.format("""[ERROR][UID: %s] Product base synchronization failed due to an internal error.""",uid)
           
-          val params = Map(Names.REQ_MESSAGE -> e.getMessage) ++ req_params
+          val new_params = Map(Names.REQ_MESSAGE -> e.getMessage) ++ params
 
-          context.parent ! SynchronizeFailed(params)            
+          context.parent ! CollectFailed(new_params)            
           context.stop(self)
           
         }

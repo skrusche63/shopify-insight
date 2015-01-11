@@ -32,22 +32,21 @@ import de.kp.shopify.insight.actor.collect._
 import scala.collection.mutable.ArrayBuffer
 import org.elasticsearch.common.xcontent.{XContentBuilder,XContentFactory}
 
-class DataCollector(requestCtx:RequestContext) extends BaseActor(requestCtx) {
+class DataCollector(ctx:RequestContext,params:Map[String,String]) extends BaseActor(ctx) {
   
   private val STEPS = ArrayBuffer.empty[String]
   private val STEPS_COMPLETE = 3
 
   override def receive = {
     
-    case message:StartSynchronize => {
+    case message:StartCollect => {
       
       try { 
 
-        val req_params = message.data
-        val uid = req_params(Names.REQ_UID)
+        val uid = params(Names.REQ_UID)
              
         val start = new java.util.Date().getTime.toString            
-        requestCtx.listener ! String.format("""[INFO][UID: %s] Data synchronization request received at %s.""",uid,start)
+        ctx.listener ! String.format("""[INFO][UID: %s] Data synchronization request received at %s.""",uid,start)
         
         /**********************************************************************
          *      
@@ -55,22 +54,18 @@ class DataCollector(requestCtx:RequestContext) extends BaseActor(requestCtx) {
          * 
          *********************************************************************/
 
-        createElasticIndexes(req_params)       
+        createElasticIndexes(params)       
         /*
-         * Register this synchronization task in the respective
-         * 'database/tasks' index
+         * Register this collection task in the respective 'database/tasks' index
          */
-        registerTask(req_params)
+        registerTask(params)
         
-        val customer_sync = context.actorOf(Props(new CustomerSync(requestCtx)))  
-        customer_sync ! StartSynchronize(message.data)
+        val customer_sync = context.actorOf(Props(new CustomerCollector(ctx,params)))  
+        customer_sync ! StartCollect
       
-        val product_sync = context.actorOf(Props(new ProductSync(requestCtx)))  
-        product_sync ! StartSynchronize(message.data)
-      
-        val order_sync = context.actorOf(Props(new OrderSync(requestCtx)))  
-        order_sync ! StartSynchronize(message.data)
-        
+        val product_sync = context.actorOf(Props(new ProductCollector(ctx,params)))  
+        product_sync ! StartCollect
+       
     
       } catch {
         
@@ -79,7 +74,7 @@ class DataCollector(requestCtx:RequestContext) extends BaseActor(requestCtx) {
            * Inform the message listener about the error that occurred while collecting 
            * data from a certain Shopify store and stop the synchronization pipeline
            */
-          requestCtx.listener ! e.getMessage
+          ctx.listener ! e.getMessage
           context.stop(self)
           
         }
@@ -87,7 +82,7 @@ class DataCollector(requestCtx:RequestContext) extends BaseActor(requestCtx) {
       } 
       
     }
-    case message:SynchronizeFailed => {
+    case message:CollectFailed => {
       /*
        * The synchronizer actors already sent an error message to the message listener;
        * no additional notification has to be done, so just stop the pipeline
@@ -95,7 +90,7 @@ class DataCollector(requestCtx:RequestContext) extends BaseActor(requestCtx) {
       context.stop(self)
       
     }
-    case message:SynchronizeFinished => {
+    case message:CollectFinished => {
       /*
        * Collect the models built by the synchronization sub processes,
        * and if synchronization task is finished, stop pipeline actor
@@ -103,22 +98,33 @@ class DataCollector(requestCtx:RequestContext) extends BaseActor(requestCtx) {
       val model = message.data(Names.REQ_MODEL)
       if (List("CUSTOMER","PRODUCT","ORDER").contains(model)) STEPS += model
       
+      if (model == "PRODUCT") {
+        /*
+         * Orders depend on an updated product database as the
+         * respective order records are enriched by 'category'
+         * and 'vendor' attribute
+         */
+        val order_sync = context.actorOf(Props(new OrderCollector(ctx,params)))  
+        order_sync ! StartCollect
+         
+      } 
+      
       if (STEPS.size == STEPS_COMPLETE) context.stop(self)
 
     }
     
   }
   /**
-   * This method registers the synchronization task in the respective
+   * This method registers the collection task in the respective
    * Elasticsearch index; this information supports administrative
    * tasks such as the monitoring of this insight server
    */
   private def registerTask(params:Map[String,String]) = {
     
     val uid = params(Names.REQ_UID)
-    val key = "synchronize:" + uid
+    val key = "collect:" + uid
     
-    val task = "database synchronization"
+    val task = "data collection"
     /*
      * Note, that we do not specify additional
      * payload data here
@@ -145,7 +151,7 @@ class DataCollector(requestCtx:RequestContext) extends BaseActor(requestCtx) {
 	/*
 	 * Register data in the 'database/tasks' index
 	 */
-	requestCtx.putSource("database","tasks",builder)
+	ctx.putSource("database","tasks",builder)
 
   }
   
@@ -177,22 +183,22 @@ class DataCollector(requestCtx:RequestContext) extends BaseActor(requestCtx) {
      * insight server
      */
     
-    if (requestCtx.createIndex(params,"database","tasks","task") == false)
+    if (ctx.createIndex(params,"database","tasks","task") == false)
       throw new Exception("Index creation for 'database/tasks' has been stopped due to an internal error.")
     
     /*
      * SUB PROCESS 'SYNCHRONIZE'
      */
-    if (requestCtx.createIndex(params,"database","customers","customer") == false)
+    if (ctx.createIndex(params,"database","customers","customer") == false)
       throw new Exception("Index creation for 'database/customers' has been stopped due to an internal error.")
  
-    if (requestCtx.createIndex(params,"database","products","product") == false)
+    if (ctx.createIndex(params,"database","products","product") == false)
       throw new Exception("Index creation for 'database/products' has been stopped due to an internal error.")
  
-    if (requestCtx.createIndex(params,"database","orders","order") == false)
+    if (ctx.createIndex(params,"database","orders","order") == false)
       throw new Exception("Index creation for 'database/orders' has been stopped due to an internal error.")
  
-    if (requestCtx.createIndex(params,"database","aggregates","aggregate") == false)
+    if (ctx.createIndex(params,"database","aggregates","aggregate") == false)
       throw new Exception("Index creation for 'database/aggreates' has been stopped due to an internal error.")
     
   }

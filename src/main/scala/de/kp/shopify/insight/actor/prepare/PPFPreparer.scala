@@ -21,18 +21,13 @@ package de.kp.shopify.insight.actor.prepare
 import org.apache.spark.SparkContext._
 import org.apache.spark.rdd.RDD
 
-import com.twitter.algebird._
-import com.twitter.algebird.Operators._
-
 import de.kp.spark.core.Names
 
 import de.kp.shopify.insight._
 import de.kp.shopify.insight.model._
 
-import de.kp.shopify.insight.actor.BaseActor
-
 /** 
- * The IPFPreparer is responsible for a quantile-based segmentation of
+ * The PPFPreparer is responsible for a quantile-based segmentation of
  * purchased items with respect to the customer and purchase frequency.
  * 
  * The respective frequencies are specified by rating numbers from 1..5,
@@ -47,13 +42,7 @@ import de.kp.shopify.insight.actor.BaseActor
  * frequency, while 11 describes items with the lowest customer and also
  * purchase frequency.
  */
-class IPFPreparer(requestCtx:RequestContext,customer:Int,orders:RDD[InsightOrder]) extends BaseActor(requestCtx) {
-  /*
-   * The parameter K is used as an initialization 
-   * prameter for the QTree semigroup
-   */
-  private val K = 6
-  private val QUANTILES = List(0.20,0.40,0.60,0.80,1.00)
+class PPFPreparer(ctx:RequestContext,customer:Int,orders:RDD[InsightOrder]) extends BasePreparer(ctx) {
   
   import sqlc.createSchemaRDD
   override def receive = {
@@ -62,6 +51,9 @@ class IPFPreparer(requestCtx:RequestContext,customer:Int,orders:RDD[InsightOrder
 
       val req_params = msg.data
       val uid = req_params(Names.REQ_UID)
+             
+      val start = new java.util.Date().getTime.toString            
+      ctx.listener ! String.format("""[INFO][UID: %s] PPF preparation request received at %s.""",uid,start)
       
       try {
         /*
@@ -102,14 +94,21 @@ class IPFPreparer(requestCtx:RequestContext,customer:Int,orders:RDD[InsightOrder
          * made within a certain period of time. This implies, that we are 
          * NOT faced with zero values, i.e. items with zero purchase frequency
          */
-        val ds1 = filteredDS.groupBy(_._3).map(x => (x._1,x._2.size))
-        val c_quantiles = sc.broadcast(quantiles(ds1.map(_._2.toDouble).sortBy(x => x)))        
+        val ds1 = filteredDS.groupBy(_._3).map(x => {
+          
+          val item = x._1
+          val csup = x._2.map(v => (v._1,v._2)).toSeq.distinct.size
+          
+          (item,csup)
+
+        })
+        val c_quintiles = sc.broadcast(quintiles(ds1.map(_._2.toDouble).sortBy(x => x)))        
         /*
          * STEP #3: Build item purchase frequency distribution; here we are
          * not interested into the specific user, but the purchase quantity
          */
         val ds2 = filteredDS.groupBy(_._3).map(x => (x._1, x._2.map(_._4).sum))
-        val p_quantiles = sc.broadcast(quantiles(ds2.map(_._2.toDouble).sortBy(x => x)))
+        val p_quintiles = sc.broadcast(quintiles(ds2.map(_._2.toDouble).sortBy(x => x)))
         /*
          * STEP #4: Build customer purchase space from customer frquency 
          * and purchase frequency; frequency values with the highest value
@@ -120,10 +119,10 @@ class IPFPreparer(requestCtx:RequestContext,customer:Int,orders:RDD[InsightOrder
           
           val (item,freq) = x
           
-          val b1 = c_quantiles.value(0.20)
-          val b2 = c_quantiles.value(0.40)
-          val b3 = c_quantiles.value(0.60)
-          val b4 = c_quantiles.value(0.80)
+          val b1 = c_quintiles.value(0.20)
+          val b2 = c_quintiles.value(0.40)
+          val b3 = c_quintiles.value(0.60)
+          val b4 = c_quintiles.value(0.80)
       
           val cval = (
             if (freq < b1) 1
@@ -142,10 +141,10 @@ class IPFPreparer(requestCtx:RequestContext,customer:Int,orders:RDD[InsightOrder
           
           val (item,freq) = x
           
-          val b1 = p_quantiles.value(0.20)
-          val b2 = p_quantiles.value(0.40)
-          val b3 = p_quantiles.value(0.60)
-          val b4 = p_quantiles.value(0.80)
+          val b1 = p_quintiles.value(0.20)
+          val b2 = p_quintiles.value(0.40)
+          val b3 = p_quintiles.value(0.60)
+          val b4 = p_quintiles.value(0.80)
       
           val pval = (
             if (freq < b1) 1
@@ -165,14 +164,14 @@ class IPFPreparer(requestCtx:RequestContext,customer:Int,orders:RDD[InsightOrder
           val item = x._1
           val ((cfreq,cval),(pfreq,pval)) = x._2
           
-          ParquetIPF(item,cfreq,pfreq,cval,pval,ctype.value)
+          ParquetPPF(item,cfreq,pfreq,cval,pval)
         
         })
 
-        val store = String.format("""%s/IFP-0%s/%s""",requestCtx.getBase,customer.toString,uid)         
+        val store = String.format("""%s/PPF-%s/%s""",ctx.getBase,customer.toString,uid)         
         table.saveAsParquetFile(store)
 
-        requestCtx.listener ! String.format("""[INFO][UID: %s] IFP preparation for customer type '%s' finished.""",uid,customer.toString)
+        ctx.listener ! String.format("""[INFO][UID: %s] PPF preparation for customer type '%s' finished.""",uid,customer.toString)
 
         val params = Map(Names.REQ_MODEL -> "IFP") ++ req_params
         context.parent ! PrepareFinished(params)
@@ -183,7 +182,7 @@ class IPFPreparer(requestCtx:RequestContext,customer:Int,orders:RDD[InsightOrder
            * In case of an error the message listener gets informed, and also
            * the data processing pipeline in order to stop further sub processes 
            */
-          requestCtx.listener ! String.format("""[ERROR][UID: %s] IFP preparation exception: %s.""",uid,e.getMessage)
+          ctx.listener ! String.format("""[ERROR][UID: %s] PPF preparation exception: %s.""",uid,e.getMessage)
           
           val params = Map(Names.REQ_MESSAGE -> e.getMessage) ++ req_params
           context.parent ! PrepareFailed(params)
@@ -197,57 +196,6 @@ class IPFPreparer(requestCtx:RequestContext,customer:Int,orders:RDD[InsightOrder
       }
     }
   
-  }
-  
-  private def quantiles(dataset:RDD[Double]):Map[Double,Double] = {
-    
-    implicit val semigroup = new QTreeSemigroup[Double](K)
-    
-    val qtree = dataset.map(v => QTree(v)).reduce(_ + _) 
-    QUANTILES.map(x => {
-      
-      val (lower,upper) = qtree.quantileBounds(x)
-      val mean = (lower + upper) / 2
-
-      (x,mean)
-      
-    }).toMap
-    
-  }
-  
-  /**
-   * This method loads the customer type description from the
-   * Parquet file that has been created by the RFMPreparer
-   */
-  private def readCST(uid:String):RDD[((String,String),Int)] = {
-
-    val store = String.format("""%s/CST/%s""",requestCtx.getBase,uid)         
-    
-    val parquetFile = sqlc.parquetFile(store)
-    val metadata = parquetFile.schema.fields.zipWithIndex
-    
-    parquetFile.map(row => {
-
-      val values = row.iterator.zipWithIndex.map(x => (x._2,x._1)).toMap
-      val data = metadata.map(entry => {
-      
-        val (field,col) = entry
-      
-        val colname = field.name
-        val colvalu = values(col)
-      
-        (colname,colvalu)
-          
-      }).toMap
-
-      val site = data("site").asInstanceOf[String]
-      val user = data("user").asInstanceOf[String]
-      
-      val rfm_type = data("rfm_type").asInstanceOf[Int]
-      ((site,user),rfm_type)      
-    
-    })
-    
   }
   
 }

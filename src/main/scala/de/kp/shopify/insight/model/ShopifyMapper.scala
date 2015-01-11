@@ -21,6 +21,7 @@ package de.kp.shopify.insight.model
 import de.kp.spark.core.Names
 import de.kp.spark.core.model._
 
+import de.kp.shopify.insight.RequestContext
 import de.kp.shopify.insight.model._
 
 import org.joda.time.format.DateTimeFormat
@@ -30,7 +31,7 @@ import scala.collection.JavaConversions._
  * the proprietary data representation into an independent one, that
  * can be used to support more than one e-commerce source
  */
-class ShopifyMapper {
+class ShopifyMapper(ctx:RequestContext) {
 
   def extractCustomer(site:String,customer:ShopifyCustomer):Customer = {
     /*
@@ -129,7 +130,15 @@ class ShopifyMapper {
        * is used to uniquely identify a purchase item
        */
       val item = lineItem.product_id.toInt
-      
+      /*
+       * The product database is accessed to retrieve additional
+       * category and vendor data to enrich the OrderItem record
+       */
+      val product_str = ctx.getAsString("database", "products", item.toString)
+      val product = ctx.JSON_MAPPER.readValue(product_str, classOf[InsightProduct])
+
+      val category = product.category
+      val vendor = product.vendor
       /*
        * In addition, we collect the following data from the line item
        */
@@ -141,7 +150,7 @@ class ShopifyMapper {
       
       val sku = lineItem.sku
       
-      new OrderItem(item,name,quantity,currency,price,sku)
+      new OrderItem(item,name,quantity,category,vendor,currency,price,sku)
     
     })
 

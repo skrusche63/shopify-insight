@@ -104,12 +104,15 @@ class ElasticRDD(@transient sc:SparkContext) {
       val ip_address = entries("ip_address").asInstanceOf[String]
     
       val user_agent = entries("user_agent").asInstanceOf[String]
-      val items = entries("items").asInstanceOf[List[Map[String,Int]]].map(x => {
+      val items = entries("items").asInstanceOf[List[Map[String,Any]]].map(x => {
         
-        val item = x("item")
-        val quantity = x("quantity")
+        val item = x("item").asInstanceOf[Int]
+        val quantity = x("quantity").asInstanceOf[Int]        
+
+        val category = x("category").asInstanceOf[String]
+        val vendor = x("vendor").asInstanceOf[String]
         
-        InsightOrderItem(item,quantity)
+        InsightOrderItem(item,quantity,category,vendor)
         
       })
       

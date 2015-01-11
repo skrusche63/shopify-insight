@@ -19,19 +19,12 @@ package de.kp.shopify.insight.actor.prepare
 */
 
 import org.apache.spark.SparkContext._
-import org.apache.spark.sql.SQLContext
 import org.apache.spark.rdd.RDD
-
-import com.twitter.algebird._
-import com.twitter.algebird.Operators._
 
 import de.kp.spark.core.Names
 
 import de.kp.shopify.insight._
 import de.kp.shopify.insight.model._
-
-import de.kp.shopify.insight.analytics.StateHandler
-import de.kp.shopify.insight.actor.BaseActor
 
 /**
  * The STMPreparer generates a state representation for all customers
@@ -43,15 +36,7 @@ import de.kp.shopify.insight.actor.BaseActor
  * twice.
  * 
  */
-class STMPreparer(requestCtx:RequestContext,orders:RDD[InsightOrder]) extends BaseActor(requestCtx) {
-        
-  private val DAY = 24 * 60 * 60 * 1000 // day in milliseconds
-  /*
-   * The parameter K is used as an initialization 
-   * prameter for the QTree semigroup
-   */
-  private val K = 6
-  private val QUANTILES = List(0.20,0.40,0.60,0.80,1.00)
+class STMPreparer(ctx:RequestContext,customer:Int,orders:RDD[InsightOrder]) extends BasePreparer(ctx) {
   
   import sqlc.createSchemaRDD
   override def receive = {
@@ -62,16 +47,45 @@ class STMPreparer(requestCtx:RequestContext,orders:RDD[InsightOrder]) extends Ba
       val uid = req_params(Names.REQ_UID)
       
       try {
+        /*
+         * STEP #1: Restrict the purchase orders to those attributes that
+         * are relevant for the state generation task; this encloses a
+         * filtering with respect to customer type, if different from '0'
+         */
+        val ctype = sc.broadcast(customer)
+
+        val ds = orders.map(x => (x.site,x.user,x.amount,x.timestamp))
+        val filteredDS = (if (customer == 0) {
+          /*
+           * This customer type indicates that ALL customer types
+           * have to be taken into account when computing the item
+           * segmentation 
+           */
+          ds
+          
+        } else {
+          /*
+           * Load the Parquet file that specifies the customer type specification 
+           * and filter those customers that match the provided customer type
+           */
+          val parquetCST = readCST(uid).filter(x => x._2 == ctype.value)      
+          ds.map(x => ((x._1,x._2),(x._3,x._4))).join(parquetCST).map(x => {
+            
+            val ((site,user),((amount,timestamp),rfm_type)) = x
+            (site,user,amount,timestamp)
+            
+          })
+        })     
 
         /*
          * STEP #1: We calculate the amount ratios and timespans from
          * subsequent customer specific purchase transactions and then
          * do a quantile analysis to find univariate boundaries 
          */
-        val rawset = orders.groupBy(x => (x.site,x.user)).filter(_._2.size > 1).map(x => {
+        val rawset = filteredDS.groupBy(x => (x._1,x._2)).filter(_._2.size > 1).map(x => {
       
           /* Compute time ordered list of (amount,timestamp) */
-          val data = x._2.map(v => (v.amount,v.timestamp)).toList.sortBy(_._2)      
+          val data = x._2.map(v => (v._3,v._4)).toList.sortBy(_._2)      
 
           val amounts = data.map(_._1)       
           val ratios = amounts.zip(amounts.tail).map(v => v._2 / v._1)
@@ -84,17 +98,17 @@ class STMPreparer(requestCtx:RequestContext,orders:RDD[InsightOrder]) extends Ba
         })
        
         val ratios = rawset.flatMap(_._1).sortBy(x => x)
-        val r_quantiles = sc.broadcast(quantiles(ratios))
+        val r_quintiles = sc.broadcast(quintiles(ratios))
         
         val spans = rawset.flatMap(_._2).map(_.toDouble).sortBy(x => x)
-        val s_quantiles = sc.broadcast(quantiles(spans))
+        val s_quintiles = sc.broadcast(quintiles(spans))
         
-        val table = orders.groupBy(x => (x.site,x.user)).filter(_._2.size > 1).flatMap(x => {
+        val table = filteredDS.groupBy(x => (x._1,x._2)).filter(_._2.size > 1).flatMap(x => {
 
           val (site,user) = x._1  
       
           /* Compute time ordered list of (amount,timestamp) */
-          val data = x._2.map(v => (v.amount,v.timestamp)).toList.sortBy(_._2)      
+          val data = x._2.map(v => (v._3,v._4)).toList.sortBy(_._2)      
 
           val amounts = data.map(_._1)    
           val amount_ratios = amounts.zip(amounts.tail).map(v => v._2 / v._1)
@@ -103,11 +117,11 @@ class STMPreparer(requestCtx:RequestContext,orders:RDD[InsightOrder]) extends Ba
            * We introduce a rating from 1..5 for the amount ratio attribute
            * and assign 5 to the highest value, 4 to a less valuable etc
            */     
-          val r_b1 = r_quantiles.value(0.20)
-          val r_b2 = r_quantiles.value(0.40)
-          val r_b3 = r_quantiles.value(0.60)
-          val r_b4 = r_quantiles.value(0.80)
-          val r_b5 = r_quantiles.value(1.00)
+          val r_b1 = r_quintiles.value(0.20)
+          val r_b2 = r_quintiles.value(0.40)
+          val r_b3 = r_quintiles.value(0.60)
+          val r_b4 = r_quintiles.value(0.80)
+          val r_b5 = r_quintiles.value(1.00)
           
           val amount_states = amount_ratios.map(ratio => {
             
@@ -132,11 +146,11 @@ class STMPreparer(requestCtx:RequestContext,orders:RDD[InsightOrder]) extends Ba
            * We introduce a rating from 1..5 for the timespan attribute
            * and assign 5 to the lowest value, 4 to a higher valuable etc
            */     
-          val s_b1 = s_quantiles.value(0.20)
-          val s_b2 = s_quantiles.value(0.40)
-          val s_b3 = s_quantiles.value(0.60)
-          val s_b4 = s_quantiles.value(0.80)
-          val s_b5 = s_quantiles.value(1.00)
+          val s_b1 = s_quintiles.value(0.20)
+          val s_b2 = s_quintiles.value(0.40)
+          val s_b3 = s_quintiles.value(0.60)
+          val s_b4 = s_quintiles.value(0.80)
+          val s_b5 = s_quintiles.value(1.00)
 
           val timespan_states = timespans.map(span => {
             
@@ -193,7 +207,7 @@ class STMPreparer(requestCtx:RequestContext,orders:RDD[InsightOrder]) extends Ba
          * The RDD is implicitly converted to a SchemaRDD by createSchemaRDD, 
          * allowing it to be stored using Parquet. 
          */
-        val store = String.format("""%s/STM/%s""",requestCtx.getBase,uid)         
+        val store = String.format("""%s/STM-%s/%s""",ctx.getBase,customer.toString,uid)         
         table.saveAsParquetFile(store)
 
         val params = Map(Names.REQ_MODEL -> "STM") ++ req_params
@@ -205,7 +219,7 @@ class STMPreparer(requestCtx:RequestContext,orders:RDD[InsightOrder]) extends Ba
            * In case of an error the message listener gets informed, and also
            * the data processing pipeline in order to stop further sub processes 
            */
-          requestCtx.listener ! String.format("""[ERROR][UID: %s] STM preparation exception: %s.""",uid,e.getMessage)
+          ctx.listener ! String.format("""[ERROR][UID: %s] STM preparation exception: %s.""",uid,e.getMessage)
           
           val params = Map(Names.REQ_MESSAGE -> e.getMessage) ++ req_params
           context.parent ! PrepareFailed(params)
@@ -219,22 +233,6 @@ class STMPreparer(requestCtx:RequestContext,orders:RDD[InsightOrder]) extends Ba
       }
     }
   
-  }
-  
-  private def quantiles(rawset:RDD[Double]):Map[Double,Double] = {
-    
-    implicit val semigroup = new QTreeSemigroup[Double](K)
-    
-    val qtree = rawset.map(v => QTree(v)).reduce(_ + _) 
-    QUANTILES.map(x => {
-      
-      val (lower,upper) = qtree.quantileBounds(x)
-      val mean = (lower + upper) / 2
-
-      (x,mean)
-      
-    }).toMap
-    
   }
   
 }

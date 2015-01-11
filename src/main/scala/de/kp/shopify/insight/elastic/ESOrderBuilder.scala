@@ -105,6 +105,14 @@ class ESOrderBuilder {
                      .field("type","integer")
                    .endObject()
                    
+                   .startObject("category")
+                     .field("type","string")
+                   .endObject()
+                   
+                   .startObject("vendor")
+                     .field("type","string")
+                   .endObject()
+                   
                  .endObject()
                .endObject()
                

@@ -169,7 +169,7 @@ class RequestContext(
        * of 250 customers per request
        */
       val data = req_params.filter(kv => excludes.contains(kv._1) == false) ++ Map("limit" -> "250","page" -> page.toString)
-      customers ++= shopifyClient.getCustomers(req_params).map(customer => new ShopifyMapper().extractCustomer(apikey,customer))
+      customers ++= shopifyClient.getCustomers(req_params).map(customer => new ShopifyMapper(this).extractCustomer(apikey,customer))
              
       page += 1
               
@@ -213,7 +213,7 @@ class RequestContext(
        * of 250 customers per request
        */
       val data = req_params.filter(kv => excludes.contains(kv._1) == false) ++ Map("limit" -> "250","page" -> page.toString)
-      products ++= shopifyClient.getProducts(req_params).map(product => new ShopifyMapper().extractProduct(apikey,product))
+      products ++= shopifyClient.getProducts(req_params).map(product => new ShopifyMapper(this).extractProduct(apikey,product))
              
       page += 1
               
@@ -260,7 +260,7 @@ class RequestContext(
        * of 250 orders per request
        */
       val data = order_params.filter(kv => excludes.contains(kv._1) == false) ++ Map("limit" -> "250","page" -> page.toString)
-      orders ++= shopifyClient.getOrders(order_params).map(order => new ShopifyMapper().extractOrder(apikey,order))
+      orders ++= shopifyClient.getOrders(order_params).map(order => new ShopifyMapper(this).extractOrder(apikey,order))
              
       page += 1
               

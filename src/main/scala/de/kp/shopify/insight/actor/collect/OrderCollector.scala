@@ -31,55 +31,54 @@ import de.kp.shopify.insight._
 import de.kp.shopify.insight.actor._
 import de.kp.shopify.insight.model._
 
-class OrderSync(requestCtx:RequestContext) extends BaseActor(requestCtx) {
+class OrderCollector(ctx:RequestContext,params:Map[String,String]) extends BaseActor(ctx) {
         
   private val DAY = 24 * 60 * 60 * 1000 // day in milliseconds
 
   override def receive = {
 
-    case message:StartSynchronize => {
+    case message:StartCollect => {
       
-      val req_params = message.data
-      val uid = req_params(Names.REQ_UID)
+      val uid = params(Names.REQ_UID)
       
       try {
       
-        requestCtx.listener ! String.format("""[INFO][UID: %s] Order base synchronization started.""",uid)
+        ctx.listener ! String.format("""[INFO][UID: %s] Order base synchronization started.""",uid)
             
         val start = new java.util.Date().getTime            
-        val orders = requestCtx.getOrders(req_params)
+        val orders = ctx.getOrders(params)
        
-        requestCtx.listener ! String.format("""[INFO][UID: %s] Order base loaded.""",uid)
+        ctx.listener ! String.format("""[INFO][UID: %s] Order base loaded.""",uid)
 
         /*
          * STEP #1: Write orders of a certain period of time 
          * to the database/orders index and 
          */
-        writeOrders(req_params,orders)
+        writeOrders(params,orders)
 
         /*
          * STEP #2: Write aggregate information about monetary
          * and temporal data dimensions of a certain period of
          * time to the database/aggregates index
          */
-        writeAggregate(req_params,orders)
+        writeAggregate(params,orders)
         
         val end = new java.util.Date().getTime
-        requestCtx.listener ! String.format("""[INFO][UID: %s] Order base synchronization finished in %s ms.""",uid,(end-start).toString)
+        ctx.listener ! String.format("""[INFO][UID: %s] Order base synchronization finished in %s ms.""",uid,(end-start).toString)
         
-        val params = Map(Names.REQ_MODEL -> "ORDER") ++ req_params
+        val new_params = Map(Names.REQ_MODEL -> "ORDER") ++ params
 
-        context.parent ! SynchronizeFinished(params)
+        context.parent ! CollectFinished(new_params)
         context.stop(self)
         
       } catch {
         case e:Exception => {
 
-          requestCtx.listener ! String.format("""[ERROR][UID: %s] Order base synchronization failed due to an internal error.""",uid)
+          ctx.listener ! String.format("""[ERROR][UID: %s] Order base synchronization failed due to an internal error.""",uid)
           
-          val params = Map(Names.REQ_MESSAGE -> e.getMessage) ++ req_params
+          val new_params = Map(Names.REQ_MESSAGE -> e.getMessage) ++ params
 
-          context.parent ! SynchronizeFailed(params)            
+          context.parent ! CollectFailed(params)            
           context.stop(self)
           
         }
@@ -133,7 +132,7 @@ class OrderSync(requestCtx:RequestContext) extends BaseActor(requestCtx) {
      * Compute the average, minimum and maximum amount of all 
      * the purchases in the purchase history provided by orders
      */    
-    val amounts = requestCtx.sparkContext.parallelize(orders_rfm.map(_._1))
+    val amounts = ctx.sparkContext.parallelize(orders_rfm.map(_._1))
     val m_stats = amounts.stats
     
     val m_mean  = m_stats.mean
@@ -154,9 +153,9 @@ class OrderSync(requestCtx:RequestContext) extends BaseActor(requestCtx) {
      * two subsequent transactions; the 'zip' method is used to pairs 
      * between two subsequent timestamps
      */
-    val timestamps = requestCtx.sparkContext.parallelize(orders_rfm.map(_._2)).sortBy(x => x)
+    val timestamps = ctx.sparkContext.parallelize(orders_rfm.map(_._2)).sortBy(x => x)
     
-    val s0 = requestCtx.sparkContext.parallelize(timestamps.take(1))
+    val s0 = ctx.sparkContext.parallelize(timestamps.take(1))
     val s1 = timestamps.subtract(s0)
     
     val timespans = timestamps.zip(s1).map(x => x._2 - x._1).map(v => (if (v / DAY < 1) 1 else v / DAY))
@@ -419,6 +418,12 @@ class OrderSync(requestCtx:RequestContext) extends BaseActor(requestCtx) {
 	  
 	  /* quantity */
 	  builder.field("quantity",item.quantity)
+
+	  /* category */
+	  builder.field("category",item.category)
+
+	  /* vendor */
+	  builder.field("vendor",item.vendor)
 	  
 	  builder.endObject()
 	  

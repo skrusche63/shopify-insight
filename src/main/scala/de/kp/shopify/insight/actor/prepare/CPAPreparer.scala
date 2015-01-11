@@ -21,15 +21,12 @@ package de.kp.shopify.insight.actor.prepare
 import org.apache.spark.SparkContext._
 import org.apache.spark.rdd.RDD
 
-import com.twitter.algebird._
-import com.twitter.algebird.Operators._
-
 import de.kp.spark.core.Names
 
 import de.kp.shopify.insight._
 import de.kp.shopify.insight.model._
 
-import de.kp.shopify.insight.actor.BaseActor
+import de.kp.shopify.insight.preference.TFIDF
 
 /**
  * Customer segmentation is the first building block of any marketing strategy. The basic
@@ -48,31 +45,15 @@ import de.kp.shopify.insight.actor.BaseActor
  * in the presence of such extreme skewness and high kurtosis.
  * 
  * Of course, the recommended solution is to bring the data shape back to a normal (uniform)
- * distribution.
+ * distribution. This is why, we use the TFIDF algorithm to assign product affinity score,
+ * and also perform z-score normalization when clustering the labeled feature vectors.
  * 
- * Product level data for a customer often has a lot of zero values in many product classes.
- * Large numbers of zero values pose another problem both methodologically (from clustering
- * algorithm's ability to separate groups) and substantively (once we found segments, how
- * should those segments be interpreted).
- * 
- * The preparer of the product affinity profile (PAP) addresses this problem and aims to
- * prepare product level purchase frequency such that clustering results in almost equal
- * sized clusters.
- * 
- * There different segmentation approaches to address product affinity segments, and from
- * our experience the clustering one ist the most powerful and profitable information for
- * marketing campains and communications with customers.
- * 
+ * Bote, that there exist different segmentation approaches to address product affinity 
+ * segments, and from our experience the clustering one ist the most powerful and profitable 
+ * information for marketing campains and communications with customers.
  *   
  */
-class ITPPreparer(requestCtx:RequestContext,orders:RDD[InsightOrder]) extends BaseActor(requestCtx) {
-  
-  /*
-   * The parameter K is used as an initialization 
-   * prameter for the QTree semigroup
-   */
-  private val K = 6
-  private val QUANTILES = List(0.20,0.40,0.60,0.80,1.00)
+class CPAPreparer(ctx:RequestContext,customer:Int,orders:RDD[InsightOrder]) extends BasePreparer(ctx) {
   
   import sqlc.createSchemaRDD
   override def receive = {
@@ -81,32 +62,54 @@ class ITPPreparer(requestCtx:RequestContext,orders:RDD[InsightOrder]) extends Ba
 
       val req_params = msg.data
       val uid = req_params(Names.REQ_UID)
+             
+      val start = new java.util.Date().getTime.toString            
+      ctx.listener ! String.format("""[INFO][UID: %s] CPA preparation request received at %s.""",uid,start)
       
       try {
-        
-        val table = orders.groupBy(x => (x.site,x.user)).flatMap(x => {
+        /*
+         * STEP #1: Restrict the purchase orders to those items and attributes
+         * that are relevant for the item segmentation task; this encloses a
+         * filtering with respect to customer type, if different from '0'
+         */
+        val ctype = sc.broadcast(customer)
+
+        val ds = orders.flatMap(x => x.items.map(v => (x.site,x.user,v.item,v.quantity,v.category)))
+        val filteredDS = (if (customer == 0) {
+          /*
+           * This customer type indicates that ALL customer types
+           * have to be taken into account when computing the item
+           * segmentation 
+           */
+          ds
           
-          val (site,user) = x._1          
-          val total = x._2.size
-          
-          val s0 = x._2.flatMap(_.items.map(v => (v.item,v.quantity)))
-          val s1 = s0.groupBy(_._1)
-          
-          val supp = s1.map(v => (v._1, v._2.map(_._2).sum))      
-          val pref = supp.map(v => (v._1,Math.log(1 + v._2.toDouble / total.toDouble)))
-          
-          supp.map(x => ParquetITP(site,user,x._1,x._2,pref(x._1),total))
-          
-          
-        })
+        } else {
+          /*
+           * Load the Parquet file that specifies the customer type specification 
+           * and filter those customers that match the provided customer type
+           */
+          val parquetCST = readCST(uid).filter(x => x._2 == ctype.value)      
+          ds.map(x => ((x._1,x._2),(x._3,x._4,x._5))).join(parquetCST).map(x => {
+            
+            val ((site,user),((item,quantity,category),rfm_type)) = x
+            (site,user,item,quantity,category)
+            
+          })
+        })     
+
+        /*
+         * STEP #2: Compute the customer product affinity (CPA) using the 
+         * TDIDF algorithm from text analysis
+         */
+        val table = TFIDF.compute(filteredDS)
         /* 
          * The RDD is implicitly converted to a SchemaRDD by createSchemaRDD, 
          * allowing it to be stored using Parquet. 
          */
-        val store = String.format("""%s/ITP/%s""",requestCtx.getBase,uid)         
+        val store = String.format("""%s/CPA-%s/%s""",ctx.getBase,customer.toString,uid)         
         table.saveAsParquetFile(store)
 
-        val params = Map(Names.REQ_MODEL -> "ITP") ++ req_params
+        val params = Map(Names.REQ_MODEL -> "CPA") ++ req_params
         context.parent ! PrepareFinished(params)
 
       } catch {
@@ -115,7 +118,7 @@ class ITPPreparer(requestCtx:RequestContext,orders:RDD[InsightOrder]) extends Ba
            * In case of an error the message listener gets informed, and also
            * the data processing pipeline in order to stop further sub processes 
            */
-          requestCtx.listener ! String.format("""[ERROR][UID: %s] ITP preparation exception: %s.""",uid,e.getMessage)
+          ctx.listener ! String.format("""[ERROR][UID: %s] CPA preparation exception: %s.""",uid,e.getMessage)
           
           val params = Map(Names.REQ_MESSAGE -> e.getMessage) ++ req_params
           context.parent ! PrepareFailed(params)
@@ -129,21 +132,6 @@ class ITPPreparer(requestCtx:RequestContext,orders:RDD[InsightOrder]) extends Ba
       }
     }
   
-  }
-  private def quantiles(dataset:RDD[Double]):Map[Double,Double] = {
-    
-    implicit val semigroup = new QTreeSemigroup[Double](K)
-    
-    val qtree = dataset.map(v => QTree(v)).reduce(_ + _) 
-    QUANTILES.map(x => {
-      
-      val (lower,upper) = qtree.quantileBounds(x)
-      val mean = (lower + upper) / 2
-
-      (x,mean)
-      
-    }).toMap
-    
   }
   
 }

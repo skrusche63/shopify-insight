@@ -28,8 +28,17 @@ import de.kp.shopify.insight.model._
 
 import de.kp.shopify.insight.actor.BaseActor
 import de.kp.shopify.insight.geoip.LocationFinder
-
-class LOCPreparer(requestCtx:RequestContext,orders:RDD[InsightOrder]) extends BaseActor(requestCtx) {
+/**
+ * The LOCPreparer evaluates the IP addresses and timestamps of 
+ * customer purchase transactions for a certain period of time
+ * and maps the IP address onto a geospatial location using the
+ * GeoLiteCity database. These data can be used to build movement
+ * profiles for the customers.
+ * 
+ * The LOCPreparer does NOT take specific (RFM) customer types 
+ * into account, as we cannot see any necessity to do so.
+ */
+class LOCPreparer(ctx:RequestContext,orders:RDD[InsightOrder]) extends BaseActor(ctx) {
   
   import sqlc.createSchemaRDD
   override def receive = {
@@ -38,6 +47,9 @@ class LOCPreparer(requestCtx:RequestContext,orders:RDD[InsightOrder]) extends Ba
 
       val req_params = msg.data      
       val uid = req_params(Names.REQ_UID)
+             
+      val start = new java.util.Date().getTime.toString            
+      ctx.listener ! String.format("""[INFO][UID: %s] LOC preparation request received at %s.""",uid,start)
       
       try {
         
@@ -82,8 +94,10 @@ class LOCPreparer(requestCtx:RequestContext,orders:RDD[InsightOrder]) extends Ba
          * The RDD is implicitly converted to a SchemaRDD by createSchemaRDD, 
          * allowing it to be stored using Parquet. 
          */
-        val store = String.format("""%s/LOC/%s""",requestCtx.getBase,uid)         
+        val store = String.format("""%s/LOC/%s""",ctx.getBase,uid)         
         table.saveAsParquetFile(store)
+
+        ctx.listener ! String.format("""[INFO][UID: %s] LOC preparation finished.""",uid)
 
         val params = Map(Names.REQ_MODEL -> "LOC") ++ req_params
         context.parent ! PrepareFinished(params)
@@ -94,7 +108,7 @@ class LOCPreparer(requestCtx:RequestContext,orders:RDD[InsightOrder]) extends Ba
            * In case of an error the message listener gets informed, and also
            * the data processing pipeline in order to stop further sub processes 
            */
-          requestCtx.listener ! String.format("""[ERROR][UID: %s] LOC preparation exception: %s.""",uid,e.getMessage)
+          ctx.listener ! String.format("""[ERROR][UID: %s] LOC preparation exception: %s.""",uid,e.getMessage)
           
           val params = Map(Names.REQ_MESSAGE -> e.getMessage) ++ req_params
           context.parent ! PrepareFailed(params)

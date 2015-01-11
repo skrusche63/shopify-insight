@@ -28,14 +28,13 @@ import de.kp.shopify.insight._
 import de.kp.shopify.insight.actor._
 import de.kp.shopify.insight.model._
 
-class CustomerSync(requestCtx:RequestContext) extends BaseActor(requestCtx) {
+class CustomerCollector(ctx:RequestContext,params:Map[String,String]) extends BaseActor(ctx) {
 
   override def receive = {
 
-    case message:StartSynchronize => {
+    case message:StartCollect => {
       
-      val req_params = message.data
-      val uid = req_params(Names.REQ_UID)
+      val uid = params(Names.REQ_UID)
       
       try {
 
@@ -44,35 +43,35 @@ class CustomerSync(requestCtx:RequestContext) extends BaseActor(requestCtx) {
         if (writer.open("database","customers") == false)
           throw new Exception("Customer database cannot be opened.")
       
-        requestCtx.listener ! String.format("""[INFO][UID: %s] Customer base synchronization started.""",uid)
+        ctx.listener ! String.format("""[INFO][UID: %s] Customer base synchronization started.""",uid)
             
         val start = new java.util.Date().getTime            
-        val customers = requestCtx.getCustomers(req_params)
+        val customers = ctx.getCustomers(params)
        
-        requestCtx.listener ! String.format("""[INFO][UID: %s] Customer base loaded.""",uid)
+        ctx.listener ! String.format("""[INFO][UID: %s] Customer base loaded.""",uid)
 
         val ids = customers.map(_.id)
-        val sources = customers.map(x=> toSource(req_params,x))
+        val sources = customers.map(x=> toSource(params,x))
         
         writer.writeBulkJSON("database", "customers", ids, sources)
         writer.close()
         
         val end = new java.util.Date().getTime
-        requestCtx.listener ! String.format("""[INFO][UID: %s] Customer base synchronization finished in %s ms.""",uid,(end-start).toString)
+        ctx.listener ! String.format("""[INFO][UID: %s] Customer base synchronization finished in %s ms.""",uid,(end-start).toString)
          
-        val params = Map(Names.REQ_MODEL -> "CUSTOMER") ++ req_params
+        val new_params = Map(Names.REQ_MODEL -> "CUSTOMER") ++ params
 
-        context.parent ! SynchronizeFinished(params)
+        context.parent ! CollectFinished(new_params)
         context.stop(self)
         
       } catch {
         case e:Exception => {
 
-          requestCtx.listener ! String.format("""[ERROR][UID: %s] Customer base synchronization failed due to an internal error.""",uid)
+          ctx.listener ! String.format("""[ERROR][UID: %s] Customer base synchronization failed due to an internal error.""",uid)
           
-          val params = Map(Names.REQ_MESSAGE -> e.getMessage) ++ req_params
+          val new_params = Map(Names.REQ_MESSAGE -> e.getMessage) ++ params
 
-          context.parent ! SynchronizeFailed(params)            
+          context.parent ! CollectFailed(new_params)            
           context.stop(self)
           
         }

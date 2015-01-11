@@ -50,7 +50,7 @@ class DataPipeline(requestCtx:RequestContext) extends BaseActor(requestCtx) {
       actor ! StartSynchronize(req_params)
       
     }       
-    case message:SynchronizeFailed => {
+    case message:CollectFailed => {
       /*
        * The DataSynchronizer actor already sent an error message to the message 
        * listener; no additional notification has to be done, so just stop the 
@@ -59,7 +59,7 @@ class DataPipeline(requestCtx:RequestContext) extends BaseActor(requestCtx) {
       context.stop(self)
        
     }
-    case message:SynchronizeFinished => {
+    case message:SyncCollectshed => {
      /*
        * This message is sent by the DataSynchronizer actor and indicates that the 
        * data synchronization sub process has been finished. Note, that this actor 

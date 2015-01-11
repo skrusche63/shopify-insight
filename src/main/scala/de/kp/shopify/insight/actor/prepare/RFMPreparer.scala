@@ -31,7 +31,6 @@ import de.kp.spark.core.Names
 import de.kp.shopify.insight._
 import de.kp.shopify.insight.model._
 
-import de.kp.shopify.insight.actor.BaseActor
 /**
  * The RFM Customer Segmentation model is an embarrassingly simple way of 
  * segmenting the customer base inside a marketing database. The resulting 
@@ -39,9 +38,8 @@ import de.kp.shopify.insight.actor.BaseActor
  * going through complex mathematics.
  * 
  */
-class RFMPreparer(requestCtx:RequestContext,orders:RDD[InsightOrder]) extends BaseActor(requestCtx) {
+class RFMPreparer(requestCtx:RequestContext,orders:RDD[InsightOrder]) extends BasePreparer(requestCtx) {
         
-  private val DAY = 24 * 60 * 60 * 1000 // day in milliseconds
   /*
    * The parameter K is used as an initialization 
    * prameter for the QTree semigroup
@@ -56,6 +54,9 @@ class RFMPreparer(requestCtx:RequestContext,orders:RDD[InsightOrder]) extends Ba
 
       val req_params = msg.data      
       val uid = req_params(Names.REQ_UID)
+             
+      val start = new java.util.Date().getTime.toString            
+      requestCtx.listener ! String.format("""[INFO][UID: %s] RFM preparation request received at %s.""",uid,start)
       
       try {
 
