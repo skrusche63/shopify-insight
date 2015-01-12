@@ -1,4 +1,4 @@
-package de.kp.shopify.insight.actor.prepare
+package de.kp.shopify.insight.prepare
 /* Copyright (c) 2014 Dr. Krusche & Partner PartG
 * 
 * This file is part of the Shopify-Insight project
@@ -101,13 +101,15 @@ class CPAPreparer(ctx:RequestContext,customer:Int,orders:RDD[InsightOrder]) exte
          * STEP #2: Compute the customer product affinity (CPA) using the 
          * TDIDF algorithm from text analysis
          */
-        val table = TFIDF.compute(filteredDS)
+        val table = TFIDF.computeCPA(filteredDS)
         /* 
          * The RDD is implicitly converted to a SchemaRDD by createSchemaRDD, 
          * allowing it to be stored using Parquet. 
          */
         val store = String.format("""%s/CPA-%s/%s""",ctx.getBase,customer.toString,uid)         
         table.saveAsParquetFile(store)
+
+        ctx.listener ! String.format("""[INFO][UID: %s] CPA preparation for customer type '%s' finished.""",uid,customer.toString)
 
         val params = Map(Names.REQ_MODEL -> "CPA") ++ req_params
         context.parent ! PrepareFinished(params)

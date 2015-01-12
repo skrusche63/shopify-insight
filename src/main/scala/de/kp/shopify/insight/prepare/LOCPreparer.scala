@@ -1,4 +1,4 @@
-package de.kp.shopify.insight.actor.prepare
+package de.kp.shopify.insight.prepare
 /* Copyright (c) 2014 Dr. Krusche & Partner PartG
 * 
 * This file is part of the Shopify-Insight project
@@ -20,14 +20,13 @@ package de.kp.shopify.insight.actor.prepare
 
 import org.apache.spark.SparkContext._
 import org.apache.spark.rdd.RDD
-
 import de.kp.spark.core.Names
-
 import de.kp.shopify.insight._
 import de.kp.shopify.insight.model._
-
 import de.kp.shopify.insight.actor.BaseActor
 import de.kp.shopify.insight.geoip.LocationFinder
+import akka.actor.actorRef2Scala
+import scala.reflect.runtime.universe
 /**
  * The LOCPreparer evaluates the IP addresses and timestamps of 
  * customer purchase transactions for a certain period of time

@@ -1,4 +1,4 @@
-package de.kp.shopify.insight.actor.prepare
+package de.kp.shopify.insight.prepare
 /* Copyright (c) 2014 Dr. Krusche & Partner PartG
 * 
 * This file is part of the Shopify-Insight project
@@ -209,6 +209,8 @@ class STMPreparer(ctx:RequestContext,customer:Int,orders:RDD[InsightOrder]) exte
          */
         val store = String.format("""%s/STM-%s/%s""",ctx.getBase,customer.toString,uid)         
         table.saveAsParquetFile(store)
+
+        ctx.listener ! String.format("""[INFO][UID: %s] STM preparation for customer type '%s' finished.""",uid,customer.toString)
 
         val params = Map(Names.REQ_MODEL -> "STM") ++ req_params
         context.parent ! PrepareFinished(params)

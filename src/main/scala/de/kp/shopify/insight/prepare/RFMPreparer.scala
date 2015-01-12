@@ -1,4 +1,4 @@
-package de.kp.shopify.insight.actor.prepare
+package de.kp.shopify.insight.prepare
 /* Copyright (c) 2014 Dr. Krusche & Partner PartG
 * 
 * This file is part of the Shopify-Insight project

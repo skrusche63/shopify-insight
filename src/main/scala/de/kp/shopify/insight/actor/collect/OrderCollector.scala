@@ -362,9 +362,12 @@ class OrderCollector(ctx:RequestContext,params:Map[String,String]) extends BaseA
     
     val uid = params("uid")
     val timestamp = params("timestamp").toLong
-           
-    val created_at_min = params("created_at_min")
-    val created_at_max = params("created_at_max")
+    /*
+     * Note, that we must index the time period as timestamps
+     * as these parameters are used to filter orders later on
+     */
+    val created_at_min = unformatted(params("created_at_min"))
+    val created_at_max = unformatted(params("created_at_max"))
     
     val builder = XContentFactory.jsonBuilder()
 	builder.startObject()

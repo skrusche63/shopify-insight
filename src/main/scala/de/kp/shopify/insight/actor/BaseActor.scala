@@ -19,15 +19,25 @@ package de.kp.shopify.insight.actor
 */
 
 import org.apache.spark.sql.SQLContext
+import org.joda.time.format.DateTimeFormat
 
 import de.kp.spark.core.actor.RootActor
 import de.kp.shopify.insight.{Configuration,RequestContext}
 
-abstract class BaseActor(requestCtx:RequestContext) extends RootActor(Configuration) {
+abstract class BaseActor(ctx:RequestContext) extends RootActor(Configuration) {
 
   implicit val ec = context.dispatcher
   
-  protected val sc = requestCtx.sparkContext
-  protected val sqlc = requestCtx.sqlCtx
+  protected val sc = ctx.sparkContext
+  protected val sqlc = ctx.sqlCtx
+  
+  protected def unformatted(date:String):Long = {
 
+    //2008-12-31 03:00
+    val pattern = "yyyy-MM-dd HH:mm"
+    val formatter = DateTimeFormat.forPattern(pattern)
+ 
+    formatter.parseMillis(date)
+    
+  }
 }

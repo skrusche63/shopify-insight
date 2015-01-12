@@ -17,62 +17,6 @@ package de.kp.shopify.insight.model
 * 
 * If not, see <http://www.gnu.org/licenses/>.
 */
-
-case class ParquetCHN(
-  site:String,
-  user:String,
-  
-  amount:Double,
-  timespan:Double,
-  
-  churner:Boolean
-)
-
-/**
- * ParquetCLV is a data structure that specifies the customer-specific 
- * lifetime value in terms of an assigned state. The state is determined 
- * by evaluating the respective M_QUANTILES
- */
-case class ParquetCLV(
-  site:String,
-  user:String,
-  /* 
-   * Total amount spent since the signup date of
-   * the customer
-   */
-  amount:Double,
-  state:String
-)
-/**
- * ParquetFRQ is a data structure that specifies the customer-specific 
- * purchase frequency in terms of an assigned state. The state is determined 
- * by evaluating the respective F_QUANTILES
- */
-case class ParquetFRQ(
-  site:String,
-  user:String,
-  /* 
-   * Total orders since the signup date of
-   * the customer
-   */
-  total:Int,
-  state:String
-)
-/**
- * ParquetREC is a data structure that specifies the customer-specific 
- * purchase activity (recency) in terms of an assigned state. The state 
- * is determined by evaluating the respective R_QUANTILES
- */
-case class ParquetREC(
-  site:String,
-  user:String,
-  /* 
-   * The number of days passed since the
-   * purchase of the customer
-   */
-  days:Int,
-  state:String
-)
 /**
  * ParquetPRM is a data structure that specifies product relation
  * rules that form the basis for cross-selling, promotions etc
@@ -125,102 +69,6 @@ case class ParquetURM(
   site:String,
   user:String,
   recommendations:Seq[(Seq[Int],Double)]
-)
-/**
- * TODO: Integrate Jollydays project and defines calendars
- * for holidays 
- */
-
-/**
- * ParquetDOW is a data structure that specifies the 
- * customer-specific day of week support and preference; 
- * itcan be used, to e.g. determine which of the customer 
- * is a typical weekend buyer.
- * 
- * This information contributes to the temporal dimension
- * of the customer.
- */
-case class ParquetDOW(
-  site:String,
-  user:String,
-  
-  day:Int,
-  
-  supp:Double,
-  pref:Double,
-  
-  total:Int
-)
-/**
- * ParquetFRP is a data structure that specifies the
- * customer-specific purchase frequency in terms of 
- * days in between two subsequent purchase transactions.
- * 
- * This information contributes to the temporal dimension 
- * of the customer.
- */
-case class ParquetFRP(
-  site:String,
-  user:String,
-  /*
-   * This profile holds the timestamp of the last purchase 
-   * of the customer; this field is used to determine, whether 
-   * he or she gets cold
-   */
-  recency:Long,
-  timespan:Int,
-  
-  avg_timespan:Double,
-  min_timespan:Int,
-  max_timespan:Int,
-  
-  supp:Double,
-  pref:Double,
-  
-  total:Int
-)
-/**
- * ParquetHOD is a data structure that specifies the
- * customer specific hour of the day support and preferences.
- * 
- * This information contributes to the temporal dimension 
- * of the customer.
- */
-case class ParquetHOD(
-  site:String,
-  user:String,
-  
-  hour:Int,
-  
-  supp:Double,
-  pref:Double,
-  
-  total:Int
-)
-
-case class ParquetLOC(
-  site:String,
-  user:String,
-  
-  ip_address:String,
-  timestamp:Long,
-    
-  countryname:String,
-  countrycode:String,
-
-  region:String,
-  regionname:String,
-  
-  areacode:Int,
-  dmacode:Int,
-  
-  metrocode:Int,
-  city:String,
-  
-  postalcode:String,
-	  
-  lat:Double,
-  lon:Double
 )
 
 /**********************************************************************
@@ -284,6 +132,37 @@ case class ParquetCST(
   rfm_type:Int
 )
 /**
+ * ParquetLOC is a data structure tha specifies a Parquet table
+ * that describes geospatial data assigned to a certain purchase
+ * timestamp; this enables the creation of customer movement
+ * profiles
+ */
+case class ParquetLOC(
+  site:String,
+  user:String,
+  
+  ip_address:String,
+  timestamp:Long,
+    
+  countryname:String,
+  countrycode:String,
+
+  region:String,
+  regionname:String,
+  
+  areacode:Int,
+  dmacode:Int,
+  
+  metrocode:Int,
+  city:String,
+  
+  postalcode:String,
+	  
+  lat:Double,
+  lon:Double
+)
+
+/**
  * ParquetPPF is a data structure that specifies a Parquet
  * file that assigns frequencies to a certain product or 
  * item. The data record can be computed with respect to
@@ -303,6 +182,33 @@ case class ParquetPPF(
   cval:Int,
   pval:Int
 )
+/**
+ * ParquetCTA is a data structure that specifies a Parquet
+ * file that describes the customer's affinity to the day
+ * of the week, the hour of the day and also the timespan
+ * between two subsequent transactions; all these features
+ * specifiy the temporal affinity of a certain user.
+ * 
+ * This data structure is shared with Predictiveworks' vector 
+ * analysis engines, such as Outlier or Similarity analysis.
+ * 
+ * TODO: Integrate Jollydays project and defines calendars
+ * for holidays 
+ * 
+ */
+case class ParquetCTA(
+  site:String,
+  user:String,
+  
+  item:Int,
+  
+  row:Long,
+  col:Long,
+
+  label:String,
+  value:Double
+)
+
 /**
  * ParquetCPA is a data structure that specifies a Parquet
  * file that describes the customer product affinity; this
@@ -365,3 +271,15 @@ case class ParquetSTM(
   state:String
 
 ) 
+
+case class ParquetCCN(
+  site:String,
+  user:String,
+  
+  amount:Double,
+  timespan:Int,
+  
+  churner:Boolean,
+  rfm_type:Int
+)
+

@@ -62,10 +62,10 @@ case class InsightForecast(
   timestamp:Long,
 
   @JsonProperty("created_at_min")
-  created_at_min:String,
+  created_at_min:Long,
 
   @JsonProperty("created_at_max")
-  created_at_max:String,
+  created_at_max:Long,
 
   @JsonProperty("site")
   site:String,

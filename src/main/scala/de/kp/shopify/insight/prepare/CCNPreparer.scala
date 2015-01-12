@@ -1,4 +1,4 @@
-package de.kp.shopify.insight.actor.prepare
+package de.kp.shopify.insight.prepare
 /* Copyright (c) 2014 Dr. Krusche & Partner PartG
 * 
 * This file is part of the Shopify-Insight project
@@ -21,36 +21,22 @@ package de.kp.shopify.insight.actor.prepare
 import org.apache.spark.SparkContext._
 import org.apache.spark.rdd.RDD
 
-import com.twitter.algebird._
-import com.twitter.algebird.Operators._
-
 import de.kp.spark.core.Names
 
 import de.kp.shopify.insight._
 import de.kp.shopify.insight.model._
 
-import de.kp.shopify.insight.actor.BaseActor
-
 /**
- * The CHNPreparer generates the timespan distribution in terms of
+ * The CCNPreparer generates the timespan distribution in terms of
  * days, and the amount distribution from all orders registered so 
  * far, excludes the last transaction and determines whether this
  * last transaction is far away from the "normal" behavior of the
  * respective customer
  */
-class CHNPreparer(requestCtx:RequestContext,orders:RDD[InsightOrder]) extends BaseActor(requestCtx) {
-        
-  private val DAY = 24 * 60 * 60 * 1000 // day in milliseconds
-  /*
-   * The parameter K is used as an initialization prameter for the 
-   * QTree semigroup that is used to compute quantile boundaries
-   * for the amounts spent and also for the timespans elapsed 
-   * between two subsequent transactions
-   */
-  private val K = 6
+class CCNPreparer(ctx:RequestContext,orders:RDD[InsightOrder]) extends BasePreparer(ctx) {
   
   /*
-   * The CHNPreparer uses thresholds for the quantile calculation with
+   * The CCNPreparer uses thresholds for the quantile calculation with
    * respect to the amount spent by the customer and the elapsed time 
    * span between two susequent transactions.
    * 
@@ -67,11 +53,14 @@ class CHNPreparer(requestCtx:RequestContext,orders:RDD[InsightOrder]) extends Ba
 
       val req_params = msg.data      
       val uid = req_params(Names.REQ_UID)
+             
+      val start = new java.util.Date().getTime.toString            
+      ctx.listener ! String.format("""[INFO][UID: %s] CCN preparation request received at %s.""",uid,start)
       
       try {
 
-        val s0 = orders.map(x => (x.site,x.user,x.amount,x.timestamp)).groupBy(x => (x._1,x._2)).filter(_._2.size > 1)
-        val table = s0.map(x => {
+        val ds = orders.map(x => (x.site,x.user,x.amount,x.timestamp)).groupBy(x => (x._1,x._2)).filter(_._2.size > 1)
+        val ds1 = ds.map(x => {
           
           val (site,user) = x._1
           /*
@@ -84,7 +73,7 @@ class CHNPreparer(requestCtx:RequestContext,orders:RDD[InsightOrder]) extends Ba
           val amounts = data.map(_._3)
 
           val timestamps = data.map(_._4)
-          val timespans = timestamps.zip(timestamps.tail).map(v => v._2 - v._1).map(v => (if (v / DAY < 1) 1 else v / DAY))
+          val timespans = timestamps.zip(timestamps.tail).map(v => v._2 - v._1).map(v => (if (v / DAY < 1) 1 else v / DAY).toInt)
           
           /*
            * STEP #2: Build churn boundary from all amounts
@@ -94,9 +83,7 @@ class CHNPreparer(requestCtx:RequestContext,orders:RDD[InsightOrder]) extends Ba
            */
           val init_amounts = amounts.init.map(_.toDouble).sorted
           val amount_churn = if (init_amounts.size > 1) {
-            
-            val boundary = computeBoundary(init_amounts,AMOUNT_THRESHOLD)
-            if (amounts.last.toDouble < boundary) true else false
+            if (amounts.last.toDouble < boundary(init_amounts,AMOUNT_THRESHOLD)) true else false
               
           } else false
           
@@ -108,31 +95,37 @@ class CHNPreparer(requestCtx:RequestContext,orders:RDD[InsightOrder]) extends Ba
            */
           val init_timespans = timespans.init.map(_.toDouble).sorted
           val timespan_churn = if (init_timespans.size > 1) {
-            
-            val boundary = computeBoundary(init_timespans,TIMESPAN_THRESHOLD)
-            if (timespans.last.toDouble > boundary) true else false
+            if (timespans.last.toDouble > boundary(init_timespans,TIMESPAN_THRESHOLD)) true else false
             
           } else false
           
           val churner = amount_churn && timespan_churn
-          
-          ParquetCHN(
-              site,
-              user,
-              amounts.last,
-              timespans.last,
-              churner
-          )
+ 
+          ((site,user,amounts.last,timespans.last,churner))
           
         })
+        /*
+         * Step #4: Load the Parquet file that specifies the customer type 
+         * specification and join with the churn data computed so far
+         */
+        val parquetCST = readCST(uid)      
+        val table = ds1.map(x => ((x._1,x._2),(x._3,x._4,x._5))).join(parquetCST).map(x => {
+            
+          val ((site,user),((amount,timespan,churner),rfm_type)) = x
+          ParquetCCN(site,user,amount,timespan,churner,rfm_type)
+            
+        })
+         
         /* 
          * The RDD is implicitly converted to a SchemaRDD by createSchemaRDD, 
          * allowing it to be stored using Parquet. 
          */
-        val store = String.format("""%s/CHN/%s""",requestCtx.getBase,uid)         
+        val store = String.format("""%s/CCN/%s""",ctx.getBase,uid)         
         table.saveAsParquetFile(store)
 
-        val params = Map(Names.REQ_MODEL -> "CHN") ++ req_params
+        ctx.listener ! String.format("""[INFO][UID: %s] CCN preparation finished.""",uid)
+
+        val params = Map(Names.REQ_MODEL -> "CCN") ++ req_params
         context.parent ! PrepareFinished(params)
         
       } catch {
@@ -141,7 +134,7 @@ class CHNPreparer(requestCtx:RequestContext,orders:RDD[InsightOrder]) extends Ba
            * In case of an error the message listener gets informed, and also
            * the data processing pipeline in order to stop further sub processes 
            */
-          requestCtx.listener ! String.format("""[ERROR][UID: %s] CHN preparation exception: %s.""",uid,e.getMessage)
+          ctx.listener ! String.format("""[ERROR][UID: %s] CCN preparation exception: %s.""",uid,e.getMessage)
           
           val params = Map(Names.REQ_MESSAGE -> e.getMessage) ++ req_params
           context.parent ! PrepareFailed(params)
@@ -155,19 +148,6 @@ class CHNPreparer(requestCtx:RequestContext,orders:RDD[InsightOrder]) extends Ba
       }
     }
   
-  }
-  
-  private def computeBoundary(dataset:Seq[Double],quantile:Double):Double = {
-    
-    implicit val semigroup = new QTreeSemigroup[Double](K)
-    
-    val d1 = dataset.map(v => QTree(v)).reduce(_ + _) 
-    
-    val (lower,upper) = d1.quantileBounds(quantile)
-    val mean = (lower + upper) / 2
-    
-    mean
-    
   }
 
 }

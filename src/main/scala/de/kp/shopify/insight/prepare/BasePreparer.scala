@@ -1,4 +1,4 @@
-package de.kp.shopify.insight.actor.prepare
+package de.kp.shopify.insight.prepare
 /* Copyright (c) 2014 Dr. Krusche & Partner PartG
 * 
 * This file is part of the Shopify-Insight project
@@ -17,6 +17,7 @@ package de.kp.shopify.insight.actor.prepare
 * 
 * If not, see <http://www.gnu.org/licenses/>.
 */
+
 import org.apache.spark.rdd.RDD
 
 import com.twitter.algebird._
@@ -34,6 +35,23 @@ abstract class BasePreparer(requestCtx:RequestContext) extends BaseActor(request
   private val QUINTILES = List(0.20,0.40,0.60,0.80,1.00)
         
   protected val DAY = 24 * 60 * 60 * 1000 // day in milliseconds
+  
+  /**
+   * This method calculates the quantile boundaries with
+   * respect to a certain quantile from a set of Doubles
+   */
+  protected def boundary(dataset:Seq[Double],quantile:Double):Double = {
+    
+    implicit val semigroup = new QTreeSemigroup[Double](K)
+    
+    val qtree = dataset.map(v => QTree(v)).reduce(_ + _) 
+    
+    val (lower,upper) = qtree.quantileBounds(quantile)
+    val mean = (lower + upper) / 2
+    
+    mean
+    
+  }
   
   /**
    * This method calculates the quantile boundaries from an

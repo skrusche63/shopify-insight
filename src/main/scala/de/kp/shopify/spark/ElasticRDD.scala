@@ -91,8 +91,8 @@ class ElasticRDD(@transient sc:SparkContext) {
       val uid = entries("uid").asInstanceOf[String]
       val last_sync = entries("last_sync").asInstanceOf[Long]
 
-      val created_at_min = entries("created_at_min").asInstanceOf[String]
-      val created_at_max = entries("created_at_max").asInstanceOf[String]
+      val created_at_min = entries("created_at_min").asInstanceOf[Long]
+      val created_at_max = entries("created_at_max").asInstanceOf[Long]
     
       val site = entries("site").asInstanceOf[String]
       val user = entries("user").asInstanceOf[String]

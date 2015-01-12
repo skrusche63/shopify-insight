@@ -46,8 +46,8 @@ class DataPipeline(requestCtx:RequestContext) extends BaseActor(requestCtx) {
        * that the tracking process has been started. Error and
        * interim messages of this process are sent to the listener
        */
-      val actor = context.actorOf(Props(new DataCollector(requestCtx)))          
-      actor ! StartSynchronize(req_params)
+      //val actor = context.actorOf(Props(new DataCollector(requestCtx)))          
+      //actor ! StartSynchronize(req_params)
       
     }       
     case message:CollectFailed => {
@@ -59,7 +59,7 @@ class DataPipeline(requestCtx:RequestContext) extends BaseActor(requestCtx) {
       context.stop(self)
        
     }
-    case message:SyncCollectshed => {
+    case message:CollectFinished => {
      /*
        * This message is sent by the DataSynchronizer actor and indicates that the 
        * data synchronization sub process has been finished. Note, that this actor 
@@ -112,8 +112,8 @@ class DataPipeline(requestCtx:RequestContext) extends BaseActor(requestCtx) {
       // TODO
       val customerType = 1
       
-      val actor = context.actorOf(Props(new DataBuilder(requestCtx,customerType)))  
-      actor ! StartBuild(message.data)
+      //val actor = context.actorOf(Props(new DataBuilder(requestCtx,customerType)))  
+      //actor ! StartBuild(message.data)
       
     }    
     case message:BuildFailed => {

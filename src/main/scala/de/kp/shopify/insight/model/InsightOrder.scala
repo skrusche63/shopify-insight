@@ -35,8 +35,8 @@ case class InsightOrder(
   uid:String,  
   last_sync:Long,
 
-  created_at_min:String,
-  created_at_max:String,
+  created_at_min:Long,
+  created_at_max:Long,
   
   site:String,
 

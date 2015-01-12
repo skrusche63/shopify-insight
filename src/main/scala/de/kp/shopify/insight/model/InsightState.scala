@@ -34,10 +34,10 @@ case class InsightState(
   timestamp:Long,
 
   @JsonProperty("created_at_min")
-  created_at_min:String,
+  created_at_min:Long,
 
   @JsonProperty("created_at_max")
-  created_at_max:String,
+  created_at_max:Long,
 
   /*
    * today is the reference timestamp when this

@@ -25,7 +25,7 @@ import de.kp.spark.core.Names
 import scala.collection.JavaConversions._
 import scala.collection.mutable.HashMap
 
-class ESForecastBuilder {
+class ESLocationBuilder {
 
   import de.kp.spark.core.Names._
   
@@ -35,6 +35,8 @@ class ESForecastBuilder {
           .startObject()
             .startObject(mapping)
               .startObject("properties")
+      
+                /********** METADATA **********/
 
                 /* uid */
                 .startObject(UID_FIELD)
@@ -65,6 +67,8 @@ class ESForecastBuilder {
                   .field("type", "string")
                   .field("index", "not_analyzed")
                 .endObject()
+      
+                /********** USER DATA **********/
 
                 /* user */
                 .startObject(USER_FIELD)
@@ -72,31 +76,66 @@ class ESForecastBuilder {
                   .field("index", "not_analyzed")
                 .endObject()
                
-                /* step */
-                .startObject(STEP_FIELD)
-                  .field("type", "integer")
+                /* ip_address */
+                .startObject("ip_address")
+                  .field("type", "string")
                 .endObject()//
 
-                /* amount */
-                .startObject(AMOUNT_FIELD)
-                  .field("type", "float")
-                .endObject()
-
                 /* time */
-                .startObject(TIME_FIELD)
+                .startObject("time")
                   .field("type", "long")
                 .endObject()
 
-                /* state */
-                .startObject(STATE_FIELD)
+                /* countryname */
+                .startObject("countryname")
                   .field("type", "string")
                 .endObject()
-               
-                /* score */
-                .startObject(SCORE_FIELD)
-                  .field("type", "double")
+
+                /* countrycode */
+                .startObject("countrycode")
+                  .field("type", "string")
                 .endObject()
 
+                /* region */
+                .startObject("region")
+                  .field("type", "string")
+                .endObject()
+
+                /* regionname */
+                .startObject("regionname")
+                  .field("type", "string")
+                .endObject()
+
+                /* areacode */
+                .startObject("areacode")
+                  .field("type", "integer")
+                .endObject()
+
+                /* dmacode */
+                .startObject("dmacode")
+                  .field("type", "integer")
+                .endObject()
+
+                /* metrocode */
+                .startObject("metrocode")
+                  .field("type", "integer")
+                .endObject()
+
+                /* city */
+                .startObject("city")
+                  .field("type", "string")
+                .endObject()
+
+                /* postalcode */
+                .startObject("postalcode")
+                  .field("type", "string")
+                .endObject()
+
+                /* location */
+                .startObject("location")
+                  .field("type", "geo_point")
+                .endObject()
+                
               .endObject() // properties
             .endObject()   // mapping
           .endObject()

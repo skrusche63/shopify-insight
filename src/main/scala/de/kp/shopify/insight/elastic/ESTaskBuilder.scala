@@ -50,11 +50,11 @@ class ESTaskBuilder {
                 .endObject()
 
                 .startObject("created_at_min")
-                   .field("type","string")
+                   .field("type","long")
                 .endObject()
 
                 .startObject("created_at_max")
-                   .field("type","string")
+                   .field("type","long")
                 .endObject()
                 
               .endObject()

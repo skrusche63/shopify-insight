@@ -294,7 +294,7 @@ object ESQuestor {
 
   private def uid(key:String) = key.split(":")(1)
   
-  private def task(hit:SearchHit):(String,String,Long,String,String) = {
+  private def task(hit:SearchHit):(String,String,Long,Long,Long) = {
         
     val data = hit.getSource()
         
@@ -306,8 +306,8 @@ object ESQuestor {
     /*
      * Retrieve description of the tasks' time span
      */
-    val created_at_min = data("created_at_min").asInstanceOf[String]
-    val created_at_max = data("created_at_max").asInstanceOf[String]
+    val created_at_min = data("created_at_min").asInstanceOf[Long]
+    val created_at_max = data("created_at_max").asInstanceOf[Long]
 
     (key,task,timestamp,created_at_min,created_at_max)
     

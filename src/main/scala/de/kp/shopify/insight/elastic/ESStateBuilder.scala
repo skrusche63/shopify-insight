@@ -79,13 +79,13 @@ class ESStateBuilder {
 
                 /* created_at_min */
                 .startObject("created_at_min")
-                  .field("type", "string")
+                  .field("type", "long")
                   .field("index", "not_analyzed")
                 .endObject()
 
                 /* created_at_max */
                 .startObject("created_at_max")
-                  .field("type", "string")
+                  .field("type", "long")
                   .field("index", "not_analyzed")
                 .endObject()
  

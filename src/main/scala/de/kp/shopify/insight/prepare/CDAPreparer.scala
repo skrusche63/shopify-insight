@@ -1,4 +1,4 @@
-package de.kp.shopify.insight.actor.prepare
+package de.kp.shopify.insight.prepare
 /* Copyright (c) 2014 Dr. Krusche & Partner PartG
 * 
 * This file is part of the Shopify-Insight project
@@ -21,53 +21,49 @@ package de.kp.shopify.insight.actor.prepare
 import org.apache.spark.SparkContext._
 import org.apache.spark.rdd.RDD
 
+import org.joda.time.DateTime
+
 import de.kp.spark.core.Names
 
 import de.kp.shopify.insight._
 import de.kp.shopify.insight.model._
 
-/**
- * The ASRPreparer prepares the purchase transactions of a certain
- * period of time and a specific customer type for association rule
- * mining with Predictiveworks' Association Analysis engine
- */
-class ASRPreparer(requestCtx:RequestContext,customer:Int,orders:RDD[InsightOrder]) extends BasePreparer(requestCtx) {
+import de.kp.shopify.insight.preference.TFIDF
 
-  import sqlc.createSchemaRDD
+/**
+ * The CDAPreparer computes the customer day of the week affinity;
+ * this information is used to segment the customer base by this
+ * temporal information
+ */
+class CDAPreparer(ctx:RequestContext,customer:Int,orders:RDD[InsightOrder]) extends BasePreparer(ctx) {
   
+  import sqlc.createSchemaRDD
   override def receive = {
     
     case msg:StartPrepare => {
 
-      val req_params = msg.data      
+      val req_params = msg.data
       val uid = req_params(Names.REQ_UID)
              
       val start = new java.util.Date().getTime.toString            
-      requestCtx.listener ! String.format("""[INFO][UID: %s] ASR preparation request received at %s.""",uid,start)
+      ctx.listener ! String.format("""[INFO][UID: %s] CDA preparation request received at %s.""",uid,start)
       
       try {
         /*
-         * Association rule mining determines items that are frequently
-         * bought together; to this end, we filter those transactions
-         * with more than one item purchased 
-         */
-        val ds = orders.filter(x => x.items.size > 1).flatMap(x => x.items.map(v => (x.site,x.user,x.group,v.item)))
-        /*
-         * STEP #1: Restrict the purchase orders to those records that match
-         * the provided customer type. In case of customer type = '0', the 
-         * 'user' provided with the ParquetASR table is the customer itself.
-         * 
-         * In all other cases, the 'user' attribute is replaced by the customer
-         * type and the respective transactions are assigned to this type
+         * STEP #1: Restrict the purchase orders to those items and attributes
+         * that are relevant for the item segmentation task; this encloses a
+         * filtering with respect to customer type, if different from '0'
          */
         val ctype = sc.broadcast(customer)
-        val table = (if (customer == 0) {
+
+        val ds = orders.map(x => (x.site,x.user,new DateTime(x.timestamp).dayOfWeek().get))
+        val filteredDS = (if (customer == 0) {
           /*
            * This customer type indicates that ALL customer types
            * have to be taken into account when computing the item
            * segmentation 
            */
-          ds.map(x => ParquetASR(x._1,x._2,x._3,x._4))
+          ds
           
         } else {
           /*
@@ -75,35 +71,37 @@ class ASRPreparer(requestCtx:RequestContext,customer:Int,orders:RDD[InsightOrder
            * and filter those customers that match the provided customer type
            */
           val parquetCST = readCST(uid).filter(x => x._2 == ctype.value)      
-          ds.map(x => ((x._1,x._2),(x._3,x._4))).join(parquetCST).map(x => {
+          ds.map(x => ((x._1,x._2),(x._3))).join(parquetCST).map(x => {
             
-            val ((site,user),((group,item),rfm_type)) = x
-            /*
-             * Note, that we replace the 'user' by the respective rfm_type
-             */
-            ParquetASR(site,rfm_type.toString,group,item)
+            val ((site,user),((day),rfm_type)) = x
+            (site,user,day)
             
           })
-        })               
+        })     
+        /*
+         * STEP #2: Compute the customer day affinity (CDA) using the 
+         * TDIDF algorithm from text analysis
+         */
+        val table = TFIDF.computeCDA(filteredDS,daytime="day")
         /* 
          * The RDD is implicitly converted to a SchemaRDD by createSchemaRDD, 
          * allowing it to be stored using Parquet. 
          */
-        val store = String.format("""%s/ASR-%s/%s""",requestCtx.getBase,customer.toString,uid)         
+        val store = String.format("""%s/CDA-%s/%s""",ctx.getBase,customer.toString,uid)         
         table.saveAsParquetFile(store)
 
-        requestCtx.listener ! String.format("""[INFO][UID: %s] ASR preparation for customer type '%s' finished.""",uid,customer.toString)
+        ctx.listener ! String.format("""[INFO][UID: %s] CDA preparation for customer type '%s' finished.""",uid,customer.toString)
 
-        val params = Map(Names.REQ_MODEL -> "ASR") ++ req_params
+        val params = Map(Names.REQ_MODEL -> "CDA") ++ req_params
         context.parent ! PrepareFinished(params)
-        
+
       } catch {
         case e:Exception => {
           /* 
            * In case of an error the message listener gets informed, and also
            * the data processing pipeline in order to stop further sub processes 
            */
-          requestCtx.listener ! String.format("""[ERROR][UID: %s] ASR preparation exception: %s.""",uid,e.getMessage)
+          ctx.listener ! String.format("""[ERROR][UID: %s] CDA preparation exception: %s.""",uid,e.getMessage)
           
           val params = Map(Names.REQ_MESSAGE -> e.getMessage) ++ req_params
           context.parent ! PrepareFailed(params)
@@ -118,5 +116,5 @@ class ASRPreparer(requestCtx:RequestContext,customer:Int,orders:RDD[InsightOrder
     }
   
   }
-  
+
 }
