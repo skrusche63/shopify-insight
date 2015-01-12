@@ -1,4 +1,4 @@
-package de.kp.shopify.insight.actor.collect
+package de.kp.shopify.insight.collect
 /* Copyright (c) 2014 Dr. Krusche & Partner PartG
  * 
  * This file is part of the Shopify-Insight project
@@ -31,7 +31,7 @@ import de.kp.shopify.insight._
 import de.kp.shopify.insight.actor._
 import de.kp.shopify.insight.model._
 
-class OrderCollector(ctx:RequestContext,params:Map[String,String]) extends BaseActor(ctx) {
+class ORDCollector(ctx:RequestContext,params:Map[String,String]) extends BaseActor(ctx) {
         
   private val DAY = 24 * 60 * 60 * 1000 // day in milliseconds
 
@@ -40,15 +40,18 @@ class OrderCollector(ctx:RequestContext,params:Map[String,String]) extends BaseA
     case message:StartCollect => {
       
       val uid = params(Names.REQ_UID)
+             
+      val start = new java.util.Date().getTime.toString            
+      ctx.listener ! String.format("""[INFO][UID: %s] ORD collection request received at %s.""",uid,start)
       
       try {
       
-        ctx.listener ! String.format("""[INFO][UID: %s] Order base synchronization started.""",uid)
+        ctx.listener ! String.format("""[INFO][UID: %s] ORD collection started.""",uid)
             
         val start = new java.util.Date().getTime            
         val orders = ctx.getOrders(params)
        
-        ctx.listener ! String.format("""[INFO][UID: %s] Order base loaded.""",uid)
+        ctx.listener ! String.format("""[INFO][UID: %s] Order base loaded from store.""",uid)
 
         /*
          * STEP #1: Write orders of a certain period of time 
@@ -64,9 +67,9 @@ class OrderCollector(ctx:RequestContext,params:Map[String,String]) extends BaseA
         writeAggregate(params,orders)
         
         val end = new java.util.Date().getTime
-        ctx.listener ! String.format("""[INFO][UID: %s] Order base synchronization finished in %s ms.""",uid,(end-start).toString)
+        ctx.listener ! String.format("""[INFO][UID: %s] ORD collection finished at %.""",uid,end.toString)
         
-        val new_params = Map(Names.REQ_MODEL -> "ORDER") ++ params
+        val new_params = Map(Names.REQ_MODEL -> "ORD") ++ params
 
         context.parent ! CollectFinished(new_params)
         context.stop(self)
@@ -74,7 +77,7 @@ class OrderCollector(ctx:RequestContext,params:Map[String,String]) extends BaseA
       } catch {
         case e:Exception => {
 
-          ctx.listener ! String.format("""[ERROR][UID: %s] Order base synchronization failed due to an internal error.""",uid)
+          ctx.listener ! String.format("""[ERROR][UID: %s] ORD collection failed due to an internal error.""",uid)
           
           val new_params = Map(Names.REQ_MESSAGE -> e.getMessage) ++ params
 
@@ -118,8 +121,16 @@ class OrderCollector(ctx:RequestContext,params:Map[String,String]) extends BaseA
   }
   
   private def buildAggregate(params:Map[String,String],orders:List[Order]):XContentBuilder = {
-     
-    val uid = params(Names.REQ_UID)
+    
+    val uid = params("uid")
+    val timestamp = params("timestamp").toLong
+    /*
+     * Note, that we must index the time period as timestamps
+     * as these parameters are used to filter orders later on
+     */
+    val created_at_min = unformatted(params("created_at_min"))
+    val created_at_max = unformatted(params("created_at_max"))
+
     val total = orders.size
     /*
      * Extract the temporal and monetary dimension from the raw dataset
@@ -132,8 +143,8 @@ class OrderCollector(ctx:RequestContext,params:Map[String,String]) extends BaseA
      * Compute the average, minimum and maximum amount of all 
      * the purchases in the purchase history provided by orders
      */    
-    val amounts = ctx.sparkContext.parallelize(orders_rfm.map(_._1))
-    val m_stats = amounts.stats
+    val amounts = orders_rfm.map(_._1)
+    val m_stats = ctx.sparkContext.parallelize(amounts).stats
     
     val m_mean  = m_stats.mean
     
@@ -153,13 +164,10 @@ class OrderCollector(ctx:RequestContext,params:Map[String,String]) extends BaseA
      * two subsequent transactions; the 'zip' method is used to pairs 
      * between two subsequent timestamps
      */
-    val timestamps = ctx.sparkContext.parallelize(orders_rfm.map(_._2)).sortBy(x => x)
+    val timestamps = orders_rfm.map(_._2).sortBy(x => x)
     
-    val s0 = ctx.sparkContext.parallelize(timestamps.take(1))
-    val s1 = timestamps.subtract(s0)
-    
-    val timespans = timestamps.zip(s1).map(x => x._2 - x._1).map(v => (if (v / DAY < 1) 1 else v / DAY))
-    val t_stats = timespans.stats
+    val timespans = timestamps.zip(timestamps.tail).map(x => x._2 - x._1).map(v => (if (v / DAY < 1) 1 else v / DAY).toInt)
+    val t_stats = ctx.sparkContext.parallelize(timespans).stats
     
     val t_mean  = t_stats.mean
     
@@ -169,23 +177,11 @@ class OrderCollector(ctx:RequestContext,params:Map[String,String]) extends BaseA
     val t_stdev = t_stats.stdev
     val t_variance = t_stats.variance
 
-    /*
-     * Besides the evaluation of the time elasped between subsequent
-     * transactions, we also compute the preferred days of the orders,
-     * and the preferred time of the day. The preference is computed as 
-     * follows:
-     * 
-     * pref = Math.log(1 + supp.toDouble / total.toDouble)
-     * 
-     */
-
     /* Day of the week: 1..7 */
-    val dow_supp = timestamps.map(x => new DateTime(x).dayOfWeek().get).groupBy(x => x).map(x => (x._1,x._2.size))
-    val dow_pref = dow_supp.map(v => (v._1, Math.log(1 + v._2.toDouble / total.toDouble)))
+    val day_freq = timestamps.map(x => new DateTime(x).dayOfWeek().get).groupBy(x => x).map(x => (x._1,x._2.size))
 
     /* Time of day: 0..23 */
-    val hod_supp = timestamps.map(x => new DateTime(x).hourOfDay().get).groupBy(x => x).map(x => (x._1,x._2.size))
-    val hod_pref = hod_supp.map(v => (v._1, Math.log(1 + v._2.toDouble / total.toDouble)))
+    val hour_freq = timestamps.map(x => new DateTime(x).hourOfDay().get).groupBy(x => x).map(x => (x._1,x._2.size))
     
     /*********************** ITEM DIMENSION **********************/
 
@@ -193,9 +189,7 @@ class OrderCollector(ctx:RequestContext,params:Map[String,String]) extends BaseA
      * Extract the item dimension from the raw dataset
      */
     val orders_itm = orders.flatMap(x => x.items.map(v => (v.item,v.quantity)))
-    
-    val itm_supp = orders_itm.groupBy(x => x._1).map(x => (x._1,x._2.map(_._2).sum))
-    val itm_pref = itm_supp.map(v => (v._1, Math.log(1 + v._2.toDouble / total.toDouble)))
+    val item_freq = orders_itm.groupBy(x => x._1).map(x => (x._1,x._2.map(_._2).sum))
           
     val builder = XContentFactory.jsonBuilder()
 	builder.startObject()
@@ -203,21 +197,15 @@ class OrderCollector(ctx:RequestContext,params:Map[String,String]) extends BaseA
 	/* uid */
 	builder.field("uid",uid)
 	    
-	/* timestamp */
-	builder.field("timestamp",new java.util.Date().getTime)
+	/* last_sync */
+	builder.field("last_sync",timestamp)
 
 	/* created_at_min */
-	builder.field("created_at_min",params("created_at_min"))
+	builder.field("created_at_min",created_at_min)
 
 	/* created_at_max */
-	builder.field("created_at_max",params("created_at_max"))
-	    
-	/*
-	 * Denormalized description of the RFM data retrieved
-	 * from all transactions taken into account, i.e. from 
-	 * the 30, 60 or 90 days
-	 */
-	    
+	builder.field("created_at_max",created_at_max)
+	    	    
     /* total_orders */
 	builder.field("total_orders",total)
 
@@ -256,7 +244,7 @@ class OrderCollector(ctx:RequestContext,params:Map[String,String]) extends BaseA
 
 	/* total_day_supp */
 	builder.startArray("total_day_supp")
-	for (rec <- dow_supp) {
+	for (rec <- day_freq) {
       builder.startObject()
       /*
        * Note, that NOT ALL days of the week have to
@@ -271,26 +259,9 @@ class OrderCollector(ctx:RequestContext,params:Map[String,String]) extends BaseA
 
     builder.endArray()
 
-	/* total_day_pref */
-	builder.startArray("total_day_pref")
-	for (rec <- dow_pref) {
-      builder.startObject()
-      /*
-       * Note, that NOT ALL days of the week have to
-       * be present here
-       */
-      builder.field("day",  rec._1)
-      builder.field("score",rec._2)
-              
-      builder.endObject()
-    
-	}
-
-    builder.endArray()
-
     /* total_time_supp */
 	builder.startArray("total_time_supp")
-	for (rec <- hod_supp) {
+	for (rec <- hour_freq) {
       builder.startObject()
       /*
        * Note, that NOT ALL time peridos of the day
@@ -304,30 +275,11 @@ class OrderCollector(ctx:RequestContext,params:Map[String,String]) extends BaseA
     
 	}
 
-    builder.endArray()
-
-    /* total_time_pref */
-	builder.startArray("total_time_pref")
-	for (rec <- hod_pref) {
-      builder.startObject()
-      /*
-       * Note, that NOT ALL time peridos of the day
-       * have to be present here
-       */
-              
-      builder.field("time", rec._1)
-      builder.field("score",rec._2)
-              
-      builder.endObject()
-    
-	}
-
-    builder.endArray()
-   
+    builder.endArray()   
 
 	/* total_item_supp */
 	builder.startArray("total_item_supp")
-	for (rec <- itm_supp) {
+	for (rec <- item_freq) {
 
 	  builder.startObject()
           
@@ -337,20 +289,6 @@ class OrderCollector(ctx:RequestContext,params:Map[String,String]) extends BaseA
       builder.endObject()
     }
 
-    builder.endArray()
-    
-	/* total_item_pref */
-	builder.startArray("total_item_pref")
-	for (rec <- itm_pref) {
-
-	  builder.startObject()
-          
-	  builder.field("item", rec._1)
-      builder.field("score",rec._2)
-              
-      builder.endObject()
-    }
-    
     builder.endArray()
     
     builder.endObject()

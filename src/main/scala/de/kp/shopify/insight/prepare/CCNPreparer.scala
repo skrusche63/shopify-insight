@@ -123,7 +123,8 @@ class CCNPreparer(ctx:RequestContext,orders:RDD[InsightOrder]) extends BasePrepa
         val store = String.format("""%s/CCN/%s""",ctx.getBase,uid)         
         table.saveAsParquetFile(store)
 
-        ctx.listener ! String.format("""[INFO][UID: %s] CCN preparation finished.""",uid)
+        val end = new java.util.Date().getTime
+        ctx.listener ! String.format("""[INFO][UID: %s] ASR preparation finished at %s.""",uid,end.toString)
 
         val params = Map(Names.REQ_MODEL -> "CCN") ++ req_params
         context.parent ! PrepareFinished(params)

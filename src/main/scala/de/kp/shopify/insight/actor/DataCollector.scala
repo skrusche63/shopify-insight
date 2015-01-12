@@ -27,8 +27,6 @@ import de.kp.shopify.insight._
 import de.kp.shopify.insight.model._
 import de.kp.shopify.insight.elastic._
 
-import de.kp.shopify.insight.actor.collect._
-
 import scala.collection.mutable.ArrayBuffer
 import org.elasticsearch.common.xcontent.{XContentBuilder,XContentFactory}
 
@@ -60,11 +58,11 @@ class DataCollector(ctx:RequestContext,params:Map[String,String]) extends BaseAc
          */
         registerTask(params)
         
-        val customer_sync = context.actorOf(Props(new CustomerCollector(ctx,params)))  
-        customer_sync ! StartCollect
-      
-        val product_sync = context.actorOf(Props(new ProductCollector(ctx,params)))  
-        product_sync ! StartCollect
+//        val customer_sync = context.actorOf(Props(new CustomerCollector(ctx,params)))  
+//        customer_sync ! StartCollect
+//      
+//        val product_sync = context.actorOf(Props(new ProductCollector(ctx,params)))  
+//        product_sync ! StartCollect
        
     
       } catch {
@@ -104,8 +102,8 @@ class DataCollector(ctx:RequestContext,params:Map[String,String]) extends BaseAc
          * respective order records are enriched by 'category'
          * and 'vendor' attribute
          */
-        val order_sync = context.actorOf(Props(new OrderCollector(ctx,params)))  
-        order_sync ! StartCollect
+//        val order_sync = context.actorOf(Props(new OrderCollector(ctx,params)))  
+//        order_sync ! StartCollect
          
       } 
       

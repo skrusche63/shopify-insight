@@ -85,7 +85,7 @@ object ESQuestor {
  
     if (total == 0) return List.empty[InsightAggregate]
 
-    val result = hits.hits().map(x => requestCtx.JSON_MAPPER.readValue(x.getSourceAsString,classOf[InsightAggregate])).sortBy(x => x.timestamp)
+    val result = hits.hits().map(x => requestCtx.JSON_MAPPER.readValue(x.getSourceAsString,classOf[InsightAggregate])).sortBy(x => x.last_sync)
     result.toList
     
   }
@@ -135,38 +135,6 @@ object ESQuestor {
     if (total == 0) return List.empty[InsightForecast]
     
     val result = hits.hits().map(x => requestCtx.JSON_MAPPER.readValue(x.getSourceAsString,classOf[InsightForecast]))    
-    result.toList
-    
-  }
-  
-  /**
-   * This query retrieves all item records that refer to a certain preparation
-   * task, specified by the respective unique identifier
-   */
-  def query_Items(requestCtx:RequestContext,uid:String):List[InsightItem] = {
-    /*
-     * Retrieve the item records from the 'users/items' index, 
-     * that matches the unique identifier
-     */
-    val fbuilder = FilterBuilders.termFilter(Names.UID_FIELD,uid)
-    query_FilteredItems(requestCtx,fbuilder)
-    
-  }
-  
-  def query_FilteredItems(requestCtx:RequestContext,filterBuilder:FilterBuilder):List[InsightItem] = {
-
-    val qbuilder = QueryBuilders.filteredQuery(QueryBuilders.matchAllQuery(),filterBuilder)
-
-    val count = requestCtx.count("users","items",qbuilder)    
-    val response = requestCtx.find("users", "items", qbuilder,count)
-    
-    val hits = response.getHits()
-    val total = hits.totalHits()
-    
-    /* There is no item record for the respective identifier */
-    if (total == 0) return List.empty[InsightItem]
-    
-    val result = hits.hits().map(x => requestCtx.JSON_MAPPER.readValue(x.getSourceAsString,classOf[InsightItem]))    
     result.toList
     
   }

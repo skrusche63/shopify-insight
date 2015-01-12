@@ -92,7 +92,8 @@ class ASRPreparer(ctx:RequestContext,customer:Int,orders:RDD[InsightOrder]) exte
         val store = String.format("""%s/ASR-%s/%s""",ctx.getBase,customer.toString,uid)         
         table.saveAsParquetFile(store)
 
-        ctx.listener ! String.format("""[INFO][UID: %s] ASR preparation for customer type '%s' finished.""",uid,customer.toString)
+        val end = new java.util.Date().getTime
+        ctx.listener ! String.format("""[INFO][UID: %s] ASR preparation for customer type '%s' finished at %s.""",uid,customer.toString,end.toString)
 
         val params = Map(Names.REQ_MODEL -> "ASR") ++ req_params
         context.parent ! PrepareFinished(params)

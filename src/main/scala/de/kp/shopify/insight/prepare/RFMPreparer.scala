@@ -38,7 +38,7 @@ import de.kp.shopify.insight.model._
  * going through complex mathematics.
  * 
  */
-class RFMPreparer(requestCtx:RequestContext,customer:Int,orders:RDD[InsightOrder]) extends BasePreparer(requestCtx) {
+class RFMPreparer(ctx:RequestContext,customer:Int,orders:RDD[InsightOrder]) extends BasePreparer(ctx) {
         
   /*
    * The parameter K is used as an initialization 
@@ -56,7 +56,7 @@ class RFMPreparer(requestCtx:RequestContext,customer:Int,orders:RDD[InsightOrder
       val uid = req_params(Names.REQ_UID)
              
       val start = new java.util.Date().getTime.toString            
-      requestCtx.listener ! String.format("""[INFO][UID: %s] RFM preparation request received at %s.""",uid,start)
+      ctx.listener ! String.format("""[INFO][UID: %s] RFM preparation request received at %s.""",uid,start)
       
       try {
 
@@ -292,10 +292,11 @@ class RFMPreparer(requestCtx:RequestContext,customer:Int,orders:RDD[InsightOrder
          * file specifies a certain RFM model that takes all registered orders
          * up to now into account.
          */
-        val store_rfm = String.format("""%s/RFM/%s""",requestCtx.getBase,uid)         
+        val store_rfm = String.format("""%s/RFM/%s""",ctx.getBase,uid)         
         tableRFM.saveAsParquetFile(store_rfm)
 
-        requestCtx.listener ! String.format("""[INFO][UID: %s] RFM preparation finished.""",uid)
+        val end_rfm = new java.util.Date().getTime
+        ctx.listener ! String.format("""[INFO][UID: %s] RFM preparation finished at %s.""",uid,end_rfm.toString)
 
         /*
          * We need to store the ParquetCST table as well; this table assigns
@@ -303,10 +304,11 @@ class RFMPreparer(requestCtx:RequestContext,customer:Int,orders:RDD[InsightOrder
          */
         val tableCST = tableRFM.map(x => {ParquetCST(x.site,x.user,x.rfm_type)})
 
-        val store_cst = String.format("""%s/CST/%s""",requestCtx.getBase,uid)         
+        val store_cst = String.format("""%s/CST/%s""",ctx.getBase,uid)         
         tableCST.saveAsParquetFile(store_cst)
 
-        requestCtx.listener ! String.format("""[INFO][UID: %s] CST preparation finished.""",uid)
+        val end_cst = new java.util.Date().getTime
+        ctx.listener ! String.format("""[INFO][UID: %s] CST preparation finished at %s.""",uid,end_cst.toString)
         
         /* 
          * Finally we inform the DataPreparer that the RFM preparation step
@@ -321,7 +323,7 @@ class RFMPreparer(requestCtx:RequestContext,customer:Int,orders:RDD[InsightOrder
            * In case of an error the message listener gets informed, and also
            * the data processing pipeline in order to stop further sub processes 
            */
-          requestCtx.listener ! String.format("""[ERROR][UID: %s] RFM or CST preparation exception: %s.""",uid,e.getMessage)
+          ctx.listener ! String.format("""[ERROR][UID: %s] RFM or CST preparation exception: %s.""",uid,e.getMessage)
           
           val params = Map(Names.REQ_MESSAGE -> e.getMessage) ++ req_params
           context.parent ! PrepareFailed(params)

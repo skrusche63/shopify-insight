@@ -1,4 +1,4 @@
-package de.kp.shopify.insight.actor.collect
+package de.kp.shopify.insight.collect
 /* Copyright (c) 2014 Dr. Krusche & Partner PartG
  * 
  * This file is part of the Shopify-Insight project
@@ -28,14 +28,17 @@ import de.kp.shopify.insight._
 import de.kp.shopify.insight.actor._
 import de.kp.shopify.insight.model._
 
-class CustomerCollector(ctx:RequestContext,params:Map[String,String]) extends BaseActor(ctx) {
+class CSMCollector(ctx:RequestContext,params:Map[String,String]) extends BaseActor(ctx) {
 
   override def receive = {
 
     case message:StartCollect => {
       
       val uid = params(Names.REQ_UID)
-      
+             
+      val start = new java.util.Date().getTime.toString            
+      ctx.listener ! String.format("""[INFO][UID: %s] CSM collection request received at %s.""",uid,start)
+       
       try {
 
         val writer = new ElasticWriter()
@@ -43,23 +46,23 @@ class CustomerCollector(ctx:RequestContext,params:Map[String,String]) extends Ba
         if (writer.open("database","customers") == false)
           throw new Exception("Customer database cannot be opened.")
       
-        ctx.listener ! String.format("""[INFO][UID: %s] Customer base synchronization started.""",uid)
+        ctx.listener ! String.format("""[INFO][UID: %s] CSM collection started.""",uid)
             
         val start = new java.util.Date().getTime            
         val customers = ctx.getCustomers(params)
        
-        ctx.listener ! String.format("""[INFO][UID: %s] Customer base loaded.""",uid)
+        ctx.listener ! String.format("""[INFO][UID: %s] Customer base loaded from store.""",uid)
 
         val ids = customers.map(_.id)
         val sources = customers.map(x=> toSource(params,x))
         
         writer.writeBulkJSON("database", "customers", ids, sources)
         writer.close()
-        
+ 
         val end = new java.util.Date().getTime
-        ctx.listener ! String.format("""[INFO][UID: %s] Customer base synchronization finished in %s ms.""",uid,(end-start).toString)
+        ctx.listener ! String.format("""[INFO][UID: %s] CSM collection finished at %s.""",uid,end.toString)
          
-        val new_params = Map(Names.REQ_MODEL -> "CUSTOMER") ++ params
+        val new_params = Map(Names.REQ_MODEL -> "CSM") ++ params
 
         context.parent ! CollectFinished(new_params)
         context.stop(self)
@@ -67,7 +70,7 @@ class CustomerCollector(ctx:RequestContext,params:Map[String,String]) extends Ba
       } catch {
         case e:Exception => {
 
-          ctx.listener ! String.format("""[ERROR][UID: %s] Customer base synchronization failed due to an internal error.""",uid)
+          ctx.listener ! String.format("""[ERROR][UID: %s] CSM collection failed due to an internal error.""",uid)
           
           val new_params = Map(Names.REQ_MESSAGE -> e.getMessage) ++ params
 

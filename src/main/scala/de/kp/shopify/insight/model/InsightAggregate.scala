@@ -33,17 +33,6 @@ case class DaySupp(
 )
 
 @JsonIgnoreProperties(ignoreUnknown = true)
-case class DayPref(
-
-  @JsonProperty("day")
-  day:Int,
-
-  @JsonProperty("score")
-  score:Double
-    
-)
-
-@JsonIgnoreProperties(ignoreUnknown = true)
 case class TimeSupp(
 
   @JsonProperty("time")
@@ -51,17 +40,6 @@ case class TimeSupp(
 
   @JsonProperty("supp")
   supp:Int
-    
-)
-
-@JsonIgnoreProperties(ignoreUnknown = true)
-case class TimePref(
-
-  @JsonProperty("time")
-  time:Int,
-
-  @JsonProperty("score")
-  score:Double
     
 )
 
@@ -77,24 +55,13 @@ case class ItemSupp(
 )
 
 @JsonIgnoreProperties(ignoreUnknown = true)
-case class ItemPref(
-
-  @JsonProperty("item")
-  item:Int,
-
-  @JsonProperty("score")
-  score:Double
-    
-)
-
-@JsonIgnoreProperties(ignoreUnknown = true)
 case class InsightAggregate(
 
   @JsonProperty("uid")
   uid:String,
 
-  @JsonProperty("timestamp")
-  timestamp:Long,
+  @JsonProperty("last_sync")
+  last_sync:Long,
 
   @JsonProperty("created_at_min")
   created_at_min:Long,
@@ -141,19 +108,10 @@ case class InsightAggregate(
   @JsonProperty("total_day_supp")
   total_day_supp:List[DaySupp],
 
-  @JsonProperty("total_day_pref")
-  total_day_pref:List[DayPref],
-
   @JsonProperty("total_time_supp")
   total_time_supp:List[TimeSupp],
 
-  @JsonProperty("total_time_pref")
-  total_time_pref:List[TimePref],
-
   @JsonProperty("total_item_supp")
-  total_item_supp:List[ItemSupp],
-
-  @JsonProperty("total_item_pref")
-  total_item_pref:List[ItemPref]
+  total_item_supp:List[ItemSupp]
     
 )

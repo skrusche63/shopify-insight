@@ -1,4 +1,4 @@
-package de.kp.shopify.insight.prepare
+package de.kp.shopify.insight.collect
 /* Copyright (c) 2014 Dr. Krusche & Partner PartG
 * 
 * This file is part of the Shopify-Insight project
@@ -20,8 +20,6 @@ package de.kp.shopify.insight.prepare
 
 import akka.actor._
 
-import org.apache.spark.rdd.RDD
-
 import org.joda.time.DateTime
 import org.joda.time.format.DateTimeFormat
 
@@ -34,17 +32,14 @@ import de.kp.shopify.insight.{Configuration,RequestContext}
 import de.kp.shopify.insight.actor.MessageListener
 
 import de.kp.shopify.insight.model._
-import de.kp.shopify.spark.ElasticRDD
 
-import org.elasticsearch.index.query._
 import org.elasticsearch.common.xcontent.XContentFactory
-
 import scala.collection.mutable.{Buffer,HashMap}
 
-class PreparerApp(val appName:String) extends SparkService {
+class CollectorApp(val appName:String) extends SparkService {
   
-  protected val sc = createCtxLocal("PrepareContext",Configuration.spark)      
-  protected val system = ActorSystem("PrepareSystem")
+  protected val sc = createCtxLocal("CollectContext",Configuration.spark)      
+  protected val system = ActorSystem("CollectSystem")
 
   protected val inbox = Inbox.create(system)
   
@@ -86,8 +81,6 @@ class PreparerApp(val appName:String) extends SparkService {
      */
     val created_at_min = parser.option[String](List("min_date"),"created_at_min","Store data created after this date.")
     val created_at_max = parser.option[String](List("max_date"),"created_at_max","Store data created before this date.")
-    
-    val customer = parser.option[Int](List("customer"),"customer","Customer type.")
 
     parser.parse(args)
     
@@ -102,55 +95,33 @@ class PreparerApp(val appName:String) extends SparkService {
     if (created_at_max.hasValue == false)
       throw new Exception("Parameter 'max_date' is missing.")
     
+    /*
+     * Add external arguments to request parameters
+     */
     params += "uid" -> uid.value.get
       
     params += "created_at_min" -> created_at_min.value.get
     params += "created_at_max" -> created_at_max.value.get
     
-    params += "customer" -> customer.value.getOrElse(0).toString
-    params += "timestamp" -> new DateTime().getMillis().toString
-    
+    params += "timestamp" -> new DateTime().getMillis.toString
     params.toMap
     
   }
   
-  protected def initialize(params:Map[String,String]):RDD[InsightOrder] = {
+  protected def initialize(params:Map[String,String]) {
     /*
-     * STEP #1: Create Elasticsearch task database and register 
-     * the respective task in the database
+     * Create Elasticsearch databases and register 
+     * the respective task in the task database
      */
-    createESIndex(params)
+    createESIndexes(params)
     registerESTask(params)
-    /*
-     * STEP #2: Retrieve orders from the database/orders index;
-     * the respective query is either provided as an external
-     * parameter or computed from the period of time provided
-     * with this request
-     */
-    val esConfig = ctx.getESConfig
-    esConfig.set(Names.ES_RESOURCE,("database/orders"))
-
-    if (params.contains(Names.REQ_QUERY))
-      esConfig.set(Names.ES_QUERY,params(Names.REQ_QUERY))
-      
-    else 
-      esConfig.set(Names.ES_QUERY,query(params))
-      
-    val elasticRDD = new ElasticRDD(ctx.sparkContext)
-         
-    val rawset = elasticRDD.read(esConfig)
-    elasticRDD.orders(rawset)
     
   }
-  /**
-   * This method registers the data preparation task in the respective
-   * Elasticsearch index; this information supports administrative
-   * tasks such as the monitoring of this insight server
-   */
+
   private def registerESTask(params:Map[String,String]) = {
     
-    val key = "prepare:" + params(Names.REQ_NAME) + ":" + params(Names.REQ_UID)
-    val task = "data preparation"
+    val key = "collect:" + params(Names.REQ_NAME) + ":" + params(Names.REQ_UID)
+    val task = "data collection"
     /*
      * Note, that we do not specify additional
      * payload data here
@@ -181,39 +152,44 @@ class PreparerApp(val appName:String) extends SparkService {
 
   }
 
-  private def createESIndex(params:Map[String,String]) {
+  private def createESIndexes(params:Map[String,String]) {
     
     val uid = params(Names.REQ_UID)
     /*
-     * Create search index (if not already present)
+     * Create search indexes (if not already present)
      * 
      * The 'tasks' index (mapping) specified an administrative database
      * where all steps of a certain synchronization or data analytics
      * task are registered
+     * 
+     * The 'customers' index (mapping) specifies a customer database that
+     * holds synchronized customer data relevant for the insight server
+     * 
+     * The 'products' index (mapping) specifies a product database that
+     * holds synchronized product data relevant for the insight server
+     * 
+     * The 'orders' index (mapping) specifies an order database that
+     * holds synchronized order data relevant for the insight server
+     * 
+     * The 'aggregates' index (mapping) specifies a statistics database 
+     * that holds synchronized aggregated order data relevant for the 
+     * insight server
      */
     
     if (ctx.createIndex(params,"database","tasks","task") == false)
       throw new Exception("Index creation for 'database/tasks' has been stopped due to an internal error.")
-   
-    ctx.listener ! String.format("""[INFO][UID: %s] Elasticsearch database/tasks index created.""",uid)
+ 
+    if (ctx.createIndex(params,"database","aggregates","aggregate") == false)
+      throw new Exception("Index creation for 'database/aggreates' has been stopped due to an internal error.")
     
-  }
-  
-  private def query(params:Map[String,String]):String = {
-    
-    val created_at_min = unformatted(params("created_at_min"))
-    val created_at_max = unformatted(params("created_at_max"))
-            
-    val filters = Buffer.empty[FilterBuilder]
-    filters += FilterBuilders.rangeFilter("time").from(created_at_min).to(created_at_max)
-    
-    filters.toList
-            
-    val fbuilder = FilterBuilders.boolFilter()
-    fbuilder.must(filters:_*)
-    
-    val qbuilder = QueryBuilders.filteredQuery(QueryBuilders.matchAllQuery(),fbuilder)
-    qbuilder.toString
+    if (ctx.createIndex(params,"database","customers","customer") == false)
+      throw new Exception("Index creation for 'database/customers' has been stopped due to an internal error.")
+ 
+    if (ctx.createIndex(params,"database","products","product") == false)
+      throw new Exception("Index creation for 'database/products' has been stopped due to an internal error.")
+ 
+    if (ctx.createIndex(params,"database","orders","order") == false)
+      throw new Exception("Index creation for 'database/orders' has been stopped due to an internal error.")
     
   }
   
@@ -226,4 +202,5 @@ class PreparerApp(val appName:String) extends SparkService {
     formatter.parseMillis(date)
     
   }
+  
 }

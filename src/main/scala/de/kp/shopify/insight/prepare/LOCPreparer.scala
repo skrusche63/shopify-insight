@@ -96,7 +96,8 @@ class LOCPreparer(ctx:RequestContext,customer:Int,orders:RDD[InsightOrder]) exte
         val store = String.format("""%s/LOC/%s""",ctx.getBase,uid)         
         table.saveAsParquetFile(store)
 
-        ctx.listener ! String.format("""[INFO][UID: %s] LOC preparation finished.""",uid)
+        val end = new java.util.Date().getTime
+        ctx.listener ! String.format("""[INFO][UID: %s] LOC preparation finished at %s.""",uid,end.toString)
 
         val params = Map(Names.REQ_MODEL -> "LOC") ++ req_params
         context.parent ! PrepareFinished(params)

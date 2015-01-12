@@ -33,13 +33,13 @@ class ESAggregateBuilder {
               .startObject("properties")
 
                 /* uid */
-                .startObject(UID_FIELD)
+                .startObject("uid")
                   .field("type", "string")
                   .field("index", "not_analyzed")
                 .endObject()
                 
-                /* timestamp */
-                .startObject(TIMESTAMP_FIELD)
+                /* last_sync */
+                .startObject("last_sync")
                   .field("type", "long")
                   .field("index", "not_analyzed")
                 .endObject()
@@ -130,21 +130,6 @@ class ESAggregateBuilder {
                     
                   .endObject()    
                 .endObject()
-                
-                /* total_day_pref */
-                .startObject("total_day_pref")
-                  .startObject("properties")
-
-                    .startObject("day")
-                      .field("type","integer")
-                    .endObject
-
-                    .startObject("score")
-                      .field("type","double")
-                    .endObject
-                    
-                  .endObject()    
-                .endObject()
 
                 /* total_time_supp */
                 .startObject("total_time_supp")
@@ -161,21 +146,6 @@ class ESAggregateBuilder {
                   .endObject()
                 .endObject()
 
-                /* total_time_pref */
-                .startObject("total_time_pref")
-                  .startObject("properties")
-
-                    .startObject("time")
-                      .field("type","integer")
-                    .endObject
-
-                    .startObject("score")
-                      .field("type","double")
-                    .endObject
-                    
-                  .endObject()
-                .endObject()
-
                 /* total_item_supp */
                 .startObject("total_item_supp")
                   .startObject("properties")
@@ -186,21 +156,6 @@ class ESAggregateBuilder {
 
                     .startObject("supp")
                       .field("type","integer")
-                    .endObject
-                    
-                  .endObject()
-                .endObject()
-
-                /* total_item_pref */
-                .startObject("total_item_pref")
-                  .startObject("properties")
-
-                    .startObject("item")
-                      .field("type","integer")
-                    .endObject
-
-                    .startObject("score")
-                      .field("type","double")
                     .endObject
                     
                   .endObject()

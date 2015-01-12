@@ -1,4 +1,4 @@
-package de.kp.shopify.insight.actor.collect
+package de.kp.shopify.insight.collect
 /* Copyright (c) 2014 Dr. Krusche & Partner PartG
  * 
  * This file is part of the Shopify-Insight project
@@ -28,7 +28,7 @@ import de.kp.shopify.insight._
 import de.kp.shopify.insight.actor._
 import de.kp.shopify.insight.model._
 
-class ProductCollector(ctx:RequestContext,params:Map[String,String]) extends BaseActor(ctx) {
+class PRDCollector(ctx:RequestContext,params:Map[String,String]) extends BaseActor(ctx) {
 
   override def receive = {
     /*
@@ -38,6 +38,9 @@ class ProductCollector(ctx:RequestContext,params:Map[String,String]) extends Bas
     case message:StartCollect => {
       
       val uid = params(Names.REQ_UID)
+             
+      val start = new java.util.Date().getTime.toString            
+      ctx.listener ! String.format("""[INFO][UID: %s] PRD collection request received at %s.""",uid,start)
       
       try {
 
@@ -46,12 +49,12 @@ class ProductCollector(ctx:RequestContext,params:Map[String,String]) extends Bas
         if (writer.open("database","products") == false)
           throw new Exception("Product database cannot be opened.")
       
-        ctx.listener ! String.format("""[INFO][UID: %s] Product base synchronization started.""",uid)
+        ctx.listener ! String.format("""[INFO][UID: %s] PRD collection started.""",uid)
             
         val start = new java.util.Date().getTime            
         val products = ctx.getProducts(params)
        
-        ctx.listener ! String.format("""[INFO][UID: %s] Product base loaded.""",uid)
+        ctx.listener ! String.format("""[INFO][UID: %s] Product base loaded from store.""",uid)
 
         val ids = products.map(_.id)
         val sources = products.map(toSource(_))
@@ -60,9 +63,9 @@ class ProductCollector(ctx:RequestContext,params:Map[String,String]) extends Bas
         writer.close()
         
         val end = new java.util.Date().getTime
-        ctx.listener ! String.format("""[INFO][UID: %s] Product base synchronization finished in %s ms.""",uid,(end-start).toString)
+        ctx.listener ! String.format("""[INFO][UID: %s] PRD collection finished at %s.""",uid,end.toString)
         
-        val new_params = Map(Names.REQ_MODEL -> "PRODUCT") ++ params
+        val new_params = Map(Names.REQ_MODEL -> "PRD") ++ params
 
         context.parent ! CollectFinished(new_params)
         context.stop(self)
@@ -70,7 +73,7 @@ class ProductCollector(ctx:RequestContext,params:Map[String,String]) extends Bas
       } catch {
         case e:Exception => {
 
-          ctx.listener ! String.format("""[ERROR][UID: %s] Product base synchronization failed due to an internal error.""",uid)
+          ctx.listener ! String.format("""[ERROR][UID: %s] PRD collection failed due to an internal error.""",uid)
           
           val new_params = Map(Names.REQ_MESSAGE -> e.getMessage) ++ params
 
