@@ -38,7 +38,7 @@ import de.kp.shopify.insight.model._
  * going through complex mathematics.
  * 
  */
-class RFMPreparer(requestCtx:RequestContext,orders:RDD[InsightOrder]) extends BasePreparer(requestCtx) {
+class RFMPreparer(requestCtx:RequestContext,customer:Int,orders:RDD[InsightOrder]) extends BasePreparer(requestCtx) {
         
   /*
    * The parameter K is used as an initialization 

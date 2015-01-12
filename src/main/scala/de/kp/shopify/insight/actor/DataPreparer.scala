@@ -89,7 +89,7 @@ class DataPreparer(ctx:RequestContext) extends BaseActor(ctx) {
          * for all other preparation steps as this analysis segments the
          * customer base under consideration to 8 different customer types.
          */
-        val rfm_preparer = context.actorOf(Props(new RFMPreparer(ctx,orders)))          
+        val rfm_preparer = context.actorOf(Props(new RFMPreparer(ctx,0,orders)))          
         rfm_preparer ! StartPrepare(req_params)
          
         /*
@@ -149,7 +149,7 @@ class DataPreparer(ctx:RequestContext) extends BaseActor(ctx) {
          * from the purchase history. This table is used to specify the
          * geospatial profile of a certain user.
          */
-        val loc_preparer = context.actorOf(Props(new LOCPreparer(ctx,orders)))          
+        val loc_preparer = context.actorOf(Props(new LOCPreparer(ctx,0, orders)))          
         loc_preparer ! StartPrepare(req_params)
         
         /*

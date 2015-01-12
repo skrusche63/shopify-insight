@@ -21,8 +21,9 @@ package de.kp.shopify.insight.prepare
 import akka.actor._
 
 import org.apache.spark.rdd.RDD
-
 import org.joda.time.format.DateTimeFormat
+
+import org.clapper.argot._
 
 import de.kp.spark.core.Names
 import de.kp.spark.core.SparkService
@@ -36,9 +37,9 @@ import de.kp.shopify.spark.ElasticRDD
 import org.elasticsearch.index.query._
 import org.elasticsearch.common.xcontent.XContentFactory
 
-import scala.collection.mutable.Buffer
+import scala.collection.mutable.{Buffer,HashMap}
 
-class PreparerApp extends SparkService {
+class PreparerApp(val appName:String) extends SparkService {
   
   protected val sc = createCtxLocal("PrepareContext",Configuration.spark)      
   protected val system = ActorSystem("PrepareSystem")
@@ -62,6 +63,55 @@ class PreparerApp extends SparkService {
    */
   protected val listener = system.actorOf(Props(new MessageListener()))
   protected val ctx = new RequestContext(sc,listener)
+  
+  protected def createParams(args:Array[String]):Map[String,String] = {
+
+    import ArgotConverters._
+     
+    val parser = new ArgotParser(
+      programName = appName,
+      compactUsage = true,
+      preUsage = Some("Version %s. Copyright (c) 2015, %s.".format("1.0","Dr. Krusche & Partner PartG"))
+    )
+    
+    /*
+     * The 'uid' parameter must be provided with the -uid option
+     */
+    val uid = parser.option[String](List("uid"),"uid","Unique preparation identifier")
+    /*
+     * The subsequent parameters specify a certain period of time with 
+     * a minimum and maximum date
+     */
+    val created_at_min = parser.option[String](List("min_date"),"created_at_min","Orders created after this date.")
+    val created_at_max = parser.option[String](List("max_date"),"created_at_max","Orders created before this date.")
+    
+    val customer = parser.option[Int](List("customer"),"customer","Customer type.")
+
+    parser.parse(args)
+    
+    val params = HashMap.empty[String,String]
+      
+    if (uid.hasValue == false)
+      throw new Exception("Parameter 'uid' is missing.")
+      
+    if (created_at_min.hasValue == false)
+      throw new Exception("Parameter 'min_date' is missing.")
+      
+    if (created_at_max.hasValue == false)
+      throw new Exception("Parameter 'max_date' is missing.")
+    
+    /*
+     * Add external arguments to request parameters
+     */
+    params += "uid" -> uid.value.get
+      
+    params += "created_at_min" -> created_at_min.value.get
+    params += "created_at_max" -> created_at_max.value.get
+    
+    params += "customer" -> customer.value.getOrElse(0).toString
+    params.toMap
+    
+  }
   
   protected def initialize(params:Map[String,String]):RDD[InsightOrder] = {
     /*
