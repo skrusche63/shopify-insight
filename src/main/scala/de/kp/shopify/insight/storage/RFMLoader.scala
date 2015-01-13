@@ -34,7 +34,7 @@ import de.kp.shopify.insight.model._
 import de.kp.shopify.insight.elastic._
 import org.elasticsearch.common.xcontent.{XContentBuilder,XContentFactory}
 
-class UFMLoader(ctx:RequestContext) extends BaseLoader(ctx) {
+class RFMLoader (ctx:RequestContext) extends BaseLoader(ctx) {
 
   override def load(params:Map[String,String]) {
 
@@ -48,13 +48,13 @@ class UFMLoader(ctx:RequestContext) extends BaseLoader(ctx) {
         
     val sources = transform(params,parquetFile)
 
-    if (ctx.putSources("users","forecasts",sources) == false)
+    if (ctx.putSources("users","segments",sources) == false)
       throw new Exception("Loading process has been stopped due to an internal error.")
-    
-  }
 
-  private def extract(store:String):RDD[ParquetUFM] = {
-   
+  }
+  
+  private def extract(store:String):RDD[ParquetRFM] = {
+    
     /* 
      * Read in the parquet file created above.  Parquet files are self-describing 
      * so the schema is preserved. The result of loading a Parquet file is also a 
@@ -79,66 +79,77 @@ class UFMLoader(ctx:RequestContext) extends BaseLoader(ctx) {
 
       val site = data("site").asInstanceOf[String]
       val user = data("user").asInstanceOf[String]
-
-      val step = data("step").asInstanceOf[Int]
-
-      val amount = data("amount").asInstanceOf[Double]
-      val time = data("time").asInstanceOf[Long]
-
-      val state = data("state").asInstanceOf[String]
-      val score = data("score").asInstanceOf[Double]
       
-      ParquetUFM(site,user,step,amount,time,state,score)    
+      val today = data("today").asInstanceOf[Long]
+      val recency = data("recency").asInstanceOf[Int]
 
+      val frequency = data("frequency").asInstanceOf[Int]      
+      val monetary = data("monetary").asInstanceOf[Double]
+
+      val rval = data("rval").asInstanceOf[Int]
+      val fval = data("fval").asInstanceOf[Int]
+      
+      val mval = data("mval").asInstanceOf[Int]
+      val rfm_type = data("rfm_type").asInstanceOf[Int]
+
+      ParquetRFM(site,user,today,recency,frequency,monetary,rval,fval,mval,rfm_type)
+      
     })
 
   }
-
-  private def transform(params:Map[String,String],forecasts:RDD[ParquetUFM]):List[XContentBuilder] = {
-
-    val uid = params(Names.REQ_UID)
-   
-    forecasts.map(x => {
-           
+  
+  private def transform(params:Map[String,String],dataset:RDD[ParquetRFM]):List[XContentBuilder] = {
+    
+    dataset.map(x => {
+      
       val builder = XContentFactory.jsonBuilder()
       builder.startObject()
-       
+                
       /********** METADATA **********/
-        
+      
       /* uid */
-      builder.field("uid",params("uid"))
-       
+      builder.field(Names.UID_FIELD,params(Names.REQ_UID))
+      
       /* timestamp */
-      builder.field("timestamp",params("timestamp"))
-      
-      /* site */
-      builder.field("site",x.site)
-      
-      /********** FORECAST DATA **********/
-        
-      /* user */
-      builder.field("user",x.user)
-        
-      /* step */
-      builder.field("step",x.step)
-        
-      /* amount */
-      builder.field("amount",x.amount)
-        
-      /* time */
-      builder.field("time",x.time)
-        
-      /* state */
-      builder.field("state",x.state)
-        
-      /* score */
-      builder.field("score",x.score)
-        
-      builder.endObject()
+      builder.field(Names.TIMESTAMP_FIELD,params("timestamp").toLong)
+	  
+	  /* site */
+      builder.field(Names.SITE_FIELD,x.site)
+                
+      /********** SEGMENT DATA **********/
+	  
+	  /* user */
+      builder.field(Names.USER_FIELD,x.user)
+	  
+	  /* today */
+      builder.field("today",x.today)
+
+	  /* recency */
+	  builder.field("recency",x.recency)
+
+	  /* frequency */
+	  builder.field("frequency",x.frequency)
+
+	  /* amount */
+	  builder.field("amount",x.monetary)
+
+	  /* r_segment */
+	  builder.field("r_segment",x.rval)
+
+	  /* f_segment */
+	  builder.field("f_segment",x.fval)
+
+	  /* m_segment */
+	  builder.field("m_segment",x.mval)
+
+	  /* customer_type */
+	  builder.field("customer_type",x.rfm_type)
+	  
+	  builder.endObject()
       builder
-    
+      
     }).collect.toList
     
   }
-  
+
 }

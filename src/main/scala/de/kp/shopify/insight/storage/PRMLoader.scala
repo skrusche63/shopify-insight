@@ -38,53 +38,25 @@ import org.elasticsearch.common.xcontent.{XContentBuilder,XContentFactory}
  * The PRMLoader stores the product relation model in the server layer,
  * i.e. in an Elasticsearch index.
  */
-class PRMLoader(requestCtx:RequestContext) extends BaseActor(requestCtx) {
+class PRMLoader(ctx:RequestContext) extends BaseLoader(ctx) {
 
-  override def receive = {
-   
-    case message:StartLoad => {
+  override def load(params:Map[String,String]) {
 
-      val req_params = message.data
-      val uid = req_params(Names.REQ_UID)
-      
-      try {
-        
-        requestCtx.listener ! String.format("""[INFO][UID: %s] Product relation model load request received.""",uid)
-        
-        val store = String.format("""%s/PRM/%s""",requestCtx.getBase,uid)         
-        val parquetFile = extract(store)
-
-        requestCtx.listener ! String.format("""[INFO][UID: %s] Parquet file successfully retrieved.""",uid)
-        
-        val sources = transform(req_params,parquetFile)
-
-        if (requestCtx.putSources("products","rules",sources) == false)
-          throw new Exception("Loading process has been stopped due to an internal error.")
-
-        requestCtx.listener ! String.format("""[INFO][UID: %s] Product relation model loading finished.""",uid)
-
-        val data = Map(Names.REQ_UID -> uid,Names.REQ_MODEL -> "PRM")            
-        context.parent ! LoadFinished(data)           
-            
-        context.stop(self)
-         
-      } catch {
-        case e:Exception => {
-                    
-          requestCtx.listener ! String.format("""[ERROR][UID: %s] Product relation model loading failed due to an internal error.""",uid)
-          
-          val params = Map(Names.REQ_MESSAGE -> e.getMessage) ++ message.data
-
-          context.parent ! LoadFailed(params)            
-          context.stop(self)
-          
-        }
+    val uid = params(Names.REQ_UID)
+    val name = params(Names.REQ_NAME)
     
-      }
-    }
+    val store = String.format("""%s/%s/%s""",ctx.getBase,name,uid)         
+    val parquetFile = extract(store)
+
+    ctx.listener ! String.format("""[INFO][UID: %s] Parquet file successfully retrieved.""",uid)
+        
+    val sources = transform(params,parquetFile)
+
+    if (ctx.putSources("products","rules",sources) == false)
+      throw new Exception("Loading process has been stopped due to an internal error.")
     
   }
-
+  
   private def extract(store:String):RDD[ParquetPRM] = {
     
     /* 
@@ -135,13 +107,7 @@ class PRMLoader(requestCtx:RequestContext) extends BaseActor(requestCtx) {
       builder.field(Names.UID_FIELD,params(Names.REQ_UID))
       
       /* timestamp */
-      builder.field(Names.TIMESTAMP_FIELD,params("timestamp"))
-
-	  /* created_at_min */
-	  builder.field("created_at_min",params("created_at_min"))
-
-	  /* created_at_max */
-	  builder.field("created_at_max",params("created_at_max"))
+      builder.field(Names.TIMESTAMP_FIELD,params("timestamp").toLong)
 	  
 	  /* antecedent */
 	  builder.startArray("antecedent")
