@@ -106,63 +106,69 @@ class ElasticClient {
   def createIndex(params:Map[String,String],index:String,mapping:String,topic:String):Boolean = {
     
     try {
-
-      if (topic == "aggregate") {
-        /*
-         * Topic 'aggreagte' is indexed by the collector actor and does not 
-         * require a metadata specification as these data are not shared with 
-         * any predictive engine
-         */
-        val builder = new ESAggregateBuilder().createBuilder(mapping)
-        create(index,mapping,builder)
       
-      } else if (topic == "customer") {
-        /*
-         * Topic 'customer' is indexed by the customer synchronizer and does not 
-         * require a metadata specification as these data are not shared with any 
-         * predictive engine
-         */
+      /**********************************************************************
+       * 
+       *                     SUB PROCESS 'COLLECT'
+       *                     
+       *********************************************************************/
+      
+      if (topic == "customer") {
+
         val builder = new ESCustomerBuilder().createBuilder(mapping)
         create(index,mapping,builder)
-      
-      } else if (topic == "item") {
-        
-        val builder = new ESItemBuilder().createBuilder(mapping)
-        create(index,mapping,builder)
-        /*
-         * Topics 'item' is prepared by the collector actor and the respective index
-         * must be shared with Predictiveworks' Association Analysis engine; due to
-         * this fact, we also have to build metadata specifications to enable this
-         * engine to access the Elasticsearch index
-         */      
-        val fields = new FieldBuilder().build(params,topic)
-      
-        /*
-         * The name of the model to which these fields refer cannot be provided
-         * by the user; we therefore have to re-pack the service request to set
-         * the name of the model
-         */
-        val excludes = List(Names.REQ_NAME)
-        val data = Map(Names.REQ_NAME -> mapping) ++  params.filter(kv => excludes.contains(kv._1) == false)  
-     
-        if (fields.isEmpty == false) cache.addFields(data, fields.toList)
-     
-      } else if (topic == "forecast") {
-        /*
-         * Topic 'forecast' is indexed by the forecast modeler and does not require 
-         * a metadata specification as these data are not shared with predictive
-         * engines
-         */
-        val builder = new ESForecastBuilder().createBuilder(mapping)
-        create(index,mapping,builder)
+       
+      } else if (topic == "order") {
 
-      } else if (topic == "location") {
-        /*
-         * Topic 'location' is indexed by the LOCLoader and does not require 
-         * a metadata specification as these data are not shared with predictive
-         * engines
-         */
-        val builder = new ESLocationBuilder().createBuilder(mapping)
+        val builder = new ESOrderBuilder().createBuilder(mapping)
+        create(index,mapping,builder)
+       
+      } else if (topic == "product") {
+
+        val builder = new ESProductBuilder().createBuilder(mapping)
+        create(index,mapping,builder)
+     
+      } 
+      
+      /**********************************************************************
+       * 
+       *                     SUB PROCESS 'LOAD'
+       *                     
+       *********************************************************************/
+
+      else if (topic == "CCN") {
+
+        val builder = new EsCCNBuilder().createBuilder(mapping)
+        create(index,mapping,builder)
+      
+      } else if (topic == "LOC") {
+
+        val builder = new EsLOCBuilder().createBuilder(mapping)
+        create(index,mapping,builder)
+      
+      } else if (topic == "POM") {
+
+        val builder = new EsPOMBuilder().createBuilder(mapping)
+        create(index,mapping,builder)
+      
+      } else if (topic == "PPF") {
+
+        val builder = new EsPPFBuilder().createBuilder(mapping)
+        create(index,mapping,builder)
+       
+      } else if (topic == "PRM") {
+
+        val builder = new EsPRMBuilder().createBuilder(mapping)
+        create(index,mapping,builder)
+       
+      } else if (topic == "RFM") {
+
+        val builder = new EsRFMBuilder().createBuilder(mapping)
+        create(index,mapping,builder)
+       
+      } else if (topic == "UFM") {
+
+        val builder = new EsUFMBuilder().createBuilder(mapping)
         create(index,mapping,builder)
         
       } else if (topic == "loyalty") {
@@ -172,24 +178,6 @@ class ElasticClient {
          * engines
          */
         val builder = new ESLoyaltyBuilder().createBuilder(mapping)
-        create(index,mapping,builder)
-        
-      } else if (topic == "order") {
-        /*
-         * Topic 'order' is indexed by the order synchronizer and does not require 
-         * a metadata specification as these data are not shared with predictive
-         * engines
-         */
-        val builder = new ESOrderBuilder().createBuilder(mapping)
-        create(index,mapping,builder)
-       
-      } else if (topic == "product") {
-        /*
-         * Topic 'product' is indexed by the product synchronizer and does not 
-         * require a metadata specification as these data are not shared with any 
-         * predictive engine
-         */
-        val builder = new ESProductBuilder().createBuilder(mapping)
         create(index,mapping,builder)
        
       } else if (topic == "profile") {
@@ -208,15 +196,6 @@ class ElasticClient {
          * predictive engines
          */
         val builder = new ESRecommendationBuilder().createBuilder(mapping)
-        create(index,mapping,builder)
-       
-      } else if (topic == "rule") {
-        /*
-         * Topic 'rule' is indexed by relation modeler and does not require a
-         * metadata specification as these data are not shared with predictive
-         * engines
-         */
-        val builder = new ESRuleBuilder().createBuilder(mapping)
         create(index,mapping,builder)
        
       } else if (topic == "state") {
@@ -247,11 +226,7 @@ class ElasticClient {
         if (fields.isEmpty == false) cache.addFields(data, fields.toList)
        
       } else if (topic == "task") {
-        /*
-         * Topic 'task' is indexed by either the synchronization or data analytics
-         * pipeline and does not require a metadata specification as these data are 
-         * not shared with predictive engines
-         */
+
         val builder = new ESTaskBuilder().createBuilder(mapping)
         create(index,mapping,builder)
            

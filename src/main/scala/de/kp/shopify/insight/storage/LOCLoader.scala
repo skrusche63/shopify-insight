@@ -35,53 +35,25 @@ import de.kp.shopify.insight.elastic._
 import org.elasticsearch.common.xcontent.{XContentBuilder,XContentFactory}
 
 /**
- * The UMPLoader stores the customers' movement profile in the server layer,
+ * The LOCLoader stores the customers' movement profile in the server layer,
  * i.e. in an Elasticsearch index.
  */
-class UMPLoader(requestCtx:RequestContext) extends BaseActor(requestCtx) {
+class LOCLoader(ctx:RequestContext) extends BaseLoader(ctx) {
 
-  override def receive = {
-   
-    case message:StartLoad => {
+  override def load(params:Map[String,String]) {
 
-      val req_params = message.data
-      val uid = req_params(Names.REQ_UID)
-      
-      try {
-        
-        requestCtx.listener ! String.format("""[INFO][UID: %s] Customer movement profile load request received.""",uid)
-        
-        val store = String.format("""%s/LOC/%s""",requestCtx.getBase,uid)         
-        val parquetFile = extract(store)
-
-        requestCtx.listener ! String.format("""[INFO][UID: %s] Parquet file successfully retrieved.""",uid)
-        
-        val sources = transform(req_params,parquetFile)
-
-        if (requestCtx.putSources("users","locations",sources) == false)
-          throw new Exception("Loading process has been stopped due to an internal error.")
-
-        requestCtx.listener ! String.format("""[INFO][UID: %s] Customer movement profile loading finished.""",uid)
-
-        val data = Map(Names.REQ_UID -> uid,Names.REQ_MODEL -> "UMP")            
-        context.parent ! LoadFinished(data)           
-            
-        context.stop(self)
-         
-      } catch {
-        case e:Exception => {
-                    
-          requestCtx.listener ! String.format("""[ERROR][UID: %s] Customer movement profile loading failed due to an internal error.""",uid)
-          
-          val params = Map(Names.REQ_MESSAGE -> e.getMessage) ++ message.data
-
-          context.parent ! LoadFailed(params)            
-          context.stop(self)
-          
-        }
+    val uid = params(Names.REQ_UID)
+    val name = params(Names.REQ_NAME)
     
-      }
-    }
+    val store = String.format("""%s/%s/%s""",ctx.getBase,name,uid)         
+    val parquetFile = extract(store)
+
+    ctx.listener ! String.format("""[INFO][UID: %s] Parquet file successfully retrieved.""",uid)
+        
+    val sources = transform(params,parquetFile)
+
+    if (ctx.putSources("users","locations",sources) == false)
+      throw new Exception("Loading process has been stopped due to an internal error.")
     
   }
 
@@ -163,7 +135,6 @@ class UMPLoader(requestCtx:RequestContext) extends BaseActor(requestCtx) {
   
   private def transform(params:Map[String,String],dataset:RDD[ParquetLOC]):List[XContentBuilder] = {
             
-    val uid = params(Names.REQ_UID)
     dataset.map(x => {
       
       val builder = XContentFactory.jsonBuilder()
@@ -175,18 +146,12 @@ class UMPLoader(requestCtx:RequestContext) extends BaseActor(requestCtx) {
       builder.field(Names.UID_FIELD,params(Names.REQ_UID))
       
       /* timestamp */
-      builder.field(Names.TIMESTAMP_FIELD,params("timestamp"))
-
-	  /* created_at_min */
-	  builder.field("created_at_min",params("created_at_min"))
-
-	  /* created_at_max */
-	  builder.field("created_at_max",params("created_at_max"))
+      builder.field(Names.TIMESTAMP_FIELD,params("timestamp").toLong)
 
 	  /* site */
 	  builder.field("site",x.site)
       
-      /********** USER DATA **********/
+      /********** LOCATION DATA **********/
 
 	  /* user */
 	  builder.field("user",x.user)

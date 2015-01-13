@@ -20,7 +20,7 @@ package de.kp.shopify.insight.elastic
 
 import org.elasticsearch.common.xcontent.{XContentBuilder,XContentFactory}
 
-class ESAggregateBuilder {
+class EsPOMBuilder {
 
   import de.kp.spark.core.Names._
   
@@ -31,30 +31,22 @@ class ESAggregateBuilder {
             .startObject(mapping)
               
               .startObject("properties")
-
+              
+                /********** METADATA **********/
+                
                 /* uid */
                 .startObject("uid")
                   .field("type", "string")
                   .field("index", "not_analyzed")
                 .endObject()
                 
-                /* last_sync */
-                .startObject("last_sync")
+                /* timestamp */
+                .startObject("timestamp")
                   .field("type", "long")
                   .field("index", "not_analyzed")
                 .endObject()
-
-                /* created_at_min */
-                .startObject("created_at_min")
-                  .field("type", "long")
-                  .field("index", "not_analyzed")
-                .endObject()
-
-                /* created_at_max */
-                .startObject("created_at_max")
-                  .field("type", "long")
-                  .field("index", "not_analyzed")
-                .endObject()
+              
+                /********** METRIC DATA **********/
 
                 /* total_orders */
                 .startObject("total_orders")

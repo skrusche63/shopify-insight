@@ -25,7 +25,7 @@ import de.kp.spark.core.Names
 import scala.collection.JavaConversions._
 import scala.collection.mutable.HashMap
 
-class ESLocationBuilder {
+class EsUFMBuilder {
 
   import de.kp.spark.core.Names._
   
@@ -35,7 +35,7 @@ class ESLocationBuilder {
           .startObject()
             .startObject(mapping)
               .startObject("properties")
-      
+                
                 /********** METADATA **********/
 
                 /* uid */
@@ -49,26 +49,14 @@ class ESLocationBuilder {
                   .field("type", "long")
                   .field("index", "not_analyzed")
                 .endObject()
-
-                /* created_at_min */
-                .startObject("created_at_min")
-                  .field("type", "long")
-                  .field("index", "not_analyzed")
-                .endObject()
-
-                /* created_at_max */
-                .startObject("created_at_max")
-                  .field("type", "long")
-                  .field("index", "not_analyzed")
-                .endObject()
                     
                 /* site */
                 .startObject(SITE_FIELD)
                   .field("type", "string")
                   .field("index", "not_analyzed")
                 .endObject()
-      
-                /********** USER DATA **********/
+                
+                /********** FORECAST DATA **********/
 
                 /* user */
                 .startObject(USER_FIELD)
@@ -76,66 +64,31 @@ class ESLocationBuilder {
                   .field("index", "not_analyzed")
                 .endObject()
                
-                /* ip_address */
-                .startObject("ip_address")
-                  .field("type", "string")
-                .endObject()//
+                /* step */
+                .startObject(STEP_FIELD)
+                  .field("type", "integer")
+                .endObject()
+
+                /* amount */
+                .startObject(AMOUNT_FIELD)
+                  .field("type", "float")
+                .endObject()
 
                 /* time */
-                .startObject("time")
+                .startObject(TIME_FIELD)
                   .field("type", "long")
                 .endObject()
 
-                /* countryname */
-                .startObject("countryname")
+                /* state */
+                .startObject(STATE_FIELD)
                   .field("type", "string")
                 .endObject()
-
-                /* countrycode */
-                .startObject("countrycode")
-                  .field("type", "string")
+               
+                /* score */
+                .startObject(SCORE_FIELD)
+                  .field("type", "double")
                 .endObject()
 
-                /* region */
-                .startObject("region")
-                  .field("type", "string")
-                .endObject()
-
-                /* regionname */
-                .startObject("regionname")
-                  .field("type", "string")
-                .endObject()
-
-                /* areacode */
-                .startObject("areacode")
-                  .field("type", "integer")
-                .endObject()
-
-                /* dmacode */
-                .startObject("dmacode")
-                  .field("type", "integer")
-                .endObject()
-
-                /* metrocode */
-                .startObject("metrocode")
-                  .field("type", "integer")
-                .endObject()
-
-                /* city */
-                .startObject("city")
-                  .field("type", "string")
-                .endObject()
-
-                /* postalcode */
-                .startObject("postalcode")
-                  .field("type", "string")
-                .endObject()
-
-                /* location */
-                .startObject("location")
-                  .field("type", "geo_point")
-                .endObject()
-                
               .endObject() // properties
             .endObject()   // mapping
           .endObject()

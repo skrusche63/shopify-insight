@@ -71,39 +71,43 @@ class CollectorApp(val appName:String) extends SparkService {
       preUsage = Some("Version %s. Copyright (c) 2015, %s.".format("1.0","Dr. Krusche & Partner PartG"))
     )
     
-    /*
-     * The 'uid' parameter must be provided with the -uid option
-     */
-    val uid = parser.option[String](List("uid"),"uid","Unique preparation identifier")
-    /*
-     * The subsequent parameters specify a certain period of time with 
-     * a minimum and maximum date
-     */
+    val uid = parser.option[String](List("uid"),"uid","Unique job identifier")
+    val job = parser.option[String](List("job"),"job","Unique job descriptor")
+
     val created_at_min = parser.option[String](List("min_date"),"created_at_min","Store data created after this date.")
     val created_at_max = parser.option[String](List("max_date"),"created_at_max","Store data created before this date.")
 
     parser.parse(args)
     
-    val params = HashMap.empty[String,String]
-      
+    /* Validate parameters */
     if (uid.hasValue == false)
       throw new Exception("Parameter 'uid' is missing.")
+    
+    if (job.hasValue == false)
+      throw new Exception("Parameter 'job' is missing.")
       
     if (created_at_min.hasValue == false)
       throw new Exception("Parameter 'min_date' is missing.")
       
     if (created_at_max.hasValue == false)
       throw new Exception("Parameter 'max_date' is missing.")
-    
-    /*
-     * Add external arguments to request parameters
-     */
+
+  
+    val jobs = List("CSM","ORD","PRD")
+    if (jobs.contains(job.value.get) == false)
+      throw new Exception("Job parameter must be one of [CSM, ORD, PRD].")
+ 
+    /* Collect parameters */
+    val params = HashMap.empty[String,String]
+     
     params += "uid" -> uid.value.get
+    params += "job" -> job.value.get
       
     params += "created_at_min" -> created_at_min.value.get
     params += "created_at_max" -> created_at_max.value.get
     
     params += "timestamp" -> new DateTime().getMillis.toString
+
     params.toMap
     
   }
@@ -120,8 +124,8 @@ class CollectorApp(val appName:String) extends SparkService {
 
   private def registerESTask(params:Map[String,String]) = {
     
-    val key = "collect:" + params(Names.REQ_NAME) + ":" + params(Names.REQ_UID)
-    val task = "data collection"
+    val key = "COLLECT:" + params(Names.REQ_NAME) + ":" + params(Names.REQ_UID)
+    val task = "Data collection with " + appName + "."
     /*
      * Note, that we do not specify additional
      * payload data here
@@ -137,12 +141,6 @@ class CollectorApp(val appName:String) extends SparkService {
 	
 	/* timestamp */
 	builder.field("timestamp",params("timestamp").toLong)
-
-    /* created_at_min */
-	builder.field("created_at_min",unformatted(params("created_at_min")))
-	
-    /* created_at_max */
-	builder.field("created_at_max",unformatted(params("created_at_max")))
 	
 	builder.endObject()
 	/*
@@ -162,25 +160,18 @@ class CollectorApp(val appName:String) extends SparkService {
      * where all steps of a certain synchronization or data analytics
      * task are registered
      * 
-     * The 'customers' index (mapping) specifies a customer database that
+     * The 'customer' index (mapping) specifies a customer database that
      * holds synchronized customer data relevant for the insight server
      * 
-     * The 'products' index (mapping) specifies a product database that
+     * The 'product' index (mapping) specifies a product database that
      * holds synchronized product data relevant for the insight server
      * 
-     * The 'orders' index (mapping) specifies an order database that
+     * The 'order' index (mapping) specifies an order database that
      * holds synchronized order data relevant for the insight server
-     * 
-     * The 'aggregates' index (mapping) specifies a statistics database 
-     * that holds synchronized aggregated order data relevant for the 
-     * insight server
      */
     
     if (ctx.createIndex(params,"database","tasks","task") == false)
       throw new Exception("Index creation for 'database/tasks' has been stopped due to an internal error.")
- 
-    if (ctx.createIndex(params,"database","aggregates","aggregate") == false)
-      throw new Exception("Index creation for 'database/aggreates' has been stopped due to an internal error.")
     
     if (ctx.createIndex(params,"database","customers","customer") == false)
       throw new Exception("Index creation for 'database/customers' has been stopped due to an internal error.")

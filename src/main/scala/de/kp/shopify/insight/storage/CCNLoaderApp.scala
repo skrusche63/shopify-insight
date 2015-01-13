@@ -1,4 +1,4 @@
-package de.kp.shopify.insight.collect
+package de.kp.shopify.insight.storage
 /* Copyright (c) 2014 Dr. Krusche & Partner PartG
 * 
 * This file is part of the Shopify-Insight project
@@ -27,19 +27,22 @@ import de.kp.shopify.insight.model._
 import scala.concurrent.duration.DurationInt
 import scala.collection.mutable.HashMap
 
-object CSMCollectorApp extends CollectorApp("CSMCollector") {
+object CCNLoaderApp extends LoaderApp("CCNLoader") {
   
   def main(args:Array[String]) {
 
     try {
 
       val params = createParams(args)
-      initialize(params)
+      val name = "CCN"
+ 
+      val req_params = params ++ Map("name" -> name)
+      initialize(req_params)
 
-      val actor = system.actorOf(Props(new CSMHandler(ctx,params)))   
+      val actor = system.actorOf(Props(new CCNHandler(ctx)))   
       inbox.watch(actor)
     
-      actor ! StartCollect
+      actor ! StartLoad(req_params)
 
       val timeout = DurationInt(30).minute
     
@@ -58,33 +61,33 @@ object CSMCollectorApp extends CollectorApp("CSMCollector") {
 
   }
 
-  class CSMHandler(ctx:RequestContext,params:Map[String,String]) extends Actor {
+  class CCNHandler(ctx:RequestContext) extends Actor {
     
     override def receive = {
     
-      case msg:StartCollect => {
+      case msg:StartLoad => {
 
         val start = new java.util.Date().getTime     
-        println("CSMCollectorApp started at " + start)
- 
-        val collector = context.actorOf(Props(new CSMCollector(ctx,params)))          
-        collector ! StartCollect
+        println("CCNLoaderApp started at " + start)
+        
+        val actor = context.actorOf(Props(new CCNLoader(ctx)))          
+        actor ! StartLoad(msg.data)
        
       }
     
-      case msg:PrepareFailed => {
+      case msg:LoadFailed => {
     
         val end = new java.util.Date().getTime           
-        println("CSMCollectorApp failed at " + end)
+        println("CCNLoaderApp failed at " + end)
     
         context.stop(self)
       
       }
     
-      case msg:PrepareFinished => {
+      case msg:LoadFinished => {
     
         val end = new java.util.Date().getTime           
-        println("CSMCollectorApp finished at " + end)
+        println("CCNLoaderApp finished at " + end)
     
         context.stop(self)
     

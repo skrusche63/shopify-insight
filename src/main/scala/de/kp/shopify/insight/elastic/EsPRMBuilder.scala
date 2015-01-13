@@ -20,7 +20,7 @@ package de.kp.shopify.insight.elastic
 
 import org.elasticsearch.common.xcontent.{XContentBuilder,XContentFactory}
 
-class ESRuleBuilder {
+class EsPRMBuilder {
 
   import de.kp.spark.core.Names._
   
@@ -41,18 +41,6 @@ class ESRuleBuilder {
                 /* timestamp */
                 .startObject(TIMESTAMP_FIELD)
                   .field("type", "long")
-                .endObject()
-
-                /* created_at_min */
-                .startObject("created_at_min")
-                  .field("type", "long")
-                  .field("index", "not_analyzed")
-                .endObject()
-
-                /* created_at_max */
-                .startObject("created_at_max")
-                  .field("type", "long")
-                  .field("index", "not_analyzed")
                 .endObject()
 
                 /* antecedent */

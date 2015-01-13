@@ -1,4 +1,4 @@
-package de.kp.shopify.insight.collect
+package de.kp.shopify.insight.storage
 /* Copyright (c) 2014 Dr. Krusche & Partner PartG
 * 
 * This file is part of the Shopify-Insight project
@@ -27,19 +27,22 @@ import de.kp.shopify.insight.model._
 import scala.concurrent.duration.DurationInt
 import scala.collection.mutable.HashMap
 
-object ORDCollectorApp extends CollectorApp("ORDCollector") {
-
+object PPFLoaderApp extends LoaderApp("PPFLoader") {
+  
   def main(args:Array[String]) {
 
     try {
 
       val params = createParams(args)
-      initialize(params)
+      val name = "PPF"
+ 
+      val req_params = params ++ Map("name" -> name)
+      initialize(req_params)
 
-      val actor = system.actorOf(Props(new ORDHandler(ctx,params)))   
+      val actor = system.actorOf(Props(new PPFHandler(ctx)))   
       inbox.watch(actor)
     
-      actor ! StartCollect
+      actor ! StartLoad(req_params)
 
       val timeout = DurationInt(30).minute
     
@@ -58,33 +61,33 @@ object ORDCollectorApp extends CollectorApp("ORDCollector") {
 
   }
 
-  class ORDHandler(ctx:RequestContext,params:Map[String,String]) extends Actor {
+  class PPFHandler(ctx:RequestContext) extends Actor {
     
     override def receive = {
     
-      case msg:StartCollect => {
+      case msg:StartLoad => {
 
         val start = new java.util.Date().getTime     
-        println("ORDCollectorApp started at " + start)
- 
-        val collector = context.actorOf(Props(new ORDCollector(ctx,params)))          
-        collector ! StartCollect
+        println("PPFLoaderApp started at " + start)
+        
+        val preparer = context.actorOf(Props(new PPFLoader(ctx)))          
+        preparer ! StartLoad(msg.data)
        
       }
     
-      case msg:PrepareFailed => {
+      case msg:LoadFailed => {
     
         val end = new java.util.Date().getTime           
-        println("ORDCollectorApp failed at " + end)
+        println("PPFLoaderApp failed at " + end)
     
         context.stop(self)
       
       }
     
-      case msg:PrepareFinished => {
+      case msg:LoadFinished => {
     
         val end = new java.util.Date().getTime           
-        println("ORDCollectorApp finished at " + end)
+        println("PPFLoaderApp finished at " + end)
     
         context.stop(self)
     

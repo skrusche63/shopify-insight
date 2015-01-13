@@ -149,8 +149,8 @@ class PreparerApp(val appName:String) extends SparkService {
    */
   private def registerESTask(params:Map[String,String]) = {
     
-    val key = "prepare:" + params(Names.REQ_NAME) + ":" + params(Names.REQ_UID)
-    val task = "data preparation"
+    val key = "PREPARE:" + params(Names.REQ_NAME) + ":" + params(Names.REQ_UID)
+    val task = "Data preparation with " + appName + "."
     /*
      * Note, that we do not specify additional
      * payload data here
@@ -166,12 +166,6 @@ class PreparerApp(val appName:String) extends SparkService {
 	
 	/* timestamp */
 	builder.field("timestamp",params("timestamp").toLong)
-
-    /* created_at_min */
-	builder.field("created_at_min",unformatted(params("created_at_min")))
-	
-    /* created_at_max */
-	builder.field("created_at_max",unformatted(params("created_at_max")))
 	
 	builder.endObject()
 	/*

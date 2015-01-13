@@ -41,20 +41,11 @@ class ESTaskBuilder {
 
                 .startObject("task")
                    .field("type","string")
-                   .field("index","not_analyzed")
                 .endObject()
 
                 .startObject("timestamp")
                    .field("type","long")
                    .field("index","not_analyzed")
-                .endObject()
-
-                .startObject("created_at_min")
-                   .field("type","long")
-                .endObject()
-
-                .startObject("created_at_max")
-                   .field("type","long")
                 .endObject()
                 
               .endObject()

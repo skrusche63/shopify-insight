@@ -1,4 +1,4 @@
-package de.kp.shopify.insight.collect
+package de.kp.shopify.insight.storage
 /* Copyright (c) 2014 Dr. Krusche & Partner PartG
 * 
 * This file is part of the Shopify-Insight project
@@ -27,19 +27,22 @@ import de.kp.shopify.insight.model._
 import scala.concurrent.duration.DurationInt
 import scala.collection.mutable.HashMap
 
-object PRDCollectorApp extends CollectorApp("PRDCollector") {
+object LOCLoaderApp extends LoaderApp("LOCLoader") {
   
   def main(args:Array[String]) {
 
     try {
 
       val params = createParams(args)
-      initialize(params)
+      val name = "LOC"
+ 
+      val req_params = params ++ Map("name" -> name)
+      initialize(req_params)
 
-      val actor = system.actorOf(Props(new PRDHandler(ctx,params)))   
+      val actor = system.actorOf(Props(new LOCHandler(ctx)))   
       inbox.watch(actor)
     
-      actor ! StartCollect
+      actor ! StartLoad(req_params)
 
       val timeout = DurationInt(30).minute
     
@@ -58,33 +61,33 @@ object PRDCollectorApp extends CollectorApp("PRDCollector") {
 
   }
 
-  class PRDHandler(ctx:RequestContext,params:Map[String,String]) extends Actor {
+  class LOCHandler(ctx:RequestContext) extends Actor {
     
     override def receive = {
     
-      case msg:StartCollect => {
+      case msg:StartLoad => {
 
         val start = new java.util.Date().getTime     
-        println("PRDCollectorApp started at " + start)
- 
-        val collector = context.actorOf(Props(new PRDCollector(ctx,params)))          
-        collector ! StartCollect
+        println("LOCLoaderApp started at " + start)
+        
+        val preparer = context.actorOf(Props(new LOCLoader(ctx)))          
+        preparer ! StartLoad(msg.data)
        
       }
     
-      case msg:PrepareFailed => {
+      case msg:LoadFailed => {
     
         val end = new java.util.Date().getTime           
-        println("PRDCollectorApp failed at " + end)
+        println("LOCLoaderApp failed at " + end)
     
         context.stop(self)
       
       }
     
-      case msg:PrepareFinished => {
+      case msg:LoadFinished => {
     
         val end = new java.util.Date().getTime           
-        println("PRDCollectorApp finished at " + end)
+        println("LOCLoaderApp finished at " + end)
     
         context.stop(self)
     

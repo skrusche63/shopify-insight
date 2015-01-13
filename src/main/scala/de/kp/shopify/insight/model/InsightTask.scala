@@ -24,21 +24,13 @@ import com.fasterxml.jackson.annotation.{JsonIgnoreProperties, JsonIgnore}
 @JsonIgnoreProperties(ignoreUnknown = true)
 case class InsightTask(
 
-  @JsonProperty("uid")
-  uid:String,
+  @JsonProperty("key")
+  key:String,
 
   @JsonProperty("task")
   task:String,
 
   @JsonProperty("timestamp")
-  timestamp:Long,
-
-  @JsonProperty("created_at_min")
-  created_at_min:Long,
-
-  @JsonProperty("created_at_max")
-  created_at_max:Long
+  timestamp:Long
     
 )
-
-case class InsightTasks(items:List[InsightTask])
