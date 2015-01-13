@@ -163,6 +163,45 @@ case class ParquetLOC(
 )
 
 /**
+ * ParquetPOM is a data structure that specifies a Parquet
+ * file that describes the purchase overview of a certain
+ * period of time
+ */
+case class ParquetPOM(
+  
+  total_orders:Int,
+  
+  /********** AMOUNT DIMENSION **********/
+  
+  total_amount:Double,
+  total_avg_amount:Double,
+
+  total_max_amount:Double,
+  total_min_amount:Double,
+
+  total_stdev_amount:Double,
+  total_variance_amount:Double,
+  
+  /********** TEMPORARL DIMENSION **********/
+ 
+  total_avg_timespan:Double,
+  total_max_timespan:Double,
+
+  total_min_timespan:Double,
+  total_stdev_timespan:Double,
+
+  total_variance_timespan:Double,
+
+  total_day_supp:Seq[(Int,Int)],
+  total_time_supp:Seq[(Int,Int)],
+  
+  /********** PRODUCT DIMENSION **********/
+
+  total_item_supp:Seq[(Int,Int)]
+    
+)
+
+/**
  * ParquetPPF is a data structure that specifies a Parquet
  * file that assigns frequencies to a certain product or 
  * item. The data record can be computed with respect to

@@ -33,7 +33,7 @@ import de.kp.shopify.insight.model._
  * last transaction is far away from the "normal" behavior of the
  * respective customer
  */
-class CCNPreparer(ctx:RequestContext,orders:RDD[InsightOrder]) extends BasePreparer(ctx) {
+class CCNPreparer(ctx:RequestContext,customer:Int,orders:RDD[InsightOrder]) extends BasePreparer(ctx) {
   
   /*
    * The CCNPreparer uses thresholds for the quantile calculation with
@@ -124,7 +124,7 @@ class CCNPreparer(ctx:RequestContext,orders:RDD[InsightOrder]) extends BasePrepa
         table.saveAsParquetFile(store)
 
         val end = new java.util.Date().getTime
-        ctx.listener ! String.format("""[INFO][UID: %s] ASR preparation finished at %s.""",uid,end.toString)
+        ctx.listener ! String.format("""[INFO][UID: %s] CCN preparation finished at %s.""",uid,end.toString)
 
         val params = Map(Names.REQ_MODEL -> "CCN") ++ req_params
         context.parent ! PrepareFinished(params)

@@ -1,4 +1,4 @@
-package de.kp.shopify.insight.actor.storage
+package de.kp.shopify.insight.storage
 /* Copyright (c) 2014 Dr. Krusche & Partner PartG
 * 
 * This file is part of the Shopify-Insight project
@@ -35,10 +35,10 @@ import de.kp.shopify.insight.elastic._
 import org.elasticsearch.common.xcontent.{XContentBuilder,XContentFactory}
 
 /**
- * The URMLoader stores the user recommendation model in the server layer,
+ * The PRMLoader stores the product relation model in the server layer,
  * i.e. in an Elasticsearch index.
  */
-class URMLoader(requestCtx:RequestContext) extends BaseActor(requestCtx) {
+class PRMLoader(requestCtx:RequestContext) extends BaseActor(requestCtx) {
 
   override def receive = {
    
@@ -49,29 +49,29 @@ class URMLoader(requestCtx:RequestContext) extends BaseActor(requestCtx) {
       
       try {
         
-        requestCtx.listener ! String.format("""[INFO][UID: %s] User recommendation model load request.""",uid)
+        requestCtx.listener ! String.format("""[INFO][UID: %s] Product relation model load request received.""",uid)
         
-        val store = String.format("""%s/URM/%s""",requestCtx.getBase,uid)         
+        val store = String.format("""%s/PRM/%s""",requestCtx.getBase,uid)         
         val parquetFile = extract(store)
-      
+
         requestCtx.listener ! String.format("""[INFO][UID: %s] Parquet file successfully retrieved.""",uid)
-         
-         val sources = transform(req_params,parquetFile)
- 
-         if (requestCtx.putSources("users","recommendations",sources) == false)
-           throw new Exception("Loading process has been stopped due to an internal error.")
+        
+        val sources = transform(req_params,parquetFile)
 
-         requestCtx.listener ! String.format("""[INFO][UID: %s] User recommendation model loading finished.""",uid)
+        if (requestCtx.putSources("products","rules",sources) == false)
+          throw new Exception("Loading process has been stopped due to an internal error.")
 
-         val data = Map(Names.REQ_UID -> uid,Names.REQ_MODEL -> "URM")            
-         context.parent ! LoadFinished(data)           
+        requestCtx.listener ! String.format("""[INFO][UID: %s] Product relation model loading finished.""",uid)
+
+        val data = Map(Names.REQ_UID -> uid,Names.REQ_MODEL -> "PRM")            
+        context.parent ! LoadFinished(data)           
             
-         context.stop(self)
+        context.stop(self)
          
       } catch {
         case e:Exception => {
                     
-          requestCtx.listener ! String.format("""[ERROR][UID: %s] User recommendation model loading failed due to an internal error.""",uid)
+          requestCtx.listener ! String.format("""[ERROR][UID: %s] Product relation model loading failed due to an internal error.""",uid)
           
           val params = Map(Names.REQ_MESSAGE -> e.getMessage) ++ message.data
 
@@ -84,8 +84,8 @@ class URMLoader(requestCtx:RequestContext) extends BaseActor(requestCtx) {
     }
     
   }
- 
-  private def extract(store:String):RDD[ParquetURM] = {
+
+  private def extract(store:String):RDD[ParquetPRM] = {
     
     /* 
      * Read in the parquet file created above.  Parquet files are self-describing 
@@ -109,24 +109,30 @@ class URMLoader(requestCtx:RequestContext) extends BaseActor(requestCtx) {
           
       }).toMap
 
-      val site = data("site").asInstanceOf[String]
-      val user = data("user").asInstanceOf[String]
+      val antecedent = data("antecedent").asInstanceOf[Seq[Int]]
+      val consequent = data("consequent").asInstanceOf[Seq[Int]]
+      
+      val support = data("support").asInstanceOf[Int]
+      val total = data("total").asInstanceOf[Long]
 
-      val recommendations = data("recommendations").asInstanceOf[Seq[(Seq[Int],Double)]]
-      ParquetURM(site,user,recommendations)
+      val confidence = data("confidence").asInstanceOf[Double]
+      
+      ParquetPRM(antecedent,consequent,support,total,confidence)
       
     })
 
-  }  
-  private def transform(params:Map[String,String],recommendations:RDD[ParquetURM]):List[XContentBuilder] = {
+  }
+  
+  private def transform(params:Map[String,String],rules:RDD[ParquetPRM]):List[XContentBuilder] = {
             
-    recommendations.map(x => {
-           
+    val uid = params(Names.REQ_UID)
+    rules.map(rule => {
+      
       val builder = XContentFactory.jsonBuilder()
       builder.startObject()
       
       /* uid */
-      builder.field(Names.UID_FIELD,params("uid"))
+      builder.field(Names.UID_FIELD,params(Names.REQ_UID))
       
       /* timestamp */
       builder.field(Names.TIMESTAMP_FIELD,params("timestamp"))
@@ -136,39 +142,31 @@ class URMLoader(requestCtx:RequestContext) extends BaseActor(requestCtx) {
 
 	  /* created_at_max */
 	  builder.field("created_at_max",params("created_at_max"))
-      
-      /* site */
-      builder.field("site",x.site)
-      
-      /* user */
-      builder.field("user",x.user)
-      
-      /* recommendations */
-      builder.startArray("recommendations")
-      
-      for (recommendation <- x.recommendations) {
-        
-        builder.startObject()
-          
-        /* consequent */
-        builder.startArray("consequent")
-        recommendation._1.foreach(v => builder.value(v))
-        builder.endArray
-      
-        /* score */
-        builder.field("score",recommendation._2)
-        
-        builder.endObject()
-        
-      }
-    
-      builder.endArray()
-      
-      builder.endObject()        
-      builder
+	  
+	  /* antecedent */
+	  builder.startArray("antecedent")
+	  rule.antecedent.foreach(v => builder.value(v))
+	  builder.endArray()
+	  
+	  /* consequent */
+	  builder.startArray("consequent")
+	  rule.antecedent.foreach(v => builder.value(v))
+	  builder.endArray()
 
+	  /* support */
+	  builder.field("support",rule.support)
+	  
+	  /* total */
+	  builder.field("total",rule.total)
+	  
+	  /* confidence */
+	  builder.field("confidence",rule.confidence)
+	  
+	  builder.endObject()
+      builder
+      
     }).collect.toList
- 
+    
   }
   
 }

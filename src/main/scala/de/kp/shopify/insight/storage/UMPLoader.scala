@@ -1,4 +1,4 @@
-package de.kp.shopify.insight.actor.storage
+package de.kp.shopify.insight.storage
 /* Copyright (c) 2014 Dr. Krusche & Partner PartG
 * 
 * This file is part of the Shopify-Insight project

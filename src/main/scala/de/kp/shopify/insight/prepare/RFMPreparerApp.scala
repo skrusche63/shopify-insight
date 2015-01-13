@@ -37,12 +37,12 @@ object RFMPreparerApp extends PreparerApp("RFMPreparer") {
        * Add internal arguments to request parameters; one of
        * these arguments is the name of the respective task
        */
-      val req_params = createParams(args) ++ Map("name" -> "rfm")
+      val req_params = createParams(args) ++ Map("name" -> "RFM")
       /*
        * Load orders from Elasticsearch order database and 
-       * start Preparer actor to extract geospatial data
-       * from the different purchase transactions and store
-       * the result as a Parquet file
+       * start Preparer actor to extract RFM data from the
+       * different purchase transactions and store the result 
+       * as a Parquet file
        */
       val orders = initialize(req_params)
       /*

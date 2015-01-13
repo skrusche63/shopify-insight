@@ -27,7 +27,7 @@ import de.kp.shopify.insight.model._
 import scala.concurrent.duration.DurationInt
 import scala.collection.mutable.HashMap
 
-object LOCPreparerApp extends PreparerApp("LOCPreparer") {
+object CHAPreparerApp extends PreparerApp("CHAPreparer") {
   
   def main(args:Array[String]) {
 
@@ -37,18 +37,18 @@ object LOCPreparerApp extends PreparerApp("LOCPreparer") {
        * Add internal arguments to request parameters; one of
        * these arguments is the name of the respective task
        */
-      val req_params = createParams(args) ++ Map("name" -> "LOC")
+      val req_params = createParams(args) ++ Map("name" -> "CHA")
       /*
        * Load orders from Elasticsearch order database and 
-       * start Preparer actor to extract geospatial data
-       * from the different purchase transactions and store
-       * the result as a Parquet file
+       * start Preparer actor to extract CHA data from the
+       * different purchase transactions and store the result 
+       * as a Parquet file
        */
       val orders = initialize(req_params)
       /*
        * Start & monitor PreparerActor
        */
-      val actor = system.actorOf(Props(new LOCHandler(ctx,orders)))   
+      val actor = system.actorOf(Props(new CHAHandler(ctx,orders)))   
       inbox.watch(actor)
     
       actor ! StartPrepare(req_params)
@@ -70,23 +70,18 @@ object LOCPreparerApp extends PreparerApp("LOCPreparer") {
 
   }
 
-  class LOCHandler(ctx:RequestContext,orders:RDD[InsightOrder]) extends Actor {
+  class CHAHandler(ctx:RequestContext,orders:RDD[InsightOrder]) extends Actor {
     
     override def receive = {
     
       case msg:StartPrepare => {
 
         val start = new java.util.Date().getTime     
-        println("LOCPreparerApp started at " + start)
+        println("CHAPreparerApp started at " + start)
  
-        /*
-         * Preparation of LOC perspective is independent
-         * of the customer type; we therefore set customer
-         * to '0' to satisfy the interface
-         */
-        val customer = 0
- 
-        val preparer = context.actorOf(Props(new LOCPreparer(ctx,customer,orders)))          
+        val customer = msg.data("customer").toInt
+        
+        val preparer = context.actorOf(Props(new CHAPreparer(ctx,customer,orders)))          
         preparer ! StartPrepare(msg.data)
        
       }
@@ -94,7 +89,7 @@ object LOCPreparerApp extends PreparerApp("LOCPreparer") {
       case msg:PrepareFailed => {
     
         val end = new java.util.Date().getTime           
-        println("LOCPreparerApp failed at " + end)
+        println("CHAPreparerApp failed at " + end)
     
         context.stop(self)
       
@@ -103,7 +98,7 @@ object LOCPreparerApp extends PreparerApp("LOCPreparer") {
       case msg:PrepareFinished => {
     
         val end = new java.util.Date().getTime           
-        println("LOCPreparerApp finished at " + end)
+        println("CHAPreparerApp finished at " + end)
     
         context.stop(self)
     
