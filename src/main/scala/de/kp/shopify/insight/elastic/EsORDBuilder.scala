@@ -20,7 +20,7 @@ package de.kp.shopify.insight.elastic
 
 import org.elasticsearch.common.xcontent.{XContentBuilder,XContentFactory}
 
-class ESOrderBuilder {
+class EsORDBuilder {
   
   def createBuilder(mapping:String):XContentBuilder = {
  

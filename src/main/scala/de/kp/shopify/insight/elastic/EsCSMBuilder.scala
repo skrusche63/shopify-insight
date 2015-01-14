@@ -20,7 +20,7 @@ package de.kp.shopify.insight.elastic
 
 import org.elasticsearch.common.xcontent.{XContentBuilder,XContentFactory}
 
-class ESCustomerBuilder {
+class EsCSMBuilder {
 
   import de.kp.spark.core.Names._
   

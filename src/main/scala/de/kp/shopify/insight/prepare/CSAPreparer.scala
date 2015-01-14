@@ -33,7 +33,7 @@ import de.kp.shopify.insight.preference.TFIDF
  * of days from all orders registered so far, and for every 
  * customer that has purchased at least twice
  */
-class CSAPreparer(ctx:RequestContext,customer:Int,orders:RDD[InsightOrder]) extends BasePreparer(ctx) {
+class CSAPreparer(ctx:RequestContext,orders:RDD[InsightOrder]) extends BasePreparer(ctx) {
  
   import sqlc.createSchemaRDD
   override def receive = {
@@ -41,7 +41,9 @@ class CSAPreparer(ctx:RequestContext,customer:Int,orders:RDD[InsightOrder]) exte
     case msg:StartPrepare => {
 
       val req_params = msg.data      
+      
       val uid = req_params(Names.REQ_UID)
+      val customer = req_params("customer").toInt
              
       val start = new java.util.Date().getTime.toString            
       ctx.listener ! String.format("""[INFO][UID: %s] CSA preparation request received at %s.""",uid,start)

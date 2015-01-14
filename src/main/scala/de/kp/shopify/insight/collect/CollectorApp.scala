@@ -18,180 +18,97 @@ package de.kp.shopify.insight.collect
 * If not, see <http://www.gnu.org/licenses/>.
 */
 
+import org.apache.spark.rdd.RDD
 import akka.actor._
 
-import org.joda.time.DateTime
-import org.joda.time.format.DateTimeFormat
-
-import org.clapper.argot._
-
 import de.kp.spark.core.Names
-import de.kp.spark.core.SparkService
 
-import de.kp.shopify.insight.{Configuration,RequestContext}
-import de.kp.shopify.insight.actor.MessageListener
-
+import de.kp.shopify.insight.RequestContext
 import de.kp.shopify.insight.model._
 
-import org.elasticsearch.common.xcontent.XContentFactory
-import scala.collection.mutable.{Buffer,HashMap}
+import scala.concurrent.duration.DurationInt
+import scala.collection.mutable.HashMap
 
-class CollectorApp(val appName:String) extends SparkService {
+object CollectorApp extends CollectorService("Collector") {
   
-  protected val sc = createCtxLocal("CollectContext",Configuration.spark)      
-  protected val system = ActorSystem("CollectSystem")
+  def main(args:Array[String]) {
 
-  protected val inbox = Inbox.create(system)
-  
-  sys.addShutdownHook({
-    /*
-     * In case of a system shutdown, we also make clear
-     * that the SparkContext is properly stopped as well
-     * as the respective Akka actor system
-     */
-    sc.stop
-    system.shutdown
-    
-  })
-  
-  /*
-   * The listener actor is an overall listener that retrieves the error and
-   * interim messages from all the other actors
-   */
-  protected val listener = system.actorOf(Props(new MessageListener()))
-  protected val ctx = new RequestContext(sc,listener)
-  
-  protected def createParams(args:Array[String]):Map[String,String] = {
+    try {
 
-    import ArgotConverters._
-     
-    val parser = new ArgotParser(
-      programName = appName,
-      compactUsage = true,
-      preUsage = Some("Version %s. Copyright (c) 2015, %s.".format("1.0","Dr. Krusche & Partner PartG"))
-    )
-    
-    val uid = parser.option[String](List("uid"),"uid","Unique job identifier")
-    val job = parser.option[String](List("job"),"job","Unique job descriptor")
-
-    val created_at_min = parser.option[String](List("min_date"),"created_at_min","Store data created after this date.")
-    val created_at_max = parser.option[String](List("max_date"),"created_at_max","Store data created before this date.")
-
-    parser.parse(args)
-    
-    /* Validate parameters */
-    if (uid.hasValue == false)
-      throw new Exception("Parameter 'uid' is missing.")
-    
-    if (job.hasValue == false)
-      throw new Exception("Parameter 'job' is missing.")
+      val params = createParams(args)
+      val job = params("job")
       
-    if (created_at_min.hasValue == false)
-      throw new Exception("Parameter 'min_date' is missing.")
+      val req_params = params ++ Map(Names.REQ_NAME -> job)
+      initialize(params)
+
+      val actor = system.actorOf(Props(new Handler(ctx,params)))   
+      inbox.watch(actor)
+    
+      actor ! StartCollect
+
+      val timeout = DurationInt(30).minute
+    
+      while (inbox.receive(timeout).isInstanceOf[Terminated] == false) {}    
+      sys.exit
       
-    if (created_at_max.hasValue == false)
-      throw new Exception("Parameter 'max_date' is missing.")
+    } catch {
+      case e:Exception => {
+          
+        println(e.getMessage) 
+        sys.exit
+          
+      }
+    
+    }
 
-  
-    val jobs = List("CSM","ORD","PRD")
-    if (jobs.contains(job.value.get) == false)
-      throw new Exception("Job parameter must be one of [CSM, ORD, PRD].")
+  }
+
+  class Handler(ctx:RequestContext,params:Map[String,String]) extends Actor {
+    
+    override def receive = {
+    
+      case msg:StartCollect => {
+       
+        val start = new java.util.Date().getTime     
+        println("Collector started at " + start)
  
-    /* Collect parameters */
-    val params = HashMap.empty[String,String]
-     
-    params += "uid" -> uid.value.get
-    params += "job" -> job.value.get
+        val job = params("job")        
+        val collector = job match {
+          
+          case "CSM" => context.actorOf(Props(new CSMCollector(ctx,params))) 
+          
+          case "ORD" => context.actorOf(Props(new ORDCollector(ctx,params))) 
+          
+          case "PRD" => context.actorOf(Props(new PRDCollector(ctx,params))) 
+          
+          case _ => throw new Exception("Wrong job descriptor.")
+          
+        }
+
+        collector ! StartCollect
+       
+      }
+    
+      case msg:PrepareFailed => {
+    
+        val end = new java.util.Date().getTime           
+        println("Collector failed at " + end)
+    
+        context.stop(self)
       
-    params += "created_at_min" -> created_at_min.value.get
-    params += "created_at_max" -> created_at_max.value.get
+      }
     
-    params += "timestamp" -> new DateTime().getMillis.toString
-
-    params.toMap
+      case msg:PrepareFinished => {
     
-  }
+        val end = new java.util.Date().getTime           
+        println("Collector finished at " + end)
+    
+        context.stop(self)
+    
+      }
+    
+    }
   
-  protected def initialize(params:Map[String,String]) {
-    /*
-     * Create Elasticsearch databases and register 
-     * the respective task in the task database
-     */
-    createESIndexes(params)
-    registerESTask(params)
-    
-  }
-
-  private def registerESTask(params:Map[String,String]) = {
-    
-    val key = "COLLECT:" + params(Names.REQ_NAME) + ":" + params(Names.REQ_UID)
-    val task = "Data collection with " + appName + "."
-    /*
-     * Note, that we do not specify additional
-     * payload data here
-     */
-    val builder = XContentFactory.jsonBuilder()
-	builder.startObject()
-	
-	/* key */
-	builder.field("key",key)
-	
-	/* task */
-	builder.field("task",task)
-	
-	/* timestamp */
-	builder.field("timestamp",params("timestamp").toLong)
-	
-	builder.endObject()
-	/*
-	 * Register data in the 'database/tasks' index
-	 */
-	ctx.putSource("database","tasks",builder)
-
-  }
-
-  private def createESIndexes(params:Map[String,String]) {
-    
-    val uid = params(Names.REQ_UID)
-    /*
-     * Create search indexes (if not already present)
-     * 
-     * The 'tasks' index (mapping) specified an administrative database
-     * where all steps of a certain synchronization or data analytics
-     * task are registered
-     * 
-     * The 'customer' index (mapping) specifies a customer database that
-     * holds synchronized customer data relevant for the insight server
-     * 
-     * The 'product' index (mapping) specifies a product database that
-     * holds synchronized product data relevant for the insight server
-     * 
-     * The 'order' index (mapping) specifies an order database that
-     * holds synchronized order data relevant for the insight server
-     */
-    
-    if (ctx.createIndex(params,"database","tasks","task") == false)
-      throw new Exception("Index creation for 'database/tasks' has been stopped due to an internal error.")
-    
-    if (ctx.createIndex(params,"database","customers","customer") == false)
-      throw new Exception("Index creation for 'database/customers' has been stopped due to an internal error.")
- 
-    if (ctx.createIndex(params,"database","products","product") == false)
-      throw new Exception("Index creation for 'database/products' has been stopped due to an internal error.")
- 
-    if (ctx.createIndex(params,"database","orders","order") == false)
-      throw new Exception("Index creation for 'database/orders' has been stopped due to an internal error.")
-    
-  }
-  
-  private def unformatted(date:String):Long = {
-
-    //2008-12-31 03:00
-    val pattern = "yyyy-MM-dd HH:mm"
-    val formatter = DateTimeFormat.forPattern(pattern)
- 
-    formatter.parseMillis(date)
-    
   }
   
 }

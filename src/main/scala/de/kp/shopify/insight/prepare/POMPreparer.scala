@@ -32,7 +32,7 @@ import de.kp.shopify.insight.model._
  * POMPreparer is responsible for generating the purchase overview
  * metrix (POM) from the purchase orders of a certain period of time
  */
-class POMPreparer(ctx:RequestContext,customer:Int,orders:RDD[InsightOrder]) extends BasePreparer(ctx) {
+class POMPreparer(ctx:RequestContext,orders:RDD[InsightOrder]) extends BasePreparer(ctx) {
 
   import sqlc.createSchemaRDD
   
@@ -147,7 +147,7 @@ class POMPreparer(ctx:RequestContext,customer:Int,orders:RDD[InsightOrder]) exte
         table.saveAsParquetFile(store)
        
         val end = new java.util.Date().getTime
-        ctx.listener ! String.format("""[INFO][UID: %s] POM preparation for customer type '%s' finished at %s.""",uid,customer.toString,end.toString)
+        ctx.listener ! String.format("""[INFO][UID: %s] POM preparation finished at %s.""",uid,end.toString)
 
         val params = Map(Names.REQ_MODEL -> "POM") ++ req_params
         context.parent ! PrepareFinished(params)

@@ -22,8 +22,6 @@ import akka.actor.Props
 import de.kp.spark.core.Names
 
 import de.kp.shopify.insight._
-import de.kp.shopify.insight.actor.storage._
-
 import de.kp.shopify.insight.model._
 
 import scala.collection.mutable.ArrayBuffer
@@ -57,40 +55,40 @@ class DataLoader(requestCtx:RequestContext) extends BaseActor(requestCtx) {
        */
       registerTask(req_params)
       
-      /*
-       * The PRMLoader is responsible for loading the product relation
-       * model into the product/rules index
-       */
-      val prm_loader = context.actorOf(Props(new PRMLoader(requestCtx)))  
-      prm_loader ! StartLoad(message.data)
-
-      /*
-       * The UFMLoader is responsible for loading the user purchase forecast
-       * model into the users/forecasts index
-       */
-      val ufm_loader = context.actorOf(Props(new UFMLoader(requestCtx)))  
-      ufm_loader ! StartBuild(message.data)
-      
-      /*
-       * The ULMLoader is responsible for loading the user loyalty model
-       * into the users/loyalties index
-       */
-      val ulm_loader = context.actorOf(Props(new ULMLoader(requestCtx)))  
-      ulm_loader ! StartBuild(message.data)
-      
-      /*
-       * The URMLoader is responsible for loading the user recommendation
-       * model into the users/recommendations index
-       */
-      val urm_loader = context.actorOf(Props(new URMLoader(requestCtx)))  
-      urm_loader ! StartBuild(message.data)
-      
-      /*
-       * The UMPLoader is responsible for loading the user movement
-       * profile into the users/locations index
-       */
-      val ump_loader = context.actorOf(Props(new UMPLoader(requestCtx)))  
-      ump_loader ! StartBuild(message.data)
+//      /*
+//       * The PRMLoader is responsible for loading the product relation
+//       * model into the product/rules index
+//       */
+//      val prm_loader = context.actorOf(Props(new PRMLoader(requestCtx)))  
+//      prm_loader ! StartLoad(message.data)
+//
+//      /*
+//       * The UFMLoader is responsible for loading the user purchase forecast
+//       * model into the users/forecasts index
+//       */
+//      val ufm_loader = context.actorOf(Props(new UFMLoader(requestCtx)))  
+//      ufm_loader ! StartBuild(message.data)
+//      
+//      /*
+//       * The ULMLoader is responsible for loading the user loyalty model
+//       * into the users/loyalties index
+//       */
+//      val ulm_loader = context.actorOf(Props(new ULMLoader(requestCtx)))  
+//      ulm_loader ! StartBuild(message.data)
+//      
+//      /*
+//       * The URMLoader is responsible for loading the user recommendation
+//       * model into the users/recommendations index
+//       */
+//      val urm_loader = context.actorOf(Props(new URMLoader(requestCtx)))  
+//      urm_loader ! StartBuild(message.data)
+//      
+//      /*
+//       * The UMPLoader is responsible for loading the user movement
+//       * profile into the users/locations index
+//       */
+//      val ump_loader = context.actorOf(Props(new UMPLoader(requestCtx)))  
+//      ump_loader ! StartBuild(message.data)
       
     }    
     case message:LoadFailed => {

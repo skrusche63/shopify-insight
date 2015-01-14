@@ -23,7 +23,6 @@ import akka.actor.Props
  import de.kp.shopify.insight._
  import de.kp.shopify.insight.model._
  import de.kp.shopify.spark.ElasticRDD
- import de.kp.shopify.insight.actor.prepare._
  import org.elasticsearch.index.query._
  import org.elasticsearch.common.xcontent.XContentFactory
  import scala.collection.mutable.Buffer
@@ -89,8 +88,8 @@ class DataPreparer(ctx:RequestContext) extends BaseActor(ctx) {
          * for all other preparation steps as this analysis segments the
          * customer base under consideration to 8 different customer types.
          */
-        val rfm_preparer = context.actorOf(Props(new RFMPreparer(ctx,0,orders)))          
-        rfm_preparer ! StartPrepare(req_params)
+        //val rfm_preparer = context.actorOf(Props(new RFMPreparer(ctx,0,orders)))          
+        //rfm_preparer ! StartPrepare(req_params)
          
         /*
          * STEP #3: Start ASRPreparer actor to create the ParquetASR table 
@@ -149,8 +148,8 @@ class DataPreparer(ctx:RequestContext) extends BaseActor(ctx) {
          * from the purchase history. This table is used to specify the
          * geospatial profile of a certain user.
          */
-        val loc_preparer = context.actorOf(Props(new LOCPreparer(ctx,0, orders)))          
-        loc_preparer ! StartPrepare(req_params)
+        //val loc_preparer = context.actorOf(Props(new LOCPreparer(ctx,0, orders)))          
+        //loc_preparer ! StartPrepare(req_params)
         
         /*
          * STEP #10: Start CHNPreparer actor to create the ParquetCHN table 

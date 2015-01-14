@@ -20,7 +20,7 @@ package de.kp.shopify.insight.elastic
 
 import org.elasticsearch.common.xcontent.{XContentBuilder,XContentFactory}
 
-class EsCCNBuilder {
+class EsCLSBuilder {
 
   import de.kp.spark.core.Names._
   
@@ -69,9 +69,9 @@ class EsCCNBuilder {
                   .field("type", "integer")
                 .endObject()
 
-                /* churner */
-                .startObject("churner")
-                  .field("type", "boolean")
+                /* loyalty */
+                .startObject("loyalty")
+                  .field("type", "integer")
                 .endObject()
 
                 /* customer_type */

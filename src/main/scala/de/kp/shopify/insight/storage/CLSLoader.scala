@@ -34,7 +34,7 @@ import de.kp.shopify.insight.model._
 import de.kp.shopify.insight.elastic._
 import org.elasticsearch.common.xcontent.{XContentBuilder,XContentFactory}
 
-class CCNLoader (ctx:RequestContext) extends BaseLoader(ctx) {
+class CLSLoader (ctx:RequestContext) extends BaseLoader(ctx) {
 
   override def load(params:Map[String,String]) {
 
@@ -48,12 +48,12 @@ class CCNLoader (ctx:RequestContext) extends BaseLoader(ctx) {
         
     val sources = transform(params,parquetFile)
 
-    if (ctx.putSources("users","locations",sources) == false)
+    if (ctx.putSources("users","loyalties",sources) == false)
       throw new Exception("Loading process has been stopped due to an internal error.")
     
   }
 
-  private def extract(store:String):RDD[ParquetCCN] = {
+  private def extract(store:String):RDD[ParquetCLS] = {
     
     /* 
      * Read in the parquet file created above.  Parquet files are self-describing 
@@ -83,16 +83,16 @@ class CCNLoader (ctx:RequestContext) extends BaseLoader(ctx) {
       val amount = data("amount").asInstanceOf[Double]
       val timespan = data("timespan").asInstanceOf[Int]
 
-      val churner = data("curner").asInstanceOf[Boolean]
+      val loyalty = data("loyalty").asInstanceOf[Integer]
       val rfm_type = data("rfm_type").asInstanceOf[Int]
 
-      ParquetCCN(site,user,amount,timespan,churner,rfm_type)
+      ParquetCLS(site,user,amount,timespan,loyalty,rfm_type)
       
     })
     
   }
   
-  private def transform(params:Map[String,String],dataset:RDD[ParquetCCN]):List[XContentBuilder] = {
+  private def transform(params:Map[String,String],dataset:RDD[ParquetCLS]):List[XContentBuilder] = {
             
     dataset.map(x => {
       
@@ -121,8 +121,8 @@ class CCNLoader (ctx:RequestContext) extends BaseLoader(ctx) {
 	  /* recency */
 	  builder.field("recency",x.timespan)
 
-	  /* churner */
-	  builder.field("churner",x.churner)
+	  /* loyalty */
+	  builder.field("churner",x.loyalty)
 
 	  /* customer_type */
 	  builder.field("customer_type",x.rfm_type)

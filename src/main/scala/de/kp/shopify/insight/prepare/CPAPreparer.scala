@@ -53,7 +53,7 @@ import de.kp.shopify.insight.preference.TFIDF
  * information for marketing campains and communications with customers.
  *   
  */
-class CPAPreparer(ctx:RequestContext,customer:Int,orders:RDD[InsightOrder]) extends BasePreparer(ctx) {
+class CPAPreparer(ctx:RequestContext,orders:RDD[InsightOrder]) extends BasePreparer(ctx) {
   
   import sqlc.createSchemaRDD
   override def receive = {
@@ -61,7 +61,9 @@ class CPAPreparer(ctx:RequestContext,customer:Int,orders:RDD[InsightOrder]) exte
     case msg:StartPrepare => {
 
       val req_params = msg.data
+      
       val uid = req_params(Names.REQ_UID)
+      val customer = req_params("customer").toInt
              
       val start = new java.util.Date().getTime.toString            
       ctx.listener ! String.format("""[INFO][UID: %s] CPA preparation request received at %s.""",uid,start)

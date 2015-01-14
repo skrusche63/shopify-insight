@@ -35,7 +35,7 @@ import de.kp.shopify.insight.preference.TFIDF
  * this information is used to segment the customer base by this
  * temporal information
  */
-class CDAPreparer(ctx:RequestContext,customer:Int,orders:RDD[InsightOrder]) extends BasePreparer(ctx) {
+class CDAPreparer(ctx:RequestContext,orders:RDD[InsightOrder]) extends BasePreparer(ctx) {
   
   import sqlc.createSchemaRDD
   override def receive = {
@@ -43,8 +43,10 @@ class CDAPreparer(ctx:RequestContext,customer:Int,orders:RDD[InsightOrder]) exte
     case msg:StartPrepare => {
 
       val req_params = msg.data
+      
       val uid = req_params(Names.REQ_UID)
-             
+      val customer = req_params("customer").toInt
+      
       val start = new java.util.Date().getTime.toString            
       ctx.listener ! String.format("""[INFO][UID: %s] CDA preparation request received at %s.""",uid,start)
       

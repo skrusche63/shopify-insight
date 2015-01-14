@@ -310,15 +310,19 @@ case class ParquetSTM(
   state:String
 
 ) 
-
-case class ParquetCCN(
+/**
+ * ParquetCLS is a data structure that specifies a Parquet file
+ * that describes the loyalty segmentation based on the repeat
+ * purchase behavior ofthe customer base
+ */
+case class ParquetCLS(
   site:String,
   user:String,
   
   amount:Double,
   timespan:Int,
   
-  churner:Boolean,
+  loyalty:Int,
   rfm_type:Int
 )
 

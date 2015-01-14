@@ -31,7 +31,7 @@ import de.kp.shopify.insight.model._
  * period of time and a specific customer type for association rule
  * mining with Predictiveworks' Association Analysis engine
  */
-class ASRPreparer(ctx:RequestContext,customer:Int,orders:RDD[InsightOrder]) extends BasePreparer(ctx) {
+class ASRPreparer(ctx:RequestContext,orders:RDD[InsightOrder]) extends BasePreparer(ctx) {
 
   import sqlc.createSchemaRDD
   
@@ -40,7 +40,9 @@ class ASRPreparer(ctx:RequestContext,customer:Int,orders:RDD[InsightOrder]) exte
     case msg:StartPrepare => {
 
       val req_params = msg.data      
+      
       val uid = req_params(Names.REQ_UID)
+      val customer = req_params("customer").toInt
              
       val start = new java.util.Date().getTime.toString            
       ctx.listener ! String.format("""[INFO][UID: %s] ASR preparation request received at %s.""",uid,start)

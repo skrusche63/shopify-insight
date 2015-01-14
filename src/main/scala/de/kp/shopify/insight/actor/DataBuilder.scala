@@ -80,13 +80,6 @@ class DataBuilder(requestCtx:RequestContext) extends BaseActor(requestCtx) {
       val stm_builder = context.actorOf(Props(new STMBuilder(requestCtx)))  
       stm_builder ! StartBuild(message.data)
       
-      /*
-       * The HSMBuilder is responsible for building a hidden state model
-       * from the data registered in the 'states' index
-       */
-      val hsm_builder = context.actorOf(Props(new HSMBuilder(requestCtx)))  
-      hsm_builder ! StartBuild(message.data)
-      
     }    
     case message:BuildFailed => {
       /*

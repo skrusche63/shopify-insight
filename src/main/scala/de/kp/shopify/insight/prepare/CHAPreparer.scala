@@ -30,7 +30,7 @@ import de.kp.shopify.insight.model._
 
 import de.kp.shopify.insight.preference.TFIDF
 
-class CHAPreparer(ctx:RequestContext,customer:Int,orders:RDD[InsightOrder]) extends BasePreparer(ctx) {
+class CHAPreparer(ctx:RequestContext,orders:RDD[InsightOrder]) extends BasePreparer(ctx) {
   
   import sqlc.createSchemaRDD
   override def receive = {
@@ -38,7 +38,9 @@ class CHAPreparer(ctx:RequestContext,customer:Int,orders:RDD[InsightOrder]) exte
     case msg:StartPrepare => {
 
       val req_params = msg.data
+      
       val uid = req_params(Names.REQ_UID)
+      val customer = req_params("customer").toInt
              
       val start = new java.util.Date().getTime.toString            
       ctx.listener ! String.format("""[INFO][UID: %s] CHA preparation request received at %s.""",uid,start)

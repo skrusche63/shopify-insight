@@ -1,4 +1,4 @@
-package de.kp.shopify.insight.storage
+package de.kp.shopify.insight.prepare
 /* Copyright (c) 2014 Dr. Krusche & Partner PartG
 * 
 * This file is part of the Shopify-Insight project
@@ -34,14 +34,17 @@ import de.kp.shopify.insight.{Configuration,RequestContext}
 import de.kp.shopify.insight.actor.MessageListener
 
 import de.kp.shopify.insight.model._
+import de.kp.shopify.spark.ElasticRDD
 
+import org.elasticsearch.index.query._
 import org.elasticsearch.common.xcontent.XContentFactory
+
 import scala.collection.mutable.{Buffer,HashMap}
 
-class LoaderApp(val appName:String) extends SparkService {
+class PreparerService(val appName:String) extends SparkService {
   
-  protected val sc = createCtxLocal("LoaderContext",Configuration.spark)      
-  protected val system = ActorSystem("LoaderSystem")
+  protected val sc = createCtxLocal("PrepareContext",Configuration.spark)      
+  protected val system = ActorSystem("PrepareSystem")
 
   protected val inbox = Inbox.create(system)
   
@@ -73,20 +76,44 @@ class LoaderApp(val appName:String) extends SparkService {
       preUsage = Some("Version %s. Copyright (c) 2015, %s.".format("1.0","Dr. Krusche & Partner PartG"))
     )
     
-    /*
-     * The 'uid' parameter must be provided with the -uid option
-     */
     val uid = parser.option[String](List("uid"),"uid","Unique preparation identifier")
+    val job = parser.option[String](List("job"),"job","Unique job descriptor")
+    /*
+     * The subsequent parameters specify a certain period of time with 
+     * a minimum and maximum date
+     */
+    val created_at_min = parser.option[String](List("min_date"),"created_at_min","Store data created after this date.")
+    val created_at_max = parser.option[String](List("max_date"),"created_at_max","Store data created before this date.")
+    
     val customer = parser.option[Int](List("customer"),"customer","Customer type.")
 
     parser.parse(args)
-    
-    val params = HashMap.empty[String,String]
       
+    /* Validate parameters */
     if (uid.hasValue == false)
       throw new Exception("Parameter 'uid' is missing.")
     
+    if (job.hasValue == false)
+      throw new Exception("Parameter 'job' is missing.")
+      
+    if (created_at_min.hasValue == false)
+      throw new Exception("Parameter 'min_date' is missing.")
+      
+    if (created_at_max.hasValue == false)
+      throw new Exception("Parameter 'max_date' is missing.")
+  
+    val jobs = List("ASR","CDA","CHA","CLS","CPA","CSA","LOC","POM","PPF","RFM","STM")
+    if (jobs.contains(job.value.get) == false)
+      throw new Exception("Job parameter must be one of [ASR, CDA, CHA, CLS, CPA, CSA, LOC, POM, PPF, RFM, STM].")
+    
+    /* Collect parameters */
+    val params = HashMap.empty[String,String]
+
     params += "uid" -> uid.value.get
+    params += "job" -> job.value.get
+      
+    params += "created_at_min" -> created_at_min.value.get
+    params += "created_at_max" -> created_at_max.value.get
     
     params += "customer" -> customer.value.getOrElse(0).toString
     params += "timestamp" -> new DateTime().getMillis().toString
@@ -95,24 +122,43 @@ class LoaderApp(val appName:String) extends SparkService {
     
   }
   
-  protected def initialize(params:Map[String,String]) {
+  protected def initialize(params:Map[String,String]):RDD[InsightOrder] = {
     /*
-     * Create Elasticsearch task database and register 
+     * STEP #1: Create Elasticsearch task database and register 
      * the respective task in the database
      */
-    createESIndexes(params)
+    createESIndex(params)
     registerESTask(params)
+    /*
+     * STEP #2: Retrieve orders from the database/orders index;
+     * the respective query is either provided as an external
+     * parameter or computed from the period of time provided
+     * with this request
+     */
+    val esConfig = ctx.getESConfig
+    esConfig.set(Names.ES_RESOURCE,("database/orders"))
+
+    if (params.contains(Names.REQ_QUERY))
+      esConfig.set(Names.ES_QUERY,params(Names.REQ_QUERY))
+      
+    else 
+      esConfig.set(Names.ES_QUERY,query(params))
+      
+    val elasticRDD = new ElasticRDD(ctx.sparkContext)
+         
+    val rawset = elasticRDD.read(esConfig)
+    elasticRDD.orders(rawset)
     
   }
   /**
-   * This method registers the data storage task in the respective
+   * This method registers the data preparation task in the respective
    * Elasticsearch index; this information supports administrative
    * tasks such as the monitoring of this insight server
    */
   private def registerESTask(params:Map[String,String]) = {
     
-    val key = "STORE:" + params(Names.REQ_NAME) + ":" + params(Names.REQ_UID)
-    val task = "Data storage with " + appName + "."
+    val key = "PREPARE:" + params(Names.REQ_NAME) + ":" + params(Names.REQ_UID)
+    val task = "Data preparation with " + appName + "."
     /*
      * Note, that we do not specify additional
      * payload data here
@@ -137,78 +183,40 @@ class LoaderApp(val appName:String) extends SparkService {
 
   }
 
-  private def createESIndexes(params:Map[String,String]) {
+  private def createESIndex(params:Map[String,String]) {
     
     val uid = params(Names.REQ_UID)
     /*
-     * Create search indexes (if not already present)
+     * Create search index (if not already present)
      * 
-     * The 'task' index (mapping) specified an administrative database
+     * The 'tasks' index (mapping) specified an administrative database
      * where all steps of a certain synchronization or data analytics
      * task are registered
-     * 
-     * The 'forecast' index (mapping) specifies a sales forecast database
-     * derived from the Markovian rules built by the Intent Recognition
-     * engine
-     * 
-     * The 'location' index (mapping) specifies a user movement database
-     * derived from IP addresses and timestamps provided by user orders
-     * 
-     * The 'loyalty' index (mapping) specifies a user loyalty database
-     * that describes customers with their assigned loyalty segment
-     * 
-     * The 'metric' index (mapping) specifies a statistics database 
-     * that holds synchronized aggregated order data relevant for the 
-     * insight server
-     * 
-     * The 'recommendation' index (mapping) specifies a product recommendation
-     * database derived from the Association rules and the last items purchased
-     * 
-     * The 'rule' index (mapping) specifies a product association rule 
-     * database computed by the Association Analysis engine
-     * 
-     * The 'segment' index (mapping) specifies the customer segmentation 
-     * database due to the applied RFM segmentation, and also the product
-     * segmentation base due to the applied PPF segmentation
      */
     
     if (ctx.createIndex(params,"database","tasks","task") == false)
       throw new Exception("Index creation for 'database/tasks' has been stopped due to an internal error.")
- 
-    /********** ORDER **********/
+   
+    ctx.listener ! String.format("""[INFO][UID: %s] Elasticsearch database/tasks index created.""",uid)
     
-    if (ctx.createIndex(params,"orders","metrics","POM") == false)
-      throw new Exception("Index creation for 'orders/metrics' has been stopped due to an internal error.")
- 
-    /********** PRODUCT ********/
-            
-    if (ctx.createIndex(params,"products","rules","PRM") == false)
-      throw new Exception("Index creation for 'products/rules' has been stopped due to an internal error.")
-
-    if (ctx.createIndex(params,"products","segments","PPF") == false)
-      throw new Exception("Index creation for 'products/segments' has been stopped due to an internal error.")
- 
-    /********** CUSTOMERS ******/
-            
-    if (ctx.createIndex(params,"users","loyalties","CLS") == false)
-      throw new Exception("Index creation for 'users/loyalties' has been stopped due to an internal error.")
-
-    if (ctx.createIndex(params,"users","locations","LOC") == false)
-      throw new Exception("Index creation for 'users/locations' has been stopped due to an internal error.")
-            
-    if (ctx.createIndex(params,"users","segments","RFM") == false)
-      throw new Exception("Index creation for 'users/segments' has been stopped due to an internal error.")
-    
-    if (ctx.createIndex(params,"users","forecasts","UFM") == false)
-      throw new Exception("Index creation for 'users/forecasts' has been stopped due to an internal error.")
-
-    // TODO
-            
-    if (ctx.createIndex(params,"users","recommendations","recommendation") == false)
-      throw new Exception("Index creation for 'users/recommendations' has been stopped due to an internal error.")
+  }
   
-    ctx.listener ! String.format("""[INFO][UID: %s] Elasticsearch indexes created.""",uid)
-     
+  private def query(params:Map[String,String]):String = {
+    
+    val created_at_min = unformatted(params("created_at_min"))
+    val created_at_max = unformatted(params("created_at_max"))
+            
+    val filters = Buffer.empty[FilterBuilder]
+    filters += FilterBuilders.rangeFilter("time").from(created_at_min).to(created_at_max)
+    
+    filters.toList
+            
+    val fbuilder = FilterBuilders.boolFilter()
+    fbuilder.must(filters:_*)
+    
+    val qbuilder = QueryBuilders.filteredQuery(QueryBuilders.matchAllQuery(),fbuilder)
+    qbuilder.toString
+    
   }
   
   private def unformatted(date:String):Long = {
@@ -220,5 +228,4 @@ class LoaderApp(val appName:String) extends SparkService {
     formatter.parseMillis(date)
     
   }
-
 }

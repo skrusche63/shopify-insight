@@ -113,19 +113,19 @@ class ElasticClient {
        *                     
        *********************************************************************/
       
-      if (topic == "customer") {
+      if (topic == "CSM") {
 
-        val builder = new ESCustomerBuilder().createBuilder(mapping)
+        val builder = new EsCSMBuilder().createBuilder(mapping)
         create(index,mapping,builder)
        
-      } else if (topic == "order") {
+      } else if (topic == "ORD") {
 
-        val builder = new ESOrderBuilder().createBuilder(mapping)
+        val builder = new EsORDBuilder().createBuilder(mapping)
         create(index,mapping,builder)
        
-      } else if (topic == "product") {
+      } else if (topic == "PRD") {
 
-        val builder = new ESProductBuilder().createBuilder(mapping)
+        val builder = new EsPRDBuilder().createBuilder(mapping)
         create(index,mapping,builder)
      
       } 
@@ -136,9 +136,9 @@ class ElasticClient {
        *                     
        *********************************************************************/
 
-      else if (topic == "CCN") {
+      else if (topic == "CLS") {
 
-        val builder = new EsCCNBuilder().createBuilder(mapping)
+        val builder = new EsCLSBuilder().createBuilder(mapping)
         create(index,mapping,builder)
       
       } else if (topic == "LOC") {
@@ -170,15 +170,6 @@ class ElasticClient {
 
         val builder = new EsUFMBuilder().createBuilder(mapping)
         create(index,mapping,builder)
-        
-      } else if (topic == "loyalty") {
-        /*
-         * Topic 'loyalty' is indexed by the loyalty modeler and does not require 
-         * a metadata specification as these data are not shared with predictive
-         * engines
-         */
-        val builder = new ESLoyaltyBuilder().createBuilder(mapping)
-        create(index,mapping,builder)
        
       } else if (topic == "profile") {
         /*
@@ -198,34 +189,15 @@ class ElasticClient {
         val builder = new ESRecommendationBuilder().createBuilder(mapping)
         create(index,mapping,builder)
        
-      } else if (topic == "state") {
-        /*
-         * Topic 'state' is indexed by the collector actor and the respective
-         * index must by shared with Predictiveworks' Intent Recognition engine;
-         * due to this fact, we also have to build metadata specifications to 
-         * enable this engine to access the Elasticsearch index
-         */
-        val builder = new ESStateBuilder().createBuilder(mapping)    
-        create(index,mapping,builder)
-        /*
-         * Topics 'item' and 'state' are prepared by the collector and used
-         * by the Association Analysis and Intent Recognition engine; due to
-         * this fact, we also have to build metadata specifications to enable
-         * these engines to access the Elasticsearch indexes 
-         */      
-        val fields = new FieldBuilder().build(params,topic)
+      } 
       
-        /*
-         * The name of the model to which these fields refer cannot be provided
-         * by the user; we therefore have to re-pack the service request to set
-         * the name of the model
-         */
-        val excludes = List(Names.REQ_NAME)
-        val data = Map(Names.REQ_NAME -> mapping) ++  params.filter(kv => excludes.contains(kv._1) == false)  
-     
-        if (fields.isEmpty == false) cache.addFields(data, fields.toList)
-       
-      } else if (topic == "task") {
+      /**********************************************************************
+       * 
+       *                     TASK MANAGEMENT
+       *                     
+       *********************************************************************/
+      
+      else if (topic == "task") {
 
         val builder = new ESTaskBuilder().createBuilder(mapping)
         create(index,mapping,builder)

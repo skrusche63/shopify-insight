@@ -27,19 +27,19 @@ import de.kp.shopify.insight.model._
 import scala.concurrent.duration.DurationInt
 import scala.collection.mutable.HashMap
 
-object CCNLoaderApp extends LoaderApp("CCNLoader") {
+object CCNLoaderApp extends LoaderApp("CLSLoader") {
   
   def main(args:Array[String]) {
 
     try {
 
       val params = createParams(args)
-      val name = "CCN"
+      val name = "CLS"
  
       val req_params = params ++ Map("name" -> name)
       initialize(req_params)
 
-      val actor = system.actorOf(Props(new CCNHandler(ctx)))   
+      val actor = system.actorOf(Props(new CLSHandler(ctx)))   
       inbox.watch(actor)
     
       actor ! StartLoad(req_params)
@@ -61,16 +61,16 @@ object CCNLoaderApp extends LoaderApp("CCNLoader") {
 
   }
 
-  class CCNHandler(ctx:RequestContext) extends Actor {
+  class CLSHandler(ctx:RequestContext) extends Actor {
     
     override def receive = {
     
       case msg:StartLoad => {
 
         val start = new java.util.Date().getTime     
-        println("CCNLoaderApp started at " + start)
+        println("CLSLoaderApp started at " + start)
         
-        val actor = context.actorOf(Props(new CCNLoader(ctx)))          
+        val actor = context.actorOf(Props(new CLSLoader(ctx)))          
         actor ! StartLoad(msg.data)
        
       }
@@ -78,7 +78,7 @@ object CCNLoaderApp extends LoaderApp("CCNLoader") {
       case msg:LoadFailed => {
     
         val end = new java.util.Date().getTime           
-        println("CCNLoaderApp failed at " + end)
+        println("CLSLoaderApp failed at " + end)
     
         context.stop(self)
       
@@ -87,7 +87,7 @@ object CCNLoaderApp extends LoaderApp("CCNLoader") {
       case msg:LoadFinished => {
     
         val end = new java.util.Date().getTime           
-        println("CCNLoaderApp finished at " + end)
+        println("CLSLoaderApp finished at " + end)
     
         context.stop(self)
     

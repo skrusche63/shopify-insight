@@ -40,8 +40,8 @@ class TaskQuestor(requestCtx:RequestContext) extends BaseActor(requestCtx) {
             
         requestCtx.listener ! String.format("""[INFO][UID: %s] All tasks request received.""",uid)
        
-        val tasks = ESQuestor.query_AllTasks(requestCtx, "*")
-        origin ! InsightTasks(tasks)
+//        val tasks = ESQuestor.query_AllTasks(requestCtx, "*")
+//        origin ! InsightTasks(tasks)
         
         context.stop(self)
       

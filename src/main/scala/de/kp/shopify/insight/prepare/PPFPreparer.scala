@@ -42,7 +42,7 @@ import de.kp.shopify.insight.model._
  * frequency, while 11 describes items with the lowest customer and also
  * purchase frequency.
  */
-class PPFPreparer(ctx:RequestContext,customer:Int,orders:RDD[InsightOrder]) extends BasePreparer(ctx) {
+class PPFPreparer(ctx:RequestContext,orders:RDD[InsightOrder]) extends BasePreparer(ctx) {
   
   import sqlc.createSchemaRDD
   override def receive = {
@@ -50,7 +50,9 @@ class PPFPreparer(ctx:RequestContext,customer:Int,orders:RDD[InsightOrder]) exte
     case msg:StartPrepare => {
 
       val req_params = msg.data
+      
       val uid = req_params(Names.REQ_UID)
+      val customer = req_params("customer").toInt
              
       val start = new java.util.Date().getTime.toString            
       ctx.listener ! String.format("""[INFO][UID: %s] PPF preparation request received at %s.""",uid,start)

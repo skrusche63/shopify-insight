@@ -38,14 +38,14 @@ import de.kp.shopify.insight.model._
  * going through complex mathematics.
  * 
  */
-class RFMPreparer(ctx:RequestContext,customer:Int,orders:RDD[InsightOrder]) extends BasePreparer(ctx) {
+class RFMPreparer(ctx:RequestContext,orders:RDD[InsightOrder]) extends BasePreparer(ctx) {
         
   /*
    * The parameter K is used as an initialization 
-   * prameter for the QTree semigroup
+   * parameter for the QTree semigroup
    */
   private val K = 6
-  private val QUANTILES = List(0.20,0.40,0.60,0.80,1.00)
+  private val QUINTILES = List(0.20,0.40,0.60,0.80,1.00)
   
   import sqlc.createSchemaRDD
   override def receive = {
@@ -113,10 +113,10 @@ class RFMPreparer(ctx:RequestContext,customer:Int,orders:RDD[InsightOrder]) exte
          * to calulcate the quantiles for the different attributes and the result are
          * re-assigned.
          */
-        val r_quantiles = sc.broadcast(RQuantiles(rawset))
-        val f_quantiles = sc.broadcast(FQuantiles(rawset))
+        val r_quantiles = sc.broadcast(RQuintiles(rawset))
+        val f_quantiles = sc.broadcast(FQuintiles(rawset))
  
-        val m_quantiles = sc.broadcast(MQuantiles(rawset))
+        val m_quantiles = sc.broadcast(MQuintiles(rawset))
         
         val dataset = rawset.map(x => {
           
@@ -339,14 +339,14 @@ class RFMPreparer(ctx:RequestContext,customer:Int,orders:RDD[InsightOrder]) exte
   
   }
   
-  private def RQuantiles(dataset:RDD[(String,String,Long,Int,Int,Double)]):Map[Double,Double] = {
+  private def RQuintiles(dataset:RDD[(String,String,Long,Int,Int,Double)]):Map[Double,Double] = {
     
     implicit val semigroup = new QTreeSemigroup[Double](K)
     
     val d0 = dataset.map(_._4.toDouble).collect.toSeq.sorted
     val d1 = d0.map(v => QTree(v)).reduce(_ + _) 
 
-    QUANTILES.map(x => {
+    QUINTILES.map(x => {
       
       val (lower,upper) = d1.quantileBounds(x)
       val mean = (lower + upper) / 2
@@ -357,14 +357,14 @@ class RFMPreparer(ctx:RequestContext,customer:Int,orders:RDD[InsightOrder]) exte
     
   }
   
-  private def FQuantiles(dataset:RDD[(String,String,Long,Int,Int,Double)]):Map[Double,Double] = {
+  private def FQuintiles(dataset:RDD[(String,String,Long,Int,Int,Double)]):Map[Double,Double] = {
     
     implicit val semigroup = new QTreeSemigroup[Double](K)
     
     val d0 = dataset.map(_._5.toDouble).collect.toSeq.sorted
     val d1 = d0.map(v => QTree(v)).reduce(_ + _) 
 
-    QUANTILES.map(x => {
+    QUINTILES.map(x => {
       
       val (lower,upper) = d1.quantileBounds(x)
       val mean = (lower + upper) / 2
@@ -375,14 +375,14 @@ class RFMPreparer(ctx:RequestContext,customer:Int,orders:RDD[InsightOrder]) exte
     
   }
   
-  private def MQuantiles(dataset:RDD[(String,String,Long,Int,Int,Double)]):Map[Double,Double] = {
+  private def MQuintiles(dataset:RDD[(String,String,Long,Int,Int,Double)]):Map[Double,Double] = {
     
     implicit val semigroup = new QTreeSemigroup[Double](K)
     
     val d0 = dataset.map(_._6).collect.toSeq.sorted
     val d1 = d0.map(v => QTree(v)).reduce(_ + _) 
 
-    QUANTILES.map(x => {
+    QUINTILES.map(x => {
       
       val (lower,upper) = d1.quantileBounds(x)
       val mean = (lower + upper) / 2

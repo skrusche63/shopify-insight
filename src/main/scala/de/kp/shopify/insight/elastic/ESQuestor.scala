@@ -235,30 +235,30 @@ object ESQuestor {
    * 
    * Actualy 'prepare' & 'synchronize' tasks are supported
    */
-  def query_AllTasks(requestCtx:RequestContext,filter:String):List[InsightTask] = {
-
-    val qbuilder = QueryBuilders.matchAllQuery()
-    /*
-     * Retrieval of the tasks is a two phase process, where
-     * first the total number of tasks is determined, and
-     * then the tasks are retrieved
-     */
-    val count = requestCtx.count("database","tasks",qbuilder)    
-    val response = requestCtx.find("database","tasks",qbuilder,count)
- 
-    val rawset = response.getHits().hits().map(task(_)).sortBy(_._3)
- 
-    val result = if (filter == "*") {
-      rawset.map(x => InsightTask(uid(x._1),x._2,x._3,x._4,x._5))
-    
-    } else {      
-      rawset.filter(x => x._1.split(":")(0) == filter).map(x => InsightTask(uid(x._1),x._2,x._3,x._4,x._5))
-    
-    }
-
-    result.toList
-    
-  }
+//  def query_AllTasks(requestCtx:RequestContext,filter:String):List[InsightTask] = {
+//
+//    val qbuilder = QueryBuilders.matchAllQuery()
+//    /*
+//     * Retrieval of the tasks is a two phase process, where
+//     * first the total number of tasks is determined, and
+//     * then the tasks are retrieved
+//     */
+//    val count = requestCtx.count("database","tasks",qbuilder)    
+//    val response = requestCtx.find("database","tasks",qbuilder,count)
+// 
+//    val rawset = response.getHits().hits().map(task(_)).sortBy(_._3)
+// 
+//    val result = if (filter == "*") {
+//      rawset.map(x => InsightTask(uid(x._1),x._2,x._3,x._4,x._5))
+//    
+//    } else {      
+//      rawset.filter(x => x._1.split(":")(0) == filter).map(x => InsightTask(uid(x._1),x._2,x._3,x._4,x._5))
+//    
+//    }
+//
+//    result.toList
+//    
+//  }
 
   private def uid(key:String) = key.split(":")(1)
   

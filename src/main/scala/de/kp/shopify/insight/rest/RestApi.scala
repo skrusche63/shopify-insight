@@ -455,27 +455,27 @@ class RestApi(host:String,port:Int,system:ActorSystem,@transient sc:SparkContext
     val request = TaskQuery(params)
     val response = ask(actor,request)     
 
-    response.onSuccess {
-        
-      case result => {
-
-        if (result.isInstanceOf[InsightTasks]) {
-          ctx.complete(result.asInstanceOf[InsightTasks])
-            
-        } else if (result.isInstanceOf[SimpleResponse]) {
-          ctx.complete(result.asInstanceOf[SimpleResponse])
-            
-        } else {
-          /* do nothing */
-        }
-          
-      }
-      
-    }
-
-    response.onFailure {
-      case throwable => ctx.complete(throwable.getMessage)
-    }      
+//    response.onSuccess {
+//        
+//      case result => {
+//
+//        if (result.isInstanceOf[InsightTasks]) {
+//          ctx.complete(result.asInstanceOf[InsightTasks])
+//            
+//        } else if (result.isInstanceOf[SimpleResponse]) {
+//          ctx.complete(result.asInstanceOf[SimpleResponse])
+//            
+//        } else {
+//          /* do nothing */
+//        }
+//          
+//      }
+//      
+//    }
+//
+//    response.onFailure {
+//      case throwable => ctx.complete(throwable.getMessage)
+//    }      
   
   }
   
@@ -505,36 +505,36 @@ class RestApi(host:String,port:Int,system:ActorSystem,@transient sc:SparkContext
       val request = ProductQuery(data)
       val response = ask(actor,request)     
 
-      response.onSuccess {
-        
-        case result => {
-
-          if (result.isInstanceOf[InsightFilteredItems]) {
-            /*
-             * product_cross_sell
-             * product_promotion
-             * product_suggest
-             */
-            ctx.complete(result.asInstanceOf[InsightFilteredItems])
-            
-          } else if (result.isInstanceOf[InsightTopItems]) {
-            /* product_top_sell */
-            ctx.complete(result.asInstanceOf[InsightTopItems])
-            
-          } else if (result.isInstanceOf[SimpleResponse]) {
-            ctx.complete(result.asInstanceOf[SimpleResponse])
-            
-          } else {
-            /* do nothing */
-          }
-          
-        }
-      
-      }
-
-      response.onFailure {
-        case throwable => ctx.complete(throwable.getMessage)
-      }
+//      response.onSuccess {
+//        
+//        case result => {
+//
+//          if (result.isInstanceOf[InsightFilteredItems]) {
+//            /*
+//             * product_cross_sell
+//             * product_promotion
+//             * product_suggest
+//             */
+//            ctx.complete(result.asInstanceOf[InsightFilteredItems])
+//            
+//          } else if (result.isInstanceOf[InsightTopItems]) {
+//            /* product_top_sell */
+//            ctx.complete(result.asInstanceOf[InsightTopItems])
+//            
+//          } else if (result.isInstanceOf[SimpleResponse]) {
+//            ctx.complete(result.asInstanceOf[SimpleResponse])
+//            
+//          } else {
+//            /* do nothing */
+//          }
+//          
+//        }
+//      
+//      }
+//
+//      response.onFailure {
+//        case throwable => ctx.complete(throwable.getMessage)
+//      }
       
     }
       
@@ -559,40 +559,40 @@ class RestApi(host:String,port:Int,system:ActorSystem,@transient sc:SparkContext
       val request = UserQuery(data)
       val response = ask(actor,request)     
 
-      response.onSuccess {
-        
-        case result => {
-
-          if (result.isInstanceOf[InsightForecasts]) {
-            /* user_forecast */
-            ctx.complete(result.asInstanceOf[InsightForecasts])
-
-          } else if (result.isInstanceOf[InsightLoyalties]) {
-            /* user_loyalty */
-            ctx.complete(result.asInstanceOf[InsightLoyalties])
-          
-          } else if (result.isInstanceOf[InsightPurchaseSegment]) {
-            /* user_next_purchase */
-            ctx.complete(result.asInstanceOf[InsightPurchaseSegment])
- 
-          } else if (result.isInstanceOf[InsightFilteredItems]) {
-            /* user_recommendation */
-            ctx.complete(result.asInstanceOf[InsightFilteredItems])
-            
-          } else if (result.isInstanceOf[SimpleResponse]) {
-            ctx.complete(result.asInstanceOf[SimpleResponse])
-            
-          } else {
-            /* do nothing */
-          }
-          
-        }
-      
-      }
-
-      response.onFailure {
-        case throwable => ctx.complete(throwable.getMessage)
-      }
+//      response.onSuccess {
+//        
+//        case result => {
+//
+//          if (result.isInstanceOf[InsightForecasts]) {
+//            /* user_forecast */
+//            ctx.complete(result.asInstanceOf[InsightForecasts])
+//
+//          } else if (result.isInstanceOf[InsightLoyalties]) {
+//            /* user_loyalty */
+//            ctx.complete(result.asInstanceOf[InsightLoyalties])
+//          
+//          } else if (result.isInstanceOf[InsightPurchaseSegment]) {
+//            /* user_next_purchase */
+//            ctx.complete(result.asInstanceOf[InsightPurchaseSegment])
+// 
+//          } else if (result.isInstanceOf[InsightFilteredItems]) {
+//            /* user_recommendation */
+//            ctx.complete(result.asInstanceOf[InsightFilteredItems])
+//            
+//          } else if (result.isInstanceOf[SimpleResponse]) {
+//            ctx.complete(result.asInstanceOf[SimpleResponse])
+//            
+//          } else {
+//            /* do nothing */
+//          }
+//          
+//        }
+//      
+//      }
+//
+//      response.onFailure {
+//        case throwable => ctx.complete(throwable.getMessage)
+//      }
     
     }
   

@@ -61,66 +61,66 @@ class ProductQuestor(requestCtx:RequestContext) extends BaseActor(requestCtx) {
              */
             val rules = ESQuestor.query_Rules(requestCtx, uid)
         
-            /*
-             * Return sorted list consequent products with the highest overlap with 
-             * the 'antecedent' part of the respective rules, the highest 'confidence' 
-             * and 'support' 
-             */
-            val candidates = rules.map(rule => {
-
-              val antecedent = rule.antecedent
-              val consequent = rule.consequent
-        
-              val support = rule.support.toDouble / rule.total
-              val confidence = rule.confidence
-       
-              val count = consequent.size
-              val coverage = items.intersect(antecedent).size.toDouble / antecedent.size
-       
-              (consequent,support,confidence,coverage,count)
-       
-            }).filter(x => x._5 > COVERAGE_THRESHOLD).map(x => (x._1, x._2 * x._3 * x._4, x._5))           
-            
-            val total_count = candidates.map(_._3).sum
-            val consequent = if (total < total_count) {
-              
-              val items = Buffer.empty[ItemPref]
-              candidates.sortBy(x => -x._2).foreach(x => {
-                
-                val rest = total - items.size
-                if (rest > x._3) x._1.foreach(v => items += ItemPref(v,x._2))
-                else {
-                  x._1.take(rest).foreach(v => items += ItemPref(v,x._2))
-                }                
-              })
-              
-              items.toList
-              
-            } else {
-              /*
-               * We have to take all candidates into account, 
-               * as the request requiers more or equal that 
-               * are available
-               */
-              candidates.sortBy(x => -x._3).flatMap(x => x._1.map(v => ItemPref(v,x._2)))
-            }
-            
-            /*
-             * Retrieve metadata from first rule
-             */
-            val head = rules.head
-            val (timestamp,created_at_min,created_at_max) = (head.timestamp,head.created_at_min,head.created_at_max)
-
-            val result = InsightFilteredItems(
-                uid,
-                timestamp,
-                created_at_min,
-                created_at_max,
-                consequent.size,
-                consequent.toList
-             )
-            
-            origin ! result
+//            /*
+//             * Return sorted list consequent products with the highest overlap with 
+//             * the 'antecedent' part of the respective rules, the highest 'confidence' 
+//             * and 'support' 
+//             */
+//            val candidates = rules.map(rule => {
+//
+//              val antecedent = rule.antecedent
+//              val consequent = rule.consequent
+//        
+//              val support = rule.support.toDouble / rule.total
+//              val confidence = rule.confidence
+//       
+//              val count = consequent.size
+//              val coverage = items.intersect(antecedent).size.toDouble / antecedent.size
+//       
+//              (consequent,support,confidence,coverage,count)
+//       
+//            }).filter(x => x._5 > COVERAGE_THRESHOLD).map(x => (x._1, x._2 * x._3 * x._4, x._5))           
+//            
+//            val total_count = candidates.map(_._3).sum
+//            val consequent = if (total < total_count) {
+//              
+//              val items = Buffer.empty[ItemPref]
+//              candidates.sortBy(x => -x._2).foreach(x => {
+//                
+//                val rest = total - items.size
+//                if (rest > x._3) x._1.foreach(v => items += ItemPref(v,x._2))
+//                else {
+//                  x._1.take(rest).foreach(v => items += ItemPref(v,x._2))
+//                }                
+//              })
+//              
+//              items.toList
+//              
+//            } else {
+//              /*
+//               * We have to take all candidates into account, 
+//               * as the request requiers more or equal that 
+//               * are available
+//               */
+//              candidates.sortBy(x => -x._3).flatMap(x => x._1.map(v => ItemPref(v,x._2)))
+//            }
+//            
+//            /*
+//             * Retrieve metadata from first rule
+//             */
+//            val head = rules.head
+//            val (timestamp,created_at_min,created_at_max) = (head.timestamp,head.created_at_min,head.created_at_max)
+//
+//            val result = InsightFilteredItems(
+//                uid,
+//                timestamp,
+//                created_at_min,
+//                created_at_max,
+//                consequent.size,
+//                consequent.toList
+//             )
+//            
+//            origin ! result
             context.stop(self)
             
           }
@@ -137,66 +137,66 @@ class ProductQuestor(requestCtx:RequestContext) extends BaseActor(requestCtx) {
              */
             val rules = ESQuestor.query_Rules(requestCtx, uid)
         
-            /*
-             * Return sorted list antecedent products with the highest overlap with 
-             * the 'consequent' part of the respective rules, the highest 'confidence' 
-             * and 'support' 
-             */
-            val candidates = rules.map(rule => {
-
-              val antecedent = rule.antecedent
-              val consequent = rule.consequent
-        
-              val support = rule.support.toDouble / rule.total
-              val confidence = rule.confidence
-       
-              val count = consequent.size
-              val coverage = items.intersect(consequent).size.toDouble / consequent.size
-       
-              (antecedent,support,confidence,coverage,count)
-       
-            }).filter(x => x._5 > COVERAGE_THRESHOLD).map(x => (x._1, x._2 * x._3 * x._4, x._5))           
-            
-            val total_count = candidates.map(_._3).sum
-            val antecedent = if (total < total_count) {
-              
-              val items = Buffer.empty[ItemPref]
-              candidates.sortBy(x => -x._2).foreach(x => {
-                
-                val rest = total - items.size
-                if (rest > x._3) x._1.foreach(v => items += ItemPref(v,x._2))
-                else {
-                  x._1.take(rest).foreach(v => items += ItemPref(v,x._2))
-                }                
-              })
-              
-              items.toList
-              
-            } else {
-              /*
-               * We have to take all candidates into account, 
-               * as the request requiers more or equal that 
-               * are available
-               */
-              candidates.sortBy(x => -x._3).flatMap(x => x._1.map(v => ItemPref(v,x._2)))
-            }
-            
-            /*
-             * Retrieve metadata from first rule
-             */
-            val head = rules.head
-            val (timestamp,created_at_min,created_at_max) = (head.timestamp,head.created_at_min,head.created_at_max)
-
-            val result = InsightFilteredItems(
-                uid,
-                timestamp,
-                created_at_min,
-                created_at_max,
-                antecedent.size,
-                antecedent.toList
-             )
-            
-            origin ! result
+//            /*
+//             * Return sorted list antecedent products with the highest overlap with 
+//             * the 'consequent' part of the respective rules, the highest 'confidence' 
+//             * and 'support' 
+//             */
+//            val candidates = rules.map(rule => {
+//
+//              val antecedent = rule.antecedent
+//              val consequent = rule.consequent
+//        
+//              val support = rule.support.toDouble / rule.total
+//              val confidence = rule.confidence
+//       
+//              val count = consequent.size
+//              val coverage = items.intersect(consequent).size.toDouble / consequent.size
+//       
+//              (antecedent,support,confidence,coverage,count)
+//       
+//            }).filter(x => x._5 > COVERAGE_THRESHOLD).map(x => (x._1, x._2 * x._3 * x._4, x._5))           
+//            
+//            val total_count = candidates.map(_._3).sum
+//            val antecedent = if (total < total_count) {
+//              
+//              val items = Buffer.empty[ItemPref]
+//              candidates.sortBy(x => -x._2).foreach(x => {
+//                
+//                val rest = total - items.size
+//                if (rest > x._3) x._1.foreach(v => items += ItemPref(v,x._2))
+//                else {
+//                  x._1.take(rest).foreach(v => items += ItemPref(v,x._2))
+//                }                
+//              })
+//              
+//              items.toList
+//              
+//            } else {
+//              /*
+//               * We have to take all candidates into account, 
+//               * as the request requiers more or equal that 
+//               * are available
+//               */
+//              candidates.sortBy(x => -x._3).flatMap(x => x._1.map(v => ItemPref(v,x._2)))
+//            }
+//            
+//            /*
+//             * Retrieve metadata from first rule
+//             */
+//            val head = rules.head
+//            val (timestamp,created_at_min,created_at_max) = (head.timestamp,head.created_at_min,head.created_at_max)
+//
+//            val result = InsightFilteredItems(
+//                uid,
+//                timestamp,
+//                created_at_min,
+//                created_at_max,
+//                antecedent.size,
+//                antecedent.toList
+//             )
+//            
+//            origin ! result
             context.stop(self)
            
           }
@@ -212,64 +212,64 @@ class ProductQuestor(requestCtx:RequestContext) extends BaseActor(requestCtx) {
              */
             val rules = ESQuestor.query_Rules(requestCtx, uid)
         
-            /*
-             * Return sorted list antecedent products with the highest overlap with 
-             * the 'consequent' part of the respective rules, the highest 'confidence' 
-             * and 'support' 
-             */
-            val candidates = rules.map(rule => {
-
-              val items = rule.antecedent ++ rule.consequent
-        
-              val support = rule.support.toDouble / rule.total
-              val confidence = rule.confidence
-       
-              val count = items.size      
-              (items,support,confidence,count)
-       
-            }).map(x => (x._1, x._2 * x._3, x._4))          
-            
-            val total_count = candidates.map(_._3).sum
-            
-            val suggestion = if (total < total_count) {
-              
-              val items = Buffer.empty[ItemPref]
-              candidates.sortBy(x => -x._2).foreach(x => {
-                
-                val rest = total - items.size
-                if (rest > x._3) x._1.foreach(v => items += ItemPref(v,x._2))
-                else {
-                  x._1.take(rest).foreach(v => items += ItemPref(v,x._2))
-                }                
-              })
-              
-              items.toList
-              
-            } else {
-              /*
-               * We have to take all candidates into account, 
-               * as the request requiers more or equal that 
-               * are available
-               */
-              candidates.sortBy(x => -x._3).flatMap(x => x._1.map(v => ItemPref(v,x._2)))
-            }
-            
-            /*
-             * Retrieve metadata from first rule
-             */
-            val head = rules.head
-            val (timestamp,created_at_min,created_at_max) = (head.timestamp,head.created_at_min,head.created_at_max)
-
-            val result = InsightFilteredItems(
-                uid,
-                timestamp,
-                created_at_min,
-                created_at_max,
-                suggestion.size,
-                suggestion.toList
-             )
-            
-            origin ! result
+//            /*
+//             * Return sorted list antecedent products with the highest overlap with 
+//             * the 'consequent' part of the respective rules, the highest 'confidence' 
+//             * and 'support' 
+//             */
+//            val candidates = rules.map(rule => {
+//
+//              val items = rule.antecedent ++ rule.consequent
+//        
+//              val support = rule.support.toDouble / rule.total
+//              val confidence = rule.confidence
+//       
+//              val count = items.size      
+//              (items,support,confidence,count)
+//       
+//            }).map(x => (x._1, x._2 * x._3, x._4))          
+//            
+//            val total_count = candidates.map(_._3).sum
+//            
+//            val suggestion = if (total < total_count) {
+//              
+//              val items = Buffer.empty[ItemPref]
+//              candidates.sortBy(x => -x._2).foreach(x => {
+//                
+//                val rest = total - items.size
+//                if (rest > x._3) x._1.foreach(v => items += ItemPref(v,x._2))
+//                else {
+//                  x._1.take(rest).foreach(v => items += ItemPref(v,x._2))
+//                }                
+//              })
+//              
+//              items.toList
+//              
+//            } else {
+//              /*
+//               * We have to take all candidates into account, 
+//               * as the request requiers more or equal that 
+//               * are available
+//               */
+//              candidates.sortBy(x => -x._3).flatMap(x => x._1.map(v => ItemPref(v,x._2)))
+//            }
+//            
+//            /*
+//             * Retrieve metadata from first rule
+//             */
+//            val head = rules.head
+//            val (timestamp,created_at_min,created_at_max) = (head.timestamp,head.created_at_min,head.created_at_max)
+//
+//            val result = InsightFilteredItems(
+//                uid,
+//                timestamp,
+//                created_at_min,
+//                created_at_max,
+//                suggestion.size,
+//                suggestion.toList
+//             )
+//            
+//            origin ! result
             context.stop(self)
             
           }
@@ -289,16 +289,16 @@ class ProductQuestor(requestCtx:RequestContext) extends BaseActor(requestCtx) {
             val sorted = total_item_supp.sortBy(x => -x.supp)
 
             val top_item_supp = if (total < sorted.size) sorted.take(total) else sorted            
-            val result = InsightTopItems(
-                average.uid,
-                average.timestamp,
-                average.created_at_min,
-                average.created_at_max,
-                top_item_supp.size,
-                top_item_supp
-            )
-            
-            origin ! result
+//            val result = InsightTopItems(
+//                average.uid,
+//                average.timestamp,
+//                average.created_at_min,
+//                average.created_at_max,
+//                top_item_supp.size,
+//                top_item_supp
+//            )
+//            
+//            origin ! result
             context.stop(self)
             
           }

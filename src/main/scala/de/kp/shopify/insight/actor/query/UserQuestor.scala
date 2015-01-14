@@ -125,44 +125,44 @@ class UserQuestor(requestCtx:RequestContext) extends BaseActor(requestCtx) {
             val candidates = record.recommendations.map(x => (x.consequent,x.score,x.consequent.size))
             
             val total_count = candidates.map(_._3).sum            
-            val consequent = if (total < total_count) {
-           
-              val items = Buffer.empty[ItemPref]
-              candidates.sortBy(x => -x._2).foreach(x => {
-                
-                val rest = total - items.size
-                if (rest > x._3) x._1.foreach(v => items += ItemPref(v,x._2))
-                else {
-                  x._1.take(rest).foreach(v => items += ItemPref(v,x._2))
-                }                
-              })
-              
-              items.toList
-              
-            } else {
-              /*
-               * We have to take all candidates into account, 
-               * as the request requires more or equal that 
-               * are available
-               */
-              candidates.sortBy(x => -x._2).flatMap(x => x._1.map(v => ItemPref(v,x._2)))
-            }
-            
-            /*
-             * Retrieve metadata from record
-             */
-            val (timestamp,created_at_min,created_at_max) = (record.timestamp,record.created_at_min,record.created_at_max)
-
-            val result = InsightFilteredItems(
-                uid,
-                timestamp,
-                created_at_min,
-                created_at_max,
-                consequent.size,
-                consequent.toList
-             )
-            
-            origin ! result
+//            val consequent = if (total < total_count) {
+//           
+//              val items = Buffer.empty[ItemPref]
+//              candidates.sortBy(x => -x._2).foreach(x => {
+//                
+//                val rest = total - items.size
+//                if (rest > x._3) x._1.foreach(v => items += ItemPref(v,x._2))
+//                else {
+//                  x._1.take(rest).foreach(v => items += ItemPref(v,x._2))
+//                }                
+//              })
+//              
+//              items.toList
+//              
+//            } else {
+//              /*
+//               * We have to take all candidates into account, 
+//               * as the request requires more or equal that 
+//               * are available
+//               */
+//              candidates.sortBy(x => -x._2).flatMap(x => x._1.map(v => ItemPref(v,x._2)))
+//            }
+//            
+//            /*
+//             * Retrieve metadata from record
+//             */
+//            val (timestamp,created_at_min,created_at_max) = (record.timestamp,record.created_at_min,record.created_at_max)
+//
+//            val result = InsightFilteredItems(
+//                uid,
+//                timestamp,
+//                created_at_min,
+//                created_at_max,
+//                consequent.size,
+//                consequent.toList
+//             )
+//            
+//            origin ! result
             context.stop(self)
             
           }

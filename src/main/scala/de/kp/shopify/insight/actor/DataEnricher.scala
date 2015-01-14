@@ -78,13 +78,6 @@ class DataEnricher(requestCtx:RequestContext) extends BaseActor(requestCtx) {
        */
       val ufm_enricher = context.actorOf(Props(new UFMEnricher(requestCtx)))  
       ufm_enricher ! StartEnrich(message.data)
-      /*
-       * The ULMEnricher starts from the prior HSM model and is responsible 
-       * for building a user loyalty model, ULM, and storing the result as 
-       * Parquet file
-       */
-      val ulm_enricher = context.actorOf(Props(new ULMEnricher(requestCtx)))  
-      ulm_enricher ! StartEnrich(message.data)
       
     }
     case message:EnrichFailed => {
