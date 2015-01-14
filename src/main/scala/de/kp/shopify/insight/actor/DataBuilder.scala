@@ -28,8 +28,6 @@ import akka.actor.Props
 import de.kp.spark.core.Names
 
 import de.kp.shopify.insight._
-import de.kp.shopify.insight.actor.build._
-
 import de.kp.shopify.insight.model._
 
 import scala.collection.mutable.ArrayBuffer
@@ -47,38 +45,38 @@ class DataBuilder(requestCtx:RequestContext) extends BaseActor(requestCtx) {
 
     case message:StartBuild => {
 
-      val req_params = message.data
-      val uid = req_params(Names.REQ_UID)
-             
-      val start = new java.util.Date().getTime.toString            
-      requestCtx.listener ! String.format("""[INFO][UID: %s] Data preparation request received at %s.""",uid,start)
-
-      /**********************************************************************
-       *      
-       *                       SUB PROCESS 'BUILD'
-       * 
-       *********************************************************************/
-      
-      createElasticIndexes(req_params)
-      /*
-       * Register this model building task in the respective
-       * 'database/tasks' index
-       */
-      registerTask(req_params)
-     
-      /*
-       * The ASRBuilder is responsible for building an association rule model
-       * from the data registered in the 'items' index
-       */
-      val asr_builder = context.actorOf(Props(new ASRBuilder(requestCtx)))  
-      asr_builder ! StartBuild(message.data)
-
-      /*
-       * The STMBuilder is responsible for building a state transition model
-       * from the data registered in the 'states' index
-       */
-      val stm_builder = context.actorOf(Props(new STMBuilder(requestCtx)))  
-      stm_builder ! StartBuild(message.data)
+//      val req_params = message.data
+//      val uid = req_params(Names.REQ_UID)
+//             
+//      val start = new java.util.Date().getTime.toString            
+//      requestCtx.listener ! String.format("""[INFO][UID: %s] Data preparation request received at %s.""",uid,start)
+//
+//      /**********************************************************************
+//       *      
+//       *                       SUB PROCESS 'BUILD'
+//       * 
+//       *********************************************************************/
+//      
+//      createElasticIndexes(req_params)
+//      /*
+//       * Register this model building task in the respective
+//       * 'database/tasks' index
+//       */
+//      registerTask(req_params)
+//     
+//      /*
+//       * The ASRBuilder is responsible for building an association rule model
+//       * from the data registered in the 'items' index
+//       */
+//      val asr_builder = context.actorOf(Props(new ASRBuilder(requestCtx)))  
+//      asr_builder ! StartBuild(message.data)
+//
+//      /*
+//       * The STMBuilder is responsible for building a state transition model
+//       * from the data registered in the 'states' index
+//       */
+//      val stm_builder = context.actorOf(Props(new STMBuilder(requestCtx)))  
+//      stm_builder ! StartBuild(message.data)
       
     }    
     case message:BuildFailed => {

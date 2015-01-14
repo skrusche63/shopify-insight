@@ -20,19 +20,14 @@ package de.kp.shopify.insight.actor.enrich
 
 import org.apache.spark.SparkContext
 import org.apache.spark.SparkContext._
-
 import org.apache.spark.rdd.RDD
-
 import de.kp.spark.core.Names
 import de.kp.spark.core.model._
-
 import de.kp.shopify.insight.RequestContext
-
 import de.kp.shopify.insight.actor._
 import de.kp.shopify.insight.model._
-
-import de.kp.shopify.insight.io._
 import scala.collection.mutable.ArrayBuffer
+import de.kp.shopify.insight.build._
 
 private case class MarkovStep(step:Int,amount:Double,time:Long,state:String,score:Double)
 /**
@@ -254,7 +249,7 @@ class UFMEnricher(requestCtx:RequestContext) extends BaseActor(requestCtx) {
      */
     val new_params = Map(Names.REQ_STATES -> states.mkString(",")) ++ params
       
-    val data = new STMHandler().get(new_params)
+    val data = new IREHandler().get(new_params)
     val message = Serializer.serializeRequest(new ServiceRequest(service,task,data))
             
     (service,message)

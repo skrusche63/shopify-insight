@@ -20,18 +20,13 @@ package de.kp.shopify.insight.actor.enrich
 
 import org.apache.spark.SparkContext
 import org.apache.spark.SparkContext._
-
 import org.apache.spark.rdd.RDD
-
 import de.kp.spark.core.Names
 import de.kp.spark.core.model._
-
 import de.kp.shopify.insight.RequestContext
-
 import de.kp.shopify.insight.actor._
 import de.kp.shopify.insight.model._
-
-import de.kp.shopify.insight.io._
+import de.kp.shopify.insight.build._
 
 /**
  * PRMEnricher is an actor that uses an association rule model, transforms
@@ -130,7 +125,7 @@ class PRMEnricher(requestCtx:RequestContext) extends BaseActor(requestCtx) {
     val service = "association"
     val task = "get:rule"
 
-    val data = new ASRHandler().get(params)
+    val data = new AAEHandler().get(params)
     val message = Serializer.serializeRequest(new ServiceRequest(service,task,data))
             
     (service,message)

@@ -1,4 +1,4 @@
-package de.kp.shopify.insight.build
+package de.kp.shopify.insight.learn
 /* Copyright (c) 2014 Dr. Krusche & Partner PartG
 * 
 * This file is part of the Shopify-Insight project
@@ -30,16 +30,7 @@ import de.kp.shopify.insight.model._
 
 import de.kp.shopify.insight.actor.BaseActor
 
-/**
- * AAEBuilder is responsible for building an associaton rule model
- * by invoking the Association Analysis engine of Predictiveworks.
- * 
- * This is part of the 'build' sub process that represents the second
- * component of the data analytics pipeline. Note, that the DataPipeline
- * actor is the PARENT actor of this actor
- * 
- */
-class AAEBuilder(ctx:RequestContext,params:Map[String,String]) extends BaseActor(ctx) {
+class SAELearner(ctx:RequestContext,params:Map[String,String]) extends BaseActor(ctx) {
   
   private val config = ctx.getConfig
   
@@ -53,29 +44,30 @@ class AAEBuilder(ctx:RequestContext,params:Map[String,String]) extends BaseActor
       val name = req_params(Names.REQ_NAME)
       
       val start = new java.util.Date().getTime.toString            
-      ctx.listener ! String.format("""[INFO][UID: %s] %s mining request received at %s.""",uid,name,start)
+      ctx.listener ! String.format("""[INFO][UID: %s] %s clustering request received at %s.""",uid,name,start)
       
       /* 
-       * Build service request message to invoke remote Association Analysis 
-       * engine to train an association rule model from an 'items' index
+       * Build service request message to invoke remote Similarity Analysis 
+       * engine to build clusters from the respective dataset; the dataset
+       * is referenced by the 'name' attribute
        */
-      val service = "association"
+      val service = "similarity"
       val task = "train"
 
-      val data = new AAEHandler().train(req_params)
+      val data = new SAEHandler().train(req_params)
       val req  = new ServiceRequest(service,task,data)
       
       val serialized = Serializer.serializeRequest(req)
       val response = ctx.getRemoteContext.send(service,serialized).mapTo[String]  
       
-      ctx.listener ! String.format("""[INFO][UID: %s] %s mining started.""",uid,name)
+      ctx.listener ! String.format("""[INFO][UID: %s] %s clustering started.""",uid,name)
       
       /*
        * The RemoteSupervisor actor monitors the Redis cache entries of this
-       * association rule mining request and informs this actor (as parent)
-       * that a certain status has been reached
+       * clustering request and informs this actor (as parent) that a certain 
+       * status has been reached
        */
-      val status = ResponseStatus.MINING_FINISHED
+      val status = ResponseStatus.TRAINING_FINISHED
       val supervisor = context.actorOf(Props(new Supervisor(req,status,config)))
       
       /*
@@ -89,7 +81,7 @@ class AAEBuilder(ctx:RequestContext,params:Map[String,String]) extends BaseActor
           val res = Serializer.deserializeResponse(result)
           if (res.status == ResponseStatus.FAILURE) {
       
-            ctx.listener ! String.format("""[ERROR][UID: %s] %s mining failed due to an engine error.""",uid,name)
+            ctx.listener ! String.format("""[ERROR][UID: %s] %s clustering failed due to an engine error.""",uid,name)
  
             context.parent ! BuildFailed(res.data)
             context.stop(self)
@@ -103,7 +95,7 @@ class AAEBuilder(ctx:RequestContext,params:Map[String,String]) extends BaseActor
           
         case throwable => {
       
-          ctx.listener ! String.format("""[ERROR][UID: %s] %s mining failed due to an internal error.""",uid,name)
+          ctx.listener ! String.format("""[ERROR][UID: %s] %s clustering failed due to an internal error.""",uid,name)
         
           val res_params = Map(Names.REQ_MESSAGE -> throwable.getMessage) ++ req_params
           context.parent ! BuildFailed(res_params)
@@ -121,7 +113,7 @@ class AAEBuilder(ctx:RequestContext,params:Map[String,String]) extends BaseActor
       val name = params(Names.REQ_NAME)
       
       val end = new java.util.Date().getTime.toString            
-      ctx.listener ! String.format("""[INFO][UID: %s] %s mining finished at %s.""",event.uid,name,end)
+      ctx.listener ! String.format("""[INFO][UID: %s] %s clustering finished at %s.""",event.uid,name,end)
 
       val res_params = Map(Names.REQ_UID -> event.uid,Names.REQ_MODEL -> name)
       context.parent ! BuildFinished(res_params)

@@ -99,7 +99,7 @@ case class PrepareFinished(data:Map[String,String])
  * StartBuild specifies a message sent from the DataPipeline actor to the remote 
  * builder to initiate a data mining or model building task
  */
-case class StartBuild(data:Map[String,String])
+case class StartBuild()
 
 case class BuildFailed(data:Map[String,String])
 

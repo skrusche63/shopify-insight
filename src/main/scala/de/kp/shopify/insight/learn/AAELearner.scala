@@ -1,4 +1,4 @@
-package de.kp.shopify.insight.build
+package de.kp.shopify.insight.learn
 /* Copyright (c) 2014 Dr. Krusche & Partner PartG
 * 
 * This file is part of the Shopify-Insight project
@@ -17,6 +17,7 @@ package de.kp.shopify.insight.build
 * 
 * If not, see <http://www.gnu.org/licenses/>.
 */
+
 import akka.actor.Props
 
 import de.kp.spark.core.Names
@@ -29,14 +30,14 @@ import de.kp.shopify.insight.model._
 
 import de.kp.shopify.insight.actor.BaseActor
 
-class IREBuilder(ctx:RequestContext,params:Map[String,String]) extends BaseActor(ctx) {
+class AAELearner(ctx:RequestContext,params:Map[String,String]) extends BaseActor(ctx) {
   
   private val config = ctx.getConfig
   
   override def receive = {
    
     case message:StartBuild => {
-       
+      
       val req_params = params
       
       val uid = req_params(Names.REQ_UID)
@@ -44,33 +45,33 @@ class IREBuilder(ctx:RequestContext,params:Map[String,String]) extends BaseActor
       
       val start = new java.util.Date().getTime.toString            
       ctx.listener ! String.format("""[INFO][UID: %s] %s mining request received at %s.""",uid,name,start)
+      
       /* 
-       * Build service request message to invoke remote Intent Recognition 
-       * engine to train a state transition model from a 'states' index
+       * Build service request message to invoke remote Association Analysis 
+       * engine to train an association rule model from an 'items' index
        */
-      val service = "intent"
+      val service = "association"
       val task = "train"
 
-      val data = new IREHandler().train(req_params)
+      val data = new AAEHandler().train(req_params)
       val req  = new ServiceRequest(service,task,data)
       
       val serialized = Serializer.serializeRequest(req)
       val response = ctx.getRemoteContext.send(service,serialized).mapTo[String]  
       
-      ctx.listener ! String.format("""[INFO][UID: %s] %s building started.""",uid,name)
-
+      ctx.listener ! String.format("""[INFO][UID: %s] %s mining started.""",uid,name)
+      
       /*
        * The RemoteSupervisor actor monitors the Redis cache entries of this
-       * state transition model building request and informs this actor (as parent)
+       * association rule mining request and informs this actor (as parent)
        * that a certain status has been reached
        */
-      val status = ResponseStatus.MODEL_TRAINING_FINISHED
+      val status = ResponseStatus.MINING_FINISHED
       val supervisor = context.actorOf(Props(new Supervisor(req,status,config)))
       
       /*
-       * We evaluate the response message from the remote
-       * Intent Recognition engine to check whether an
-       * error occurred
+       * We evaluate the response message from the remote Association Analysis 
+       * engine to check whether an error occurred
        */
       response.onSuccess {
         
@@ -79,7 +80,7 @@ class IREBuilder(ctx:RequestContext,params:Map[String,String]) extends BaseActor
           val res = Serializer.deserializeResponse(result)
           if (res.status == ResponseStatus.FAILURE) {
       
-            ctx.listener ! String.format("""[INFO][UID: %s] %s building failed due to an engine error.""",uid,name)
+            ctx.listener ! String.format("""[ERROR][UID: %s] %s mining failed due to an engine error.""",uid,name)
  
             context.parent ! BuildFailed(res.data)
             context.stop(self)
@@ -93,16 +94,15 @@ class IREBuilder(ctx:RequestContext,params:Map[String,String]) extends BaseActor
           
         case throwable => {
       
-          ctx.listener ! String.format("""[INFO][UID: %s] %s building failed due to an internal error.""",uid,name)
+          ctx.listener ! String.format("""[ERROR][UID: %s] %s mining failed due to an internal error.""",uid,name)
         
           val res_params = Map(Names.REQ_MESSAGE -> throwable.getMessage) ++ req_params
           context.parent ! BuildFailed(res_params)
           
           context.stop(self)
             
-        }
-	    
-      }
+          }
+	    }
        
     }
   
@@ -111,17 +111,10 @@ class IREBuilder(ctx:RequestContext,params:Map[String,String]) extends BaseActor
       val uid = params(Names.REQ_UID)
       val name = params(Names.REQ_NAME)
       
-      val end = new java.util.Date().getTime.toString                  
-      ctx.listener ! String.format("""[INFO][UID: %s] &s building finished at.""",uid,name,end)
+      val end = new java.util.Date().getTime.toString            
+      ctx.listener ! String.format("""[INFO][UID: %s] %s mining finished at %s.""",event.uid,name,end)
 
-      /*
-       * The StatusEvent message is sent by the RemoteSupervisor (child) and indicates
-       * that the (remote) state transition modeling process has been finished successfully.
-       * 
-       * Due to this message, the DataPipeline actor (parent) is informed about this event
-       * and finally this actor stops itself
-       */  
-      val res_params = Map(Names.REQ_UID -> event.uid,Names.REQ_MODEL -> "STM")
+      val res_params = Map(Names.REQ_UID -> event.uid,Names.REQ_MODEL -> name)
       context.parent ! BuildFinished(res_params)
       
       context.stop(self)

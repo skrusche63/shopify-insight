@@ -1,4 +1,4 @@
-package de.kp.shopify.insight.io
+package de.kp.shopify.insight.learn
 /* Copyright (c) 2014 Dr. Krusche & Partner PartG
 * 
 * This file is part of the Shopify-Insight project
@@ -21,11 +21,19 @@ package de.kp.shopify.insight.io
 import de.kp.spark.core.Names
 import de.kp.spark.core.model._
 
-class CollectionBuilder extends ASRHandler {
+import de.kp.shopify.insight.model._
+import scala.collection.mutable.HashMap
 
-  override def get(params:Map[String,String]):Map[String,String] = {
+class SAEHandler {
+
+  def get(params:Map[String,String]):Map[String,String] = {
     // TODO
     null
+  }
+
+  def train(params:Map[String,String]):Map[String,String] = { 
+    // TODO
+    null   
   }
 
 }

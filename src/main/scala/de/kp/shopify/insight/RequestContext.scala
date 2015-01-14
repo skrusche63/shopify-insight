@@ -26,9 +26,7 @@ import akka.actor.ActorRef
 import de.kp.spark.core.Names
 import de.kp.spark.core.model._
 
-import de.kp.shopify.insight.io._
 import de.kp.shopify.insight.model._
-
 import de.kp.shopify.insight.elastic._
 
 import scala.collection.mutable.{Buffer,HashMap}
