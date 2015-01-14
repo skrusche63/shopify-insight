@@ -1,4 +1,4 @@
-package de.kp.shopify.insight.io
+package de.kp.shopify.insight.build
 /* Copyright (c) 2014 Dr. Krusche & Partner PartG
 * 
 * This file is part of the Shopify-Insight project
@@ -24,7 +24,7 @@ import de.kp.spark.core.model._
 import de.kp.shopify.insight.model._
 import scala.collection.mutable.HashMap
 
-class STMHandler {
+class IREHandler {
 
   def get(params:Map[String,String]):Map[String,String] = {
     // TODO

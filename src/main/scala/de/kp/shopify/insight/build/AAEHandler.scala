@@ -1,4 +1,4 @@
-package de.kp.shopify.insight.io
+package de.kp.shopify.insight.build
 /* Copyright (c) 2014 Dr. Krusche & Partner PartG
 * 
 * This file is part of the Shopify-Insight project
@@ -20,11 +20,10 @@ package de.kp.shopify.insight.io
 
 import de.kp.spark.core.Names
 import de.kp.spark.core.model._
-
 import de.kp.shopify.insight.model._
 import scala.collection.mutable.HashMap
 
-class ASRHandler {
+class AAEHandler {
   
   def get(params:Map[String,String]):Map[String,String] = null
 
@@ -39,7 +38,7 @@ class ASRHandler {
     val com_mandatory = List(Names.REQ_SITE,Names.REQ_UID,Names.REQ_NAME,Names.REQ_ALGORITHM)
     for (field <- com_mandatory) data += field -> params(field)
 
-    data += Names.REQ_SOURCE -> "PARQUEST"
+    data += Names.REQ_SOURCE -> "PARQUET"
     
     /*
      * The subsequent parameters are model specific parameters

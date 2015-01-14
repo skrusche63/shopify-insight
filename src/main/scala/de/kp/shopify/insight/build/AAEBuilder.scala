@@ -1,4 +1,4 @@
-package de.kp.shopify.insight.actor.build
+package de.kp.shopify.insight.build
 /* Copyright (c) 2014 Dr. Krusche & Partner PartG
 * 
 * This file is part of the Shopify-Insight project
@@ -21,19 +21,17 @@ package de.kp.shopify.insight.actor.build
 import akka.actor.Props
 
 import de.kp.spark.core.Names
-
 import de.kp.spark.core.actor._
+
 import de.kp.spark.core.model._
 
 import de.kp.shopify.insight.RequestContext
-
 import de.kp.shopify.insight.model._
-import de.kp.shopify.insight.io._
 
 import de.kp.shopify.insight.actor.BaseActor
 
 /**
- * ASRBuilder is responsible for building an associaton rule model
+ * AAEBuilder is responsible for building an associaton rule model
  * by invoking the Association Analysis engine of Predictiveworks.
  * 
  * This is part of the 'build' sub process that represents the second
@@ -41,16 +39,22 @@ import de.kp.shopify.insight.actor.BaseActor
  * actor is the PARENT actor of this actor
  * 
  */
-class ASRBuilder(requestCtx:RequestContext) extends BaseActor(requestCtx) {
+class AAEBuilder(ctx:RequestContext,params:Map[String,String]) extends BaseActor(ctx) {
   
-  private val config = requestCtx.getConfig
+  private val config = ctx.getConfig
   
   override def receive = {
    
     case message:StartBuild => {
       
-      val req_params = message.data
+      val req_params = params
+      
       val uid = req_params(Names.REQ_UID)
+      val name = req_params(Names.REQ_NAME)
+      
+      val start = new java.util.Date().getTime.toString            
+      ctx.listener ! String.format("""[INFO][UID: %s] %s mining request received at %s.""",uid,name,start)
+      
       /* 
        * Build service request message to invoke remote Association Analysis 
        * engine to train an association rule model from an 'items' index
@@ -58,13 +62,13 @@ class ASRBuilder(requestCtx:RequestContext) extends BaseActor(requestCtx) {
       val service = "association"
       val task = "train"
 
-      val data = new ASRHandler().train(req_params)
+      val data = new AAEHandler().train(req_params)
       val req  = new ServiceRequest(service,task,data)
       
       val serialized = Serializer.serializeRequest(req)
-      val response = requestCtx.getRemoteContext.send(service,serialized).mapTo[String]  
+      val response = ctx.getRemoteContext.send(service,serialized).mapTo[String]  
       
-      requestCtx.listener ! String.format("""[INFO][UID: %s] Association rule mining started.""",uid)
+      ctx.listener ! String.format("""[INFO][UID: %s] %s mining started.""",uid,name)
       
       /*
        * The RemoteSupervisor actor monitors the Redis cache entries of this
@@ -85,7 +89,7 @@ class ASRBuilder(requestCtx:RequestContext) extends BaseActor(requestCtx) {
           val res = Serializer.deserializeResponse(result)
           if (res.status == ResponseStatus.FAILURE) {
       
-            requestCtx.listener ! String.format("""[ERROR][UID: %s] Association rule mining failed due to an engine error.""",uid)
+            ctx.listener ! String.format("""[ERROR][UID: %s] %s mining failed due to an engine error.""",uid,name)
  
             context.parent ! BuildFailed(res.data)
             context.stop(self)
@@ -99,10 +103,10 @@ class ASRBuilder(requestCtx:RequestContext) extends BaseActor(requestCtx) {
           
         case throwable => {
       
-          requestCtx.listener ! String.format("""[ERROR][UID: %s] Association rule mining failed due to an internal error.""",uid)
+          ctx.listener ! String.format("""[ERROR][UID: %s] %s mining failed due to an internal error.""",uid,name)
         
-          val params = Map(Names.REQ_MESSAGE -> throwable.getMessage) ++ message.data
-          context.parent ! BuildFailed(params)
+          val res_params = Map(Names.REQ_MESSAGE -> throwable.getMessage) ++ req_params
+          context.parent ! BuildFailed(res_params)
           
           context.stop(self)
             
@@ -113,17 +117,14 @@ class ASRBuilder(requestCtx:RequestContext) extends BaseActor(requestCtx) {
   
     case event:StatusEvent => {
       
-      requestCtx.listener ! String.format("""[INFO][UID: %s] Association rule mining finished.""",event.uid)
+      val uid = params(Names.REQ_UID)
+      val name = params(Names.REQ_NAME)
+      
+      val end = new java.util.Date().getTime.toString            
+      ctx.listener ! String.format("""[INFO][UID: %s] %s mining finished at %s.""",event.uid,name,end)
 
-      /*
-       * The StatusEvent message is sent by the RemoteSupervisor (child) and indicates
-       * that the (remote) association rule mining process has been finished successfully.
-       * 
-       * Due to this message, the DataPipeline actor (parent) is informed about this event
-       * and finally this actor stops itself
-       */  
-      val params = Map(Names.REQ_UID -> event.uid,Names.REQ_MODEL -> "ASR")
-      context.parent ! BuildFinished(params)
+      val res_params = Map(Names.REQ_UID -> event.uid,Names.REQ_MODEL -> name)
+      context.parent ! BuildFinished(res_params)
       
       context.stop(self)
       

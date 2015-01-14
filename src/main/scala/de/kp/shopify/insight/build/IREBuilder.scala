@@ -1,4 +1,4 @@
-package de.kp.shopify.insight.actor.build
+package de.kp.shopify.insight.build
 /* Copyright (c) 2014 Dr. Krusche & Partner PartG
 * 
 * This file is part of the Shopify-Insight project
@@ -18,36 +18,32 @@ package de.kp.shopify.insight.actor.build
 * If not, see <http://www.gnu.org/licenses/>.
 */
 import akka.actor.Props
-import de.kp.spark.core.Names
 
+import de.kp.spark.core.Names
 import de.kp.spark.core.actor._
+
 import de.kp.spark.core.model._
 
 import de.kp.shopify.insight.RequestContext
-
 import de.kp.shopify.insight.model._
-import de.kp.shopify.insight.io._
 
 import de.kp.shopify.insight.actor.BaseActor
 
-/**
- * STMBuilder is responsible for building a state transition model
- * by invoking the Intent Recognition engine of Predictiveworks.
- * 
- * This is part of the 'build' sub process that represents the second
- * component of the data analytics pipeline.
- * 
- */
-class STMBuilder(requestCtx:RequestContext) extends BaseActor(requestCtx) {
+class IREBuilder(ctx:RequestContext,params:Map[String,String]) extends BaseActor(ctx) {
   
-  private val config = requestCtx.getConfig
+  private val config = ctx.getConfig
   
   override def receive = {
    
     case message:StartBuild => {
+       
+      val req_params = params
       
-      val req_params = message.data
       val uid = req_params(Names.REQ_UID)
+      val name = req_params(Names.REQ_NAME)
+      
+      val start = new java.util.Date().getTime.toString            
+      ctx.listener ! String.format("""[INFO][UID: %s] %s mining request received at %s.""",uid,name,start)
       /* 
        * Build service request message to invoke remote Intent Recognition 
        * engine to train a state transition model from a 'states' index
@@ -55,13 +51,13 @@ class STMBuilder(requestCtx:RequestContext) extends BaseActor(requestCtx) {
       val service = "intent"
       val task = "train"
 
-      val data = new STMHandler().train(req_params)
+      val data = new IREHandler().train(req_params)
       val req  = new ServiceRequest(service,task,data)
       
       val serialized = Serializer.serializeRequest(req)
-      val response = requestCtx.getRemoteContext.send(service,serialized).mapTo[String]  
+      val response = ctx.getRemoteContext.send(service,serialized).mapTo[String]  
       
-      requestCtx.listener ! String.format("""[INFO][UID: %s] State transition model building started.""",uid)
+      ctx.listener ! String.format("""[INFO][UID: %s] %s building started.""",uid,name)
 
       /*
        * The RemoteSupervisor actor monitors the Redis cache entries of this
@@ -83,7 +79,7 @@ class STMBuilder(requestCtx:RequestContext) extends BaseActor(requestCtx) {
           val res = Serializer.deserializeResponse(result)
           if (res.status == ResponseStatus.FAILURE) {
       
-            requestCtx.listener ! String.format("""[INFO][UID: %s] State transition model building failed due to an engine error.""",uid)
+            ctx.listener ! String.format("""[INFO][UID: %s] %s building failed due to an engine error.""",uid,name)
  
             context.parent ! BuildFailed(res.data)
             context.stop(self)
@@ -97,10 +93,10 @@ class STMBuilder(requestCtx:RequestContext) extends BaseActor(requestCtx) {
           
         case throwable => {
       
-          requestCtx.listener ! String.format("""[INFO][UID: %s] State transition model building failed due to an internal error.""",uid)
+          ctx.listener ! String.format("""[INFO][UID: %s] %s building failed due to an internal error.""",uid,name)
         
-          val params = Map(Names.REQ_MESSAGE -> throwable.getMessage) ++ message.data
-          context.parent ! BuildFailed(params)
+          val res_params = Map(Names.REQ_MESSAGE -> throwable.getMessage) ++ req_params
+          context.parent ! BuildFailed(res_params)
           
           context.stop(self)
             
@@ -112,7 +108,11 @@ class STMBuilder(requestCtx:RequestContext) extends BaseActor(requestCtx) {
   
     case event:StatusEvent => {
       
-      requestCtx.listener ! String.format("""[INFO][UID: %s] State transition model building finished.""",event.uid)
+      val uid = params(Names.REQ_UID)
+      val name = params(Names.REQ_NAME)
+      
+      val end = new java.util.Date().getTime.toString                  
+      ctx.listener ! String.format("""[INFO][UID: %s] &s building finished at.""",uid,name,end)
 
       /*
        * The StatusEvent message is sent by the RemoteSupervisor (child) and indicates
@@ -121,8 +121,8 @@ class STMBuilder(requestCtx:RequestContext) extends BaseActor(requestCtx) {
        * Due to this message, the DataPipeline actor (parent) is informed about this event
        * and finally this actor stops itself
        */  
-      val params = Map(Names.REQ_UID -> event.uid,Names.REQ_MODEL -> "STM")
-      context.parent ! BuildFinished(params)
+      val res_params = Map(Names.REQ_UID -> event.uid,Names.REQ_MODEL -> "STM")
+      context.parent ! BuildFinished(res_params)
       
       context.stop(self)
       
