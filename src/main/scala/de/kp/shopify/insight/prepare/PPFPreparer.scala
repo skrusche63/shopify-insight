@@ -45,159 +45,126 @@ import de.kp.shopify.insight.model._
 class PPFPreparer(ctx:RequestContext,orders:RDD[InsightOrder]) extends BasePreparer(ctx) {
   
   import sqlc.createSchemaRDD
-  override def receive = {
-    
-    case msg:StartPrepare => {
-
-      val req_params = msg.data
+  override def prepare(params:Map[String,String]) {
       
-      val uid = req_params(Names.REQ_UID)
-      val customer = req_params("customer").toInt
-             
-      val start = new java.util.Date().getTime.toString            
-      ctx.listener ! String.format("""[INFO][UID: %s] PPF preparation request received at %s.""",uid,start)
+    val uid = params(Names.REQ_UID)
+    val name = params(Names.REQ_NAME)
       
-      try {
-        /*
-         * STEP #1: Restrict the purchase orders to those items and attributes
-         * that are relevant for the item segmentation task; this encloses a
-         * filtering with respect to customer type, if different from '0'
-         */
-        val ctype = sc.broadcast(customer)
+    val customer = params("customer").toInt
+    /*
+     * STEP #1: Restrict the purchase orders to those items and attributes
+     * that are relevant for the item segmentation task; this encloses a
+     * filtering with respect to customer type, if different from '0'
+     */
+    val ctype = sc.broadcast(customer)
 
-        val ds = orders.flatMap(x => x.items.map(v => (x.site,x.user,v.item,v.quantity)))
-        val filteredDS = (if (customer == 0) {
-          /*
-           * This customer type indicates that ALL customer types
-           * have to be taken into account when computing the item
-           * segmentation 
-           */
-          ds
-          
-        } else {
-          /*
-           * Load the Parquet file that specifies the customer type specification 
-           * and filter those customers that match the provided customer type
-           */
-          val parquetCST = readCST(uid).filter(x => x._2 == ctype.value)      
-          ds.map(x => ((x._1,x._2),(x._3,x._4))).join(parquetCST).map(x => {
-            
-            val ((site,user),((item,quantity),rfm_type)) = x
-            (site,user,item,quantity)
-            
-          })
-        })       
-        /*
-         * STEP #2: Build item customer frequency distribution; note, that
-         * we are not interested here, how often a certain customer has
-         * bought a specific product.
-         * 
-         * The data base used here describes the purchases customers have 
-         * made within a certain period of time. This implies, that we are 
-         * NOT faced with zero values, i.e. items with zero purchase frequency
-         */
-        val ds1 = filteredDS.groupBy(_._3).map(x => {
-          
-          val item = x._1
-          val csup = x._2.map(v => (v._1,v._2)).toSeq.distinct.size
-          
-          (item,csup)
+    val ds = orders.flatMap(x => x.items.map(v => (x.site,x.user,v.item,v.quantity)))
+    val filteredDS = (if (customer == 0) {
+      /*
+       * This customer type indicates that ALL customer types
+       * have to be taken into account when computing the item
+       * segmentation 
+       */
+      ds
 
-        })
-        val c_quintiles = sc.broadcast(quintiles(ds1.map(_._2.toDouble).sortBy(x => x)))        
-        /*
-         * STEP #3: Build item purchase frequency distribution; here we are
-         * not interested into the specific user, but the purchase quantity
-         */
-        val ds2 = filteredDS.groupBy(_._3).map(x => (x._1, x._2.map(_._4).sum))
-        val p_quintiles = sc.broadcast(quintiles(ds2.map(_._2.toDouble).sortBy(x => x)))
-        /*
-         * STEP #4: Build customer purchase space from customer frquency 
-         * and purchase frequency; frequency values with the highest value
-         * for the business company are assigned a 5, less valuable 4 and
-         * so forth.
-         */
-        val ds3 = ds1.map(x => {
+    } else {
+      /*
+       * Load the Parquet file that specifies the customer type specification 
+       * and filter those customers that match the provided customer type
+       */
+      val parquetCST = readCST(uid).filter(x => x._2 == ctype.value)      
+      ds.map(x => ((x._1,x._2),(x._3,x._4))).join(parquetCST).map(x => {
+
+    	val ((site,user),((item,quantity),rfm_type)) = x
+    	(site,user,item,quantity)
+
+      })
+    })       
+    /*
+     * STEP #2: Build item customer frequency distribution; note, that
+     * we are not interested here, how often a certain customer has
+     * bought a specific product.
+     * 
+     * The data base used here describes the purchases customers have 
+     * made within a certain period of time. This implies, that we are 
+     * NOT faced with zero values, i.e. items with zero purchase frequency
+     */
+    val ds1 = filteredDS.groupBy(_._3).map(x => {
+
+      val item = x._1
+      val csup = x._2.map(v => (v._1,v._2)).toSeq.distinct.size
+
+      (item,csup)
+
+    })
+    val c_quintiles = sc.broadcast(quintiles(ds1.map(_._2.toDouble).sortBy(x => x)))        
+    /*
+     * STEP #3: Build item purchase frequency distribution; here we are
+     * not interested into the specific user, but the purchase quantity
+     */
+    val ds2 = filteredDS.groupBy(_._3).map(x => (x._1, x._2.map(_._4).sum))
+    val p_quintiles = sc.broadcast(quintiles(ds2.map(_._2.toDouble).sortBy(x => x)))
+    /*
+     * STEP #4: Build customer purchase space from customer frquency 
+     * and purchase frequency; frequency values with the highest value
+     * for the business company are assigned a 5, less valuable 4 and
+     * so forth.
+     */
+    val ds3 = ds1.map(x => {
           
-          val (item,freq) = x
+      val (item,freq) = x
           
-          val b1 = c_quintiles.value(0.20)
-          val b2 = c_quintiles.value(0.40)
-          val b3 = c_quintiles.value(0.60)
-          val b4 = c_quintiles.value(0.80)
+      val b1 = c_quintiles.value(0.20)
+      val b2 = c_quintiles.value(0.40)
+      val b3 = c_quintiles.value(0.60)
+      val b4 = c_quintiles.value(0.80)
       
-          val cval = (
-            if (freq < b1) 1
-            else if (b1 <= freq && freq < b2) 2
-            else if (b2 <= freq && freq < b3) 3
-            else if (b3 <= freq && freq < b4) 4
-            else if (b4 <= freq) 5
-            else 0  
-          )
+      val cval = (
+        if (freq < b1) 1
+        else if (b1 <= freq && freq < b2) 2
+        else if (b2 <= freq && freq < b3) 3
+        else if (b3 <= freq && freq < b4) 4
+        else if (b4 <= freq) 5
+        else 0  
+      )
 
-          (item,(freq,cval))
+      (item,(freq,cval))
           
-        })
+    })
         
-        val ds4 = ds2.map(x => {
+    val ds4 = ds2.map(x => {
           
-          val (item,freq) = x
+      val (item,freq) = x
           
-          val b1 = p_quintiles.value(0.20)
-          val b2 = p_quintiles.value(0.40)
-          val b3 = p_quintiles.value(0.60)
-          val b4 = p_quintiles.value(0.80)
-      
-          val pval = (
-            if (freq < b1) 1
-            else if (b1 <= freq && freq < b2) 2
-            else if (b2 <= freq && freq < b3) 3
-            else if (b3 <= freq && freq < b4) 4
-            else if (b4 <= freq) 5
-            else 0  
-          )
+      val b1 = p_quintiles.value(0.20)
+      val b2 = p_quintiles.value(0.40)
+      val b3 = p_quintiles.value(0.60)
+      val b4 = p_quintiles.value(0.80)
 
-          (item,(freq,pval))
+      val pval = (
+        if (freq < b1) 1
+        else if (b1 <= freq && freq < b2) 2
+        else if (b2 <= freq && freq < b3) 3
+        else if (b3 <= freq && freq < b4) 4
+        else if (b4 <= freq) 5
+        else 0  
+      )
+
+      (item,(freq,pval))
           
-        })
+    })
         
-        val table = ds3.join(ds4).map(x => {
-          
-          val item = x._1
-          val ((cfreq,cval),(pfreq,pval)) = x._2
-          
-          ParquetPPF(item,cfreq,pfreq,cval,pval)
-        
-        })
+    val table = ds3.join(ds4).map(x => {
 
-        val store = String.format("""%s/PPF-%s/%s""",ctx.getBase,customer.toString,uid)         
-        table.saveAsParquetFile(store)
+      val item = x._1
+      val ((cfreq,cval),(pfreq,pval)) = x._2
 
-        val end = new java.util.Date().getTime
-        ctx.listener ! String.format("""[INFO][UID: %s] PPF preparation for customer type '%s' finished at %s.""",uid,customer.toString,end.toString)
+      ParquetPPF(item,cfreq,pfreq,cval,pval)
 
-        val params = Map(Names.REQ_MODEL -> "IFP") ++ req_params
-        context.parent ! PrepareFinished(params)
+    })
 
-      } catch {
-        case e:Exception => {
-          /* 
-           * In case of an error the message listener gets informed, and also
-           * the data processing pipeline in order to stop further sub processes 
-           */
-          ctx.listener ! String.format("""[ERROR][UID: %s] PPF preparation exception: %s.""",uid,e.getMessage)
-          
-          val params = Map(Names.REQ_MESSAGE -> e.getMessage) ++ req_params
-          context.parent ! PrepareFailed(params)
-        
-        }
-
-      } finally {
-        
-        context.stop(self)
-        
-      }
-    }
+    val store = String.format("""%s/%s/%s/1""",ctx.getBase,name,uid)         
+    table.saveAsParquetFile(store)
   
   }
   

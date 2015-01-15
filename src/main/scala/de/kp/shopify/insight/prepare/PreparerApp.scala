@@ -104,8 +104,6 @@ object PreparerApp extends PreparerService("Preparer") {
         val job = msg.data("job")        
         val preparer = job match {
           
-          case "ASR" => context.actorOf(Props(new ASRPreparer(ctx,orders))) 
-          
           case "CDA" => context.actorOf(Props(new CDAPreparer(ctx,orders))) 
           
           case "CHA" => context.actorOf(Props(new CHAPreparer(ctx,orders))) 
@@ -113,6 +111,8 @@ object PreparerApp extends PreparerService("Preparer") {
           case "CLS" => context.actorOf(Props(new CLSPreparer(ctx,orders))) 
           
           case "CPA" => context.actorOf(Props(new CPAPreparer(ctx,orders))) 
+
+          case "CPS" => context.actorOf(Props(new CPSPreparer(ctx,orders))) 
           
           case "CSA" => context.actorOf(Props(new CSAPreparer(ctx,orders))) 
           
@@ -121,10 +121,10 @@ object PreparerApp extends PreparerService("Preparer") {
           case "POM" => context.actorOf(Props(new POMPreparer(ctx,orders))) 
           
           case "PPF" => context.actorOf(Props(new PPFPreparer(ctx,orders))) 
+          
+          case "PRM" => context.actorOf(Props(new PRMPreparer(ctx,orders))) 
 
           case "RFM" => context.actorOf(Props(new RFMPreparer(ctx,orders))) 
-
-          case "STM" => context.actorOf(Props(new STMPreparer(ctx,orders))) 
           
           case _ => throw new Exception("Wrong job descriptor.")
           

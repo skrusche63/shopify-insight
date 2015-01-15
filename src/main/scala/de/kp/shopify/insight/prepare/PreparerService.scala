@@ -102,9 +102,9 @@ class PreparerService(val appName:String) extends SparkService {
     if (created_at_max.hasValue == false)
       throw new Exception("Parameter 'max_date' is missing.")
   
-    val jobs = List("ASR","CDA","CHA","CLS","CPA","CSA","LOC","POM","PPF","RFM","STM")
+    val jobs = List("CDA","CHA","CLS","CPA","CPS","CSA","LOC","POM","PPF","PRM","RFM")
     if (jobs.contains(job.value.get) == false)
-      throw new Exception("Job parameter must be one of [ASR, CDA, CHA, CLS, CPA, CSA, LOC, POM, PPF, RFM, STM].")
+      throw new Exception("Job parameter must be one of [CDA, CHA, CLS, CPA, CPS, CSA, LOC, POM, PPF, PRM, RFM].")
     
     /* Collect parameters */
     val params = HashMap.empty[String,String]

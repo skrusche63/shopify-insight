@@ -40,29 +40,22 @@ import scala.reflect.runtime.universe
 class LOCPreparer(ctx:RequestContext,orders:RDD[InsightOrder]) extends BaseActor(ctx) {
   
   import sqlc.createSchemaRDD
-  override def receive = {
-    
-    case msg:StartPrepare => {
-
-      val req_params = msg.data      
-      val uid = req_params(Names.REQ_UID)
-             
-      val start = new java.util.Date().getTime.toString            
-      ctx.listener ! String.format("""[INFO][UID: %s] LOC preparation request received at %s.""",uid,start)
+  override def prepare(params:Map[String,String]) {
       
-      try {
+    val uid = params(Names.REQ_UID)
+    val name = params(Names.REQ_NAME)
         
-        val table = orders.groupBy(x => (x.site,x.user)).flatMap(x => {
+    val table = orders.groupBy(x => (x.site,x.user)).flatMap(x => {
           
-          val (site,user) = x._1
-          /* Determine timestamp of order and associated IP address */
-          val data = x._2.map(v => (v.ip_address,v.timestamp)).toSeq.sortBy(v => v._2)
-          data.map(v => {
+      val (site,user) = x._1
+      /* Determine timestamp of order and associated IP address */
+      val data = x._2.map(v => (v.ip_address,v.timestamp)).toSeq.sortBy(v => v._2)
+      data.map(v => {
             
-            val (ip_address,timestamp) = v
-            val loc = LocationFinder.locate(ip_address)
+        val (ip_address,timestamp) = v
+        val loc = LocationFinder.locate(ip_address)
            
-            ParquetLOC(
+        ParquetLOC(
               site,
               user,
               
@@ -85,42 +78,17 @@ class LOCPreparer(ctx:RequestContext,orders:RDD[InsightOrder]) extends BaseActor
             
               loc.lat,
               loc.lon
-            )
-          })
+        )
+      
+      })
           
-        })
-        /* 
-         * The RDD is implicitly converted to a SchemaRDD by createSchemaRDD, 
-         * allowing it to be stored using Parquet. 
-         */
-        val store = String.format("""%s/LOC/%s""",ctx.getBase,uid)         
-        table.saveAsParquetFile(store)
-
-        val end = new java.util.Date().getTime
-        ctx.listener ! String.format("""[INFO][UID: %s] LOC preparation finished at %s.""",uid,end.toString)
-
-        val params = Map(Names.REQ_MODEL -> "LOC") ++ req_params
-        context.parent ! PrepareFinished(params)
-        
-      } catch {
-        case e:Exception => {
-          /* 
-           * In case of an error the message listener gets informed, and also
-           * the data processing pipeline in order to stop further sub processes 
-           */
-          ctx.listener ! String.format("""[ERROR][UID: %s] LOC preparation exception: %s.""",uid,e.getMessage)
-          
-          val params = Map(Names.REQ_MESSAGE -> e.getMessage) ++ req_params
-          context.parent ! PrepareFailed(params)
-        
-        }
-
-      } finally {
-        
-        context.stop(self)
-        
-      }
-    }
+    })
+    /* 
+     * The RDD is implicitly converted to a SchemaRDD by createSchemaRDD, 
+     * allowing it to be stored using Parquet. 
+     */
+    val store = String.format("""%s/%s/%s/1""",ctx.getBase,name,uid)         
+    table.saveAsParquetFile(store)
   
   }
   

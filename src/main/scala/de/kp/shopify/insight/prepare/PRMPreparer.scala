@@ -21,63 +21,64 @@ package de.kp.shopify.insight.prepare
 import org.apache.spark.SparkContext._
 import org.apache.spark.rdd.RDD
 
-import org.joda.time.DateTime
-
 import de.kp.spark.core.Names
 
 import de.kp.shopify.insight._
 import de.kp.shopify.insight.model._
 
-import de.kp.shopify.insight.preference.TFIDF
-
 /**
- * The CDAPreparer computes the customer day of the week affinity;
- * this information is used to segment the customer base by this
- * temporal information
+ * The PRMPreparer prepares the purchase transactions of a certain
+ * period of time and a specific customer type for association rule
+ * mining with Predictiveworks' Association Analysis engine
  */
-class CDAPreparer(ctx:RequestContext,orders:RDD[InsightOrder]) extends BasePreparer(ctx) {
-  
+class PRMPreparer(ctx:RequestContext,orders:RDD[InsightOrder]) extends BasePreparer(ctx) {
+
   import sqlc.createSchemaRDD
   override def prepare(params:Map[String,String]) {
       
     val uid = params(Names.REQ_UID)
     val name = params(Names.REQ_NAME)
-      
+
     val customer = params("customer").toInt
     /*
-     * STEP #1: Restrict the purchase orders to those items and attributes
-     * that are relevant for the item segmentation task; this encloses a
-     * filtering with respect to customer type, if different from '0'
+     * Association rule mining determines items that are frequently
+     * bought together; to this end, we filter those transactions
+     * with more than one item purchased 
+     */
+    val ds = orders.filter(x => x.items.size > 1).flatMap(x => x.items.map(v => (x.site,x.user,x.group,v.item)))
+    /*
+     * STEP #1: Restrict the purchase orders to those records that match
+     * the provided customer type. In case of customer type = '0', the 
+     * 'user' provided with the ParquetASR table is the customer itself.
+     * 
+     * In all other cases, the 'user' attribute is replaced by the customer
+     * type and the respective transactions are assigned to this type
      */
     val ctype = sc.broadcast(customer)
-
-    val ds = orders.map(x => (x.site,x.user,new DateTime(x.timestamp).dayOfWeek().get))
-    val filteredDS = (if (customer == 0) {
+    val table = (if (customer == 0) {
       /*
        * This customer type indicates that ALL customer types
        * have to be taken into account when computing the item
        * segmentation 
        */
-      ds
-          
+      ds.map(x => ParquetASR(x._1,x._2,x._3,x._4))
+
     } else {
       /*
        * Load the Parquet file that specifies the customer type specification 
        * and filter those customers that match the provided customer type
        */
       val parquetCST = readCST(uid).filter(x => x._2 == ctype.value)      
-      ds.map(x => ((x._1,x._2),(x._3))).join(parquetCST).map(x => {
-            
-        val ((site,user),((day),rfm_type)) = x
-        (site,user,day)
-            
+      ds.map(x => ((x._1,x._2),(x._3,x._4))).join(parquetCST).map(x => {
+
+    	val ((site,user),((group,item),rfm_type)) = x
+    	/*
+    	 * Note, that we replace the 'user' by the respective rfm_type
+    	 */
+    	ParquetASR(site,rfm_type.toString,group,item)
+
       })
-    })     
-    /*
-     * STEP #2: Compute the customer day affinity (CDA) using the 
-     * TDIDF algorithm from text analysis
-     */
-    val table = TFIDF.computeCDA(filteredDS,daytime="day")
+    })               
     /* 
      * The RDD is implicitly converted to a SchemaRDD by createSchemaRDD, 
      * allowing it to be stored using Parquet. 
@@ -86,5 +87,5 @@ class CDAPreparer(ctx:RequestContext,orders:RDD[InsightOrder]) extends BasePrepa
     table.saveAsParquetFile(store)
   
   }
-
+  
 }

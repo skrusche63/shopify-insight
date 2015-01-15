@@ -23,10 +23,14 @@ import org.apache.spark.rdd.RDD
 import com.twitter.algebird._
 import com.twitter.algebird.Operators._
 
+import de.kp.spark.core.Names
+
 import de.kp.shopify.insight.RequestContext
 import de.kp.shopify.insight.actor.BaseActor
 
-abstract class BasePreparer(requestCtx:RequestContext) extends BaseActor(requestCtx) {
+import de.kp.shopify.insight.model._
+
+abstract class BasePreparer(ctx:RequestContext) extends BaseActor(ctx) {
   /*
    * The parameter K is used as an initialization 
    * prameter for the QTree semigroup
@@ -35,6 +39,52 @@ abstract class BasePreparer(requestCtx:RequestContext) extends BaseActor(request
   private val QUINTILES = List(0.20,0.40,0.60,0.80,1.00)
         
   protected val DAY = 24 * 60 * 60 * 1000 // day in milliseconds
+  
+  override def receive = {
+    
+    case msg:StartPrepare => {
+
+      val req_params = msg.data
+      
+      val uid = req_params(Names.REQ_UID)
+      val name = req_params(Names.REQ_NAME)
+      
+      try {
+      
+        val start = new java.util.Date().getTime.toString            
+        ctx.listener ! String.format("""[INFO][UID: %s] %s preparation request received at %s.""",uid,name,start)
+        
+        prepare(req_params)
+
+        val end = new java.util.Date().getTime
+        ctx.listener ! String.format("""[INFO][UID: %s] %s preparation finished at %s.""",uid,name,end.toString)
+
+        val params = Map(Names.REQ_MODEL -> name) ++ req_params
+        context.parent ! PrepareFinished(params)
+
+      } catch {
+        case e:Exception => {
+          /* 
+           * In case of an error the message listener gets informed, and also
+           * the data processing pipeline in order to stop further sub processes 
+           */
+          ctx.listener ! String.format("""[ERROR][UID: %s] %s preparation exception: %s.""",uid,name,e.getMessage)
+          
+          val params = Map(Names.REQ_MESSAGE -> e.getMessage) ++ req_params
+          context.parent ! PrepareFailed(params)
+        
+        }
+
+      } finally {
+        
+        context.stop(self)
+        
+      }
+    }
+  
+  }
+  
+  protected def prepare(params:Map[String,String])
   
   /**
    * This method calculates the quantile boundaries with
@@ -83,7 +133,7 @@ abstract class BasePreparer(requestCtx:RequestContext) extends BaseActor(request
    */
   protected def readCST(uid:String):RDD[((String,String),Int)] = {
 
-    val store = String.format("""%s/CST/%s""",requestCtx.getBase,uid)         
+    val store = String.format("""%s/CST/%s""",ctx.getBase,uid)         
     
     val parquetFile = sqlc.parquetFile(store)
     val metadata = parquetFile.schema.fields.zipWithIndex

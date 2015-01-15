@@ -35,82 +35,74 @@ import de.kp.shopify.insight.model._
 class POMPreparer(ctx:RequestContext,orders:RDD[InsightOrder]) extends BasePreparer(ctx) {
 
   import sqlc.createSchemaRDD
-  
-  override def receive = {
-    
-    case msg:StartPrepare => {
-
-      val req_params = msg.data      
-      val uid = req_params(Names.REQ_UID)
-             
-      val start = new java.util.Date().getTime.toString            
-      ctx.listener ! String.format("""[INFO][UID: %s] POM preparation request received at %s.""",uid,start)
+  override def prepare(params:Map[String,String]) {
       
-      try {
+    val uid = params(Names.REQ_UID)
+    val name = params(Names.REQ_NAME)
 
-        val total = orders.count.toInt
+    val total = orders.count.toInt
+
+    /********************* MONETARY DIMENSION ********************/
+
+    /*
+     * Compute the average, minimum and maximum amount of all 
+     * the purchases in the purchase history provided by orders
+     */    
+    val amounts = orders.map(_.amount)
+    val m_stats = amounts.stats
+
+    val m_mean  = m_stats.mean
+
+    val m_min = m_stats.min
+    val m_max = m_stats.max
+
+    val m_stdev = m_stats.stdev
+    val m_sum   = m_stats.sum
+
+    val m_variance = m_stats.variance
     
-        /********************* MONETARY DIMENSION ********************/
-    
-        /*
-         * Compute the average, minimum and maximum amount of all 
-         * the purchases in the purchase history provided by orders
-         */    
-        val amounts = orders.map(_.amount)
-        val m_stats = amounts.stats
-    
-        val m_mean  = m_stats.mean
-    
-        val m_min = m_stats.min
-        val m_max = m_stats.max
-    
-        val m_stdev = m_stats.stdev
-        val m_sum   = m_stats.sum
-    
-        val m_variance = m_stats.variance
-    
-        /********************* TEMPORAL DIMENSION ********************/
-    
-        /*
-         * Compute the average,minimum and maximum time elapsed between 
-         * two subsequent transactions; the 'zip' method is used to pairs 
-         * between two subsequent timestamps
-         */
-        val timestamps = orders.map(x => (x.site,x.user,x.timestamp))
-        val timespans = timestamps.groupBy(x => (x._1,x._2)).filter(_._2.size > 1).flatMap(x => {
+    /********************* TEMPORAL DIMENSION ********************/
+
+    /*
+     * Compute the average,minimum and maximum time elapsed between 
+     * two subsequent transactions; the 'zip' method is used to pairs 
+     * between two subsequent timestamps
+     */
+    val timestamps = orders.map(x => (x.site,x.user,x.timestamp))
+    val timespans = timestamps.groupBy(x => (x._1,x._2)).filter(_._2.size > 1).flatMap(x => {
           
-          val (site,user) = x._1
-          val time = x._2.map(_._3).toSeq.sorted
+      val (site,user) = x._1
+      val time = x._2.map(_._3).toSeq.sorted
           
-          time.zip(time.tail).map(x => x._2 - x._1).map(v => (if (v / DAY < 1) 1 else v / DAY).toInt)
+      time.zip(time.tail).map(x => x._2 - x._1).map(v => (if (v / DAY < 1) 1 else v / DAY).toInt)
           
-        })
+      })
     
-        val t_stats = timespans.stats
-        val t_mean  = t_stats.mean
-    
-        val t_min = t_stats.min
-        val t_max = t_stats.max
-    
-        val t_stdev = t_stats.stdev
-        val t_variance = t_stats.variance
+      val t_stats = timespans.stats
+      val t_mean  = t_stats.mean
 
-        /* Day of the week: 1..7 */
-        val day_freq = timestamps.map(x => new DateTime(x).dayOfWeek().get).groupBy(x => x).map(x => (x._1,x._2.size)).collect.toSeq
+      val t_min = t_stats.min
+      val t_max = t_stats.max
 
-        /* Time of day: 0..23 */
-        val hour_freq = timestamps.map(x => new DateTime(x).hourOfDay().get).groupBy(x => x).map(x => (x._1,x._2.size)).collect.toSeq
-    
-        /*********************** ITEM DIMENSION **********************/
+      val t_stdev = t_stats.stdev
+      val t_variance = t_stats.variance
 
-        val items = orders.flatMap(x => x.items.map(v => (v.item,v.quantity)))
-        val item_freq = items.groupBy(x => x._1).map(x => (x._1,x._2.map(_._2).sum)).collect.toSeq
+      /* Day of the week: 1..7 */
+      val day_freq = timestamps.map(x => new DateTime(x).dayOfWeek().get).groupBy(x => x).map(x => (x._1,x._2.size)).collect.toSeq
 
-        /*
-         * Build Parquet file 
-         */
-        val table = ctx.sparkContext.parallelize(List(
-          ParquetPOM(  
+      /* Time of day: 0..23 */
+      val hour_freq = timestamps.map(x => new DateTime(x).hourOfDay().get).groupBy(x => x).map(x => (x._1,x._2.size)).collect.toSeq
+
+      /*********************** ITEM DIMENSION **********************/
+
+      val items = orders.flatMap(x => x.items.map(v => (v.item,v.quantity)))
+      val item_freq = items.groupBy(x => x._1).map(x => (x._1,x._2.map(_._2).sum)).collect.toSeq
+
+      /*
+       * Build Parquet file 
+       */
+      val table = ctx.sparkContext.parallelize(List(
+    		  ParquetPOM(  
             total,
   
             /********** AMOUNT DIMENSION **********/
@@ -137,39 +129,14 @@ class POMPreparer(ctx:RequestContext,orders:RDD[InsightOrder]) extends BasePrepa
 
             item_freq
     
-        )))
+      )))
         
-        /* 
-         * The RDD is implicitly converted to a SchemaRDD by createSchemaRDD, 
-         * allowing it to be stored using Parquet. 
-         */
-        val store = String.format("""%s/POM/%s""",ctx.getBase,uid)         
-        table.saveAsParquetFile(store)
-       
-        val end = new java.util.Date().getTime
-        ctx.listener ! String.format("""[INFO][UID: %s] POM preparation finished at %s.""",uid,end.toString)
+      /* 
+       * The RDD is implicitly converted to a SchemaRDD by createSchemaRDD, 
+       * allowing it to be stored using Parquet. 
+       */
+      val store = String.format("""%s/%s/%s/1""",ctx.getBase,name,uid)         
+      table.saveAsParquetFile(store)
 
-        val params = Map(Names.REQ_MODEL -> "POM") ++ req_params
-        context.parent ! PrepareFinished(params)
-        
-      } catch {
-        case e:Exception => {
-          /* 
-           * In case of an error the message listener gets informed, and also
-           * the data processing pipeline in order to stop further sub processes 
-           */
-          ctx.listener ! String.format("""[ERROR][UID: %s] POM preparation exception: %s.""",uid,e.getMessage)
-          
-          val params = Map(Names.REQ_MESSAGE -> e.getMessage) ++ req_params
-          context.parent ! PrepareFailed(params)
-        
-        }
-
-      } finally {
-        
-        context.stop(self)
-        
-      }
-    }
   }
 }

@@ -33,85 +33,52 @@ import de.kp.shopify.insight.preference.TFIDF
 class CHAPreparer(ctx:RequestContext,orders:RDD[InsightOrder]) extends BasePreparer(ctx) {
   
   import sqlc.createSchemaRDD
-  override def receive = {
-    
-    case msg:StartPrepare => {
-
-      val req_params = msg.data
+  override def prepare(params:Map[String,String]) {
       
-      val uid = req_params(Names.REQ_UID)
-      val customer = req_params("customer").toInt
-             
-      val start = new java.util.Date().getTime.toString            
-      ctx.listener ! String.format("""[INFO][UID: %s] CHA preparation request received at %s.""",uid,start)
-      
-      try {
-        /*
-         * STEP #1: Restrict the purchase orders to those items and attributes
-         * that are relevant for the item segmentation task; this encloses a
-         * filtering with respect to customer type, if different from '0'
-         */
-        val ctype = sc.broadcast(customer)
+    val uid = params(Names.REQ_UID)
+    val name = params(Names.REQ_NAME)
 
-        val ds = orders.map(x => (x.site,x.user,new DateTime(x.timestamp).hourOfDay().get))
-        val filteredDS = (if (customer == 0) {
-          /*
-           * This customer type indicates that ALL customer types
-           * have to be taken into account when computing the item
-           * segmentation 
-           */
-          ds
+    val customer = params("customer").toInt
+    /*
+     * STEP #1: Restrict the purchase orders to those items and attributes
+     * that are relevant for the item segmentation task; this encloses a
+     * filtering with respect to customer type, if different from '0'
+     */
+    val ctype = sc.broadcast(customer)
+
+    val ds = orders.map(x => (x.site,x.user,new DateTime(x.timestamp).hourOfDay().get))
+    val filteredDS = (if (customer == 0) {
+      /*
+       * This customer type indicates that ALL customer types
+       * have to be taken into account when computing the item
+       * segmentation 
+       */
+      ds
           
-        } else {
-          /*
-           * Load the Parquet file that specifies the customer type specification 
-           * and filter those customers that match the provided customer type
-           */
-          val parquetCST = readCST(uid).filter(x => x._2 == ctype.value)      
-          ds.map(x => ((x._1,x._2),(x._3))).join(parquetCST).map(x => {
+    } else {
+      /*
+       * Load the Parquet file that specifies the customer type specification 
+       * and filter those customers that match the provided customer type
+       */
+      val parquetCST = readCST(uid).filter(x => x._2 == ctype.value)      
+      ds.map(x => ((x._1,x._2),(x._3))).join(parquetCST).map(x => {
             
-            val ((site,user),((day),rfm_type)) = x
-            (site,user,day)
+        val ((site,user),((day),rfm_type)) = x
+        (site,user,day)
             
-          })
-        })     
-        /*
-         * STEP #2: Compute the customer day affinity (CDA) using the 
-         * TDIDF algorithm from text analysis
-         */
-        val table = TFIDF.computeCDA(filteredDS,daytime="hour")
-        /* 
-         * The RDD is implicitly converted to a SchemaRDD by createSchemaRDD, 
-         * allowing it to be stored using Parquet. 
-         */
-        val store = String.format("""%s/CHA-%s/%s""",ctx.getBase,customer.toString,uid)         
-        table.saveAsParquetFile(store)
-
-        val end = new java.util.Date().getTime
-        ctx.listener ! String.format("""[INFO][UID: %s] CHA preparation for customer type '%s' finished at %s.""",uid,customer.toString,end.toString)
-
-        val params = Map(Names.REQ_MODEL -> "CHA") ++ req_params
-        context.parent ! PrepareFinished(params)
-
-      } catch {
-        case e:Exception => {
-          /* 
-           * In case of an error the message listener gets informed, and also
-           * the data processing pipeline in order to stop further sub processes 
-           */
-          ctx.listener ! String.format("""[ERROR][UID: %s] CHA preparation exception: %s.""",uid,e.getMessage)
-          
-          val params = Map(Names.REQ_MESSAGE -> e.getMessage) ++ req_params
-          context.parent ! PrepareFailed(params)
-        
-        }
-
-      } finally {
-        
-        context.stop(self)
-        
-      }
-    }
+      })
+    })     
+    /*
+     * STEP #2: Compute the customer day affinity (CDA) using the 
+     * TDIDF algorithm from text analysis
+     */
+    val table = TFIDF.computeCDA(filteredDS,daytime="hour")
+    /* 
+     * The RDD is implicitly converted to a SchemaRDD by createSchemaRDD, 
+     * allowing it to be stored using Parquet. 
+     */
+    val store = String.format("""%s/%s/%s/1""",ctx.getBase,name,uid)         
+    table.saveAsParquetFile(store)
   
   }
 
