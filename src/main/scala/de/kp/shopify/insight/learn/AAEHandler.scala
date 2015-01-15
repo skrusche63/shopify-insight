@@ -20,36 +20,59 @@ package de.kp.shopify.insight.learn
 
 import de.kp.spark.core.Names
 import de.kp.spark.core.model._
-import de.kp.shopify.insight.model._
-import scala.collection.mutable.HashMap
 
-class AAEHandler {
+import de.kp.shopify.insight.RequestContext
+import de.kp.shopify.insight.model._
+
+class AAEHandler(ctx:RequestContext) {
   
   def get(params:Map[String,String]):Map[String,String] = null
 
   def train(params:Map[String,String]):Map[String,String] = {
     
-    /*
-     * The subsequent set of parameters is mandatory for training
-     * an association model and must be provided by the requestor
-     */
-    val data = HashMap.empty[String,String]
+    val base = ctx.getBase
+    val name = params(Names.REQ_NAME)
     
-    val com_mandatory = List(Names.REQ_SITE,Names.REQ_UID,Names.REQ_NAME,Names.REQ_ALGORITHM)
-    for (field <- com_mandatory) data += field -> params(field)
-
-    data += Names.REQ_SOURCE -> "PARQUET"
+    val uid = params(Names.REQ_UID)
+    val url = String.format("""%s/%s/%s/1""", base, name, uid)
     
-    /*
-     * The subsequent parameters are model specific parameters
-     */
-    val mod_mandatory = List("k","minconf","weight")
-    for (field <- mod_mandatory) data += field -> params(field)
+    val k = params.get("k") match {
+      case None => 10.toString
+      case Some(value) => value
+    }
     
-    val mod_optional = List("delta")
-    for (field <- mod_optional) if (params.contains(field)) data += field -> params(field)
-   
-    data.toMap
+    val minconf = params.get("minconf") match {
+      case None => 0.8.toString
+      case Some(value) => value
+    }
+    
+    val delta = params.get("delta") match {
+      case None => 2.toString
+      case Some(value) => value
+    }
+    
+    params ++ Map(
+        
+      /* Algorithm specification */
+      Names.REQ_ALGORITHM -> "TOPKNR",
+      
+      /*
+       * The TOPKNR algorithm requires the following parameters:
+       * 
+       * a) k, b) minconf and c) delta
+       * 
+       * If these parameters are not provided, default values are
+       * used here
+       */
+      "k" -> k,
+      "minconf" -> minconf,
+      "delta" -> delta,
+      
+      /* Data source description */
+      Names.REQ_URL -> url,        
+      Names.REQ_SOURCE -> "PARQUET"
+        
+    )
     
   }
   

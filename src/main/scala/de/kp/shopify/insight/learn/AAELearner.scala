@@ -36,7 +36,7 @@ class AAELearner(ctx:RequestContext,params:Map[String,String]) extends BaseActor
   
   override def receive = {
    
-    case message:StartBuild => {
+    case message:StartLearn => {
       
       val req_params = params
       
@@ -53,7 +53,7 @@ class AAELearner(ctx:RequestContext,params:Map[String,String]) extends BaseActor
       val service = "association"
       val task = "train"
 
-      val data = new AAEHandler().train(req_params)
+      val data = new AAEHandler(ctx).train(req_params)
       val req  = new ServiceRequest(service,task,data)
       
       val serialized = Serializer.serializeRequest(req)
@@ -82,7 +82,7 @@ class AAELearner(ctx:RequestContext,params:Map[String,String]) extends BaseActor
       
             ctx.listener ! String.format("""[ERROR][UID: %s] %s mining failed due to an engine error.""",uid,name)
  
-            context.parent ! BuildFailed(res.data)
+            context.parent ! LearnFailed(res.data)
             context.stop(self)
 
           }
@@ -97,7 +97,7 @@ class AAELearner(ctx:RequestContext,params:Map[String,String]) extends BaseActor
           ctx.listener ! String.format("""[ERROR][UID: %s] %s mining failed due to an internal error.""",uid,name)
         
           val res_params = Map(Names.REQ_MESSAGE -> throwable.getMessage) ++ req_params
-          context.parent ! BuildFailed(res_params)
+          context.parent ! LearnFailed(res_params)
           
           context.stop(self)
             
@@ -115,7 +115,7 @@ class AAELearner(ctx:RequestContext,params:Map[String,String]) extends BaseActor
       ctx.listener ! String.format("""[INFO][UID: %s] %s mining finished at %s.""",event.uid,name,end)
 
       val res_params = Map(Names.REQ_UID -> event.uid,Names.REQ_MODEL -> name)
-      context.parent ! BuildFinished(res_params)
+      context.parent ! LearnFinished(res_params)
       
       context.stop(self)
       

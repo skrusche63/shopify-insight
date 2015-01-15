@@ -35,7 +35,7 @@ class IRELearner(ctx:RequestContext,params:Map[String,String]) extends BaseActor
   
   override def receive = {
    
-    case message:StartBuild => {
+    case message:StartLearn => {
        
       val req_params = params
       
@@ -51,7 +51,7 @@ class IRELearner(ctx:RequestContext,params:Map[String,String]) extends BaseActor
       val service = "intent"
       val task = "train"
 
-      val data = new IREHandler().train(req_params)
+      val data = new IREHandler(ctx).train(req_params)
       val req  = new ServiceRequest(service,task,data)
       
       val serialized = Serializer.serializeRequest(req)
@@ -81,7 +81,7 @@ class IRELearner(ctx:RequestContext,params:Map[String,String]) extends BaseActor
       
             ctx.listener ! String.format("""[INFO][UID: %s] %s building failed due to an engine error.""",uid,name)
  
-            context.parent ! BuildFailed(res.data)
+            context.parent ! LearnFailed(res.data)
             context.stop(self)
 
           }
@@ -96,7 +96,7 @@ class IRELearner(ctx:RequestContext,params:Map[String,String]) extends BaseActor
           ctx.listener ! String.format("""[INFO][UID: %s] %s building failed due to an internal error.""",uid,name)
         
           val res_params = Map(Names.REQ_MESSAGE -> throwable.getMessage) ++ req_params
-          context.parent ! BuildFailed(res_params)
+          context.parent ! LearnFailed(res_params)
           
           context.stop(self)
             
@@ -114,15 +114,8 @@ class IRELearner(ctx:RequestContext,params:Map[String,String]) extends BaseActor
       val end = new java.util.Date().getTime.toString                  
       ctx.listener ! String.format("""[INFO][UID: %s] &s building finished at.""",uid,name,end)
 
-      /*
-       * The StatusEvent message is sent by the RemoteSupervisor (child) and indicates
-       * that the (remote) state transition modeling process has been finished successfully.
-       * 
-       * Due to this message, the DataPipeline actor (parent) is informed about this event
-       * and finally this actor stops itself
-       */  
-      val res_params = Map(Names.REQ_UID -> event.uid,Names.REQ_MODEL -> "STM")
-      context.parent ! BuildFinished(res_params)
+      val res_params = Map(Names.REQ_UID -> event.uid,Names.REQ_MODEL -> name)
+      context.parent ! LearnFinished(res_params)
       
       context.stop(self)
       

@@ -54,7 +54,7 @@ object LearnerApp extends LearnerService("Learner") {
       val actor = system.actorOf(Props(new Handler(ctx,req_params)))   
       inbox.watch(actor)
     
-      actor ! StartBuild
+      actor ! StartLearn
 
       val timeout = DurationInt(30).minute
     
@@ -77,7 +77,7 @@ object LearnerApp extends LearnerService("Learner") {
     
     override def receive = {
     
-      case msg:StartBuild => {
+      case msg:StartLearn => {
 
         val start = new java.util.Date().getTime     
         println("Learner started at " + start)
@@ -85,25 +85,27 @@ object LearnerApp extends LearnerService("Learner") {
         val job = params("job")        
         val builder = job match {
           
-          case "ASR" => context.actorOf(Props(new AAELearner(ctx,params))) 
-          
           case "CDA" => context.actorOf(Props(new SAELearner(ctx,params))) 
           
           case "CHA" => context.actorOf(Props(new SAELearner(ctx,params))) 
           
           case "CPA" => context.actorOf(Props(new SAELearner(ctx,params))) 
 
-          case "STM" => context.actorOf(Props(new IRELearner(ctx,params))) 
+          case "CPS" => context.actorOf(Props(new IRELearner(ctx,params))) 
+          
+          case "CSA" => context.actorOf(Props(new SAELearner(ctx,params))) 
+          
+          case "PRM" => context.actorOf(Props(new AAELearner(ctx,params))) 
           
           case _ => throw new Exception("Wrong job descriptor.")
           
         }
         
-        builder ! StartBuild
+        builder ! StartLearn
        
       }
     
-      case msg:BuildFailed => {
+      case msg:LearnFailed => {
     
         val end = new java.util.Date().getTime           
         println("Learner failed at " + end)
@@ -112,7 +114,7 @@ object LearnerApp extends LearnerService("Learner") {
       
       }
     
-      case msg:BuildFinished => {
+      case msg:LearnFinished => {
     
         val end = new java.util.Date().getTime           
         println("Learner finished at " + end)

@@ -21,39 +21,53 @@ package de.kp.shopify.insight.learn
 import de.kp.spark.core.Names
 import de.kp.spark.core.model._
 
+import de.kp.shopify.insight.RequestContext
 import de.kp.shopify.insight.model._
-import scala.collection.mutable.HashMap
 
-class IREHandler {
+import scala.collection.mutable.Buffer
 
-  def get(params:Map[String,String]):Map[String,String] = {
-    // TODO
-    null
-  }
+class IREHandler(ctx:RequestContext) {
 
   def train(params:Map[String,String]):Map[String,String] = {
     
-    /*
-     * The subsequent set of parameters is mandatory for training
-     * an association model and must be provided by the requestor
-     */
-    val com_mandatory = List(Names.REQ_SITE,Names.REQ_UID,Names.REQ_NAME)
-    val data = HashMap.empty[String,String]
+    val base = ctx.getBase
+    val name = params(Names.REQ_NAME)
     
-    for (field <- com_mandatory) data += field -> params(field)
+    val uid = params(Names.REQ_UID)
+    val url = String.format("""%s/%s/%s/1""", base, name, uid)
+ 
+    val scale = params.get(Names.REQ_SCALE) match {
+      case None => 1.toString
+      case Some(value) => value
+    }
+     
+    val steps = params.get(Names.REQ_STEPS) match {
+      case None => 5.toString
+      case Some(value) => value
+    }
 
-    /*
-     * The algorithm is restricted to 'MARKOV' and must be set
-     * internally
-     */
-    data += Names.REQ_ALGORITHM -> "MARKOV"
-    data += Names.REQ_INTENT    -> "STATE"
+    val states = Buffer.empty[String]
     
-    data += Names.REQ_SOURCE -> "PARQUET"
-
-    // TODO
-    
-    data.toMap
+    (1 to 5).foreach(i => {
+      (1 to 5).foreach(j => {
+        states += "" + i + j
+      })
+    })
+   
+    params ++ Map(
+      /* Algorithm specification */
+      Names.REQ_ALGORITHM -> "MARKOV",
+      Names.REQ_INTENT -> "STATE",
+      
+      Names.REQ_SCALE -> scale,
+      Names.REQ_STEPS -> steps,
+      
+      Names.REQ_STATES -> states.mkString(","),
+      
+      /* Data source description */
+      Names.REQ_URL -> url,        
+      Names.REQ_SOURCE -> "PARQUET"
+    )
     
   }
 

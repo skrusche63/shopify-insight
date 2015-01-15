@@ -21,19 +21,40 @@ package de.kp.shopify.insight.learn
 import de.kp.spark.core.Names
 import de.kp.spark.core.model._
 
+import de.kp.shopify.insight.RequestContext
 import de.kp.shopify.insight.model._
-import scala.collection.mutable.HashMap
 
-class SAEHandler {
-
-  def get(params:Map[String,String]):Map[String,String] = {
-    // TODO
-    null
-  }
+class SAEHandler(ctx:RequestContext) {
 
   def train(params:Map[String,String]):Map[String,String] = { 
-    // TODO
-    null   
+    
+    val base = ctx.getBase
+    val name = params(Names.REQ_NAME)
+    
+    val uid = params(Names.REQ_UID)
+    val url = String.format("""%s/%s/%s/1""", base, name, uid)
+ 
+    val k = params.get("k") match {
+      case None => 8.toString
+      case Some(value) => value
+    }
+     
+    val iterations = params.get("iterations") match {
+      case None => 20.toString
+      case Some(value) => value
+    }
+   
+    params ++ Map(
+      /* Algorithm specification */
+      Names.REQ_ALGORITHM -> "KMEANS",
+      
+      "k" -> k,
+      "iterations" -> iterations,
+      
+      /* Data source description */
+      Names.REQ_URL -> url,        
+      Names.REQ_SOURCE -> "PARQUET"
+    )
   }
 
 }

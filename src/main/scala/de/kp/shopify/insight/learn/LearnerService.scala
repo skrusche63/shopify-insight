@@ -83,9 +83,9 @@ class LearnerService(val appName:String) extends SparkService {
     if (job.hasValue == false)
       throw new Exception("Parameter 'job' is missing.")
   
-    val jobs = List("ASR","CDA","CHA","CPA","STM")
+    val jobs = List("CDA","CHA","CPA","CPS","CSA","PRM")
     if (jobs.contains(job.value.get) == false)
-      throw new Exception("Job parameter must be one of [ASR, CDA, CHA, CPA, STM].")
+      throw new Exception("Job parameter must be one of [CDA, CHA, CPA, CPS, CSA, PRM].")
  
     /* Collect parameters */
     val params = HashMap.empty[String,String]
@@ -111,7 +111,7 @@ class LearnerService(val appName:String) extends SparkService {
 
   private def registerESTask(params:Map[String,String]) = {
     
-    val key = "BUILD:" + params(Names.REQ_NAME) + ":" + params(Names.REQ_UID)
+    val key = "LEARN:" + params(Names.REQ_NAME) + ":" + params(Names.REQ_UID)
     val task = "Data mining and model building with " + appName + "."
     /*
      * Note, that we do not specify additional
