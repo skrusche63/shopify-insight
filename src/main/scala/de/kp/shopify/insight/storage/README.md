@@ -1,7 +1,7 @@
 
 ### Customer Loyalty Profile (CLS)
 
-**How it works***
+##### How it works
 
 The *prepare* subsystem evaluates the purchase history of every individual user and determines
 how far the latest purchase transaction differs from the previous history with respect to the
@@ -19,14 +19,16 @@ indexes these documents in an Elasticsearch index.
 
 The result is a time series of loyalty data for every single customer.
 
-**Usage**
+##### Usage
 
 The loader results can directly be used to visualize loyalty trajectories, or, customers can be 
 aggregated by the customer type and loyalty state to support e.g. customer targeting.
 
+---
+
 ### Customer Location Profile (LOC)
 
-**How it works**
+##### How it works
 
 The *prepare* subsystem evaluates the IP addresses provided with each purchase a customer made.
 
@@ -41,7 +43,7 @@ indexes these documents in an Elasticsearch index, using the geospatial support 
 
 The result is a time series of geospatial data for every single customer.
 
-**Usage**
+##### Usage
 
 The loader results can directly be used to visualize the geospatial purchase behavior of every individual
 customer on a geospatial map, or, customers can be aggregated by their countries, regions or cities.
