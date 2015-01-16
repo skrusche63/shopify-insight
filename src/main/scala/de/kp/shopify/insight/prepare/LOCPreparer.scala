@@ -37,7 +37,7 @@ import scala.reflect.runtime.universe
  * The LOCPreparer does NOT take specific (RFM) customer types 
  * into account, as we cannot see any necessity to do so.
  */
-class LOCPreparer(ctx:RequestContext,orders:RDD[InsightOrder]) extends BaseActor(ctx) {
+class LOCPreparer(ctx:RequestContext,orders:RDD[InsightOrder]) extends BasePreparer(ctx) {
   
   import sqlc.createSchemaRDD
   override def prepare(params:Map[String,String]) {
