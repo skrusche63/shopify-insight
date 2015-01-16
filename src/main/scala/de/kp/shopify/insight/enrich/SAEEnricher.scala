@@ -25,104 +25,72 @@ import de.kp.spark.core.Names
 import de.kp.spark.core.model._
 
 import de.kp.shopify.insight.RequestContext
-import de.kp.shopify.insight.actor._
-
 import de.kp.shopify.insight.model._
 
-class SAEEnricher (ctx:RequestContext,params:Map[String,String]) extends BaseActor(ctx) {
+class SAEEnricher (ctx:RequestContext,params:Map[String,String]) extends BaseEnricher(ctx,params) {
   
   import sqlc.createSchemaRDD
-
-  override def receive = {
-   
-    case message:StartEnrich => {
+  override def enrich(params:Map[String,String]) {
       
-      val req_params = params
-      
-      val uid = req_params(Names.REQ_UID)
-      val name = req_params(Names.REQ_NAME)
-      
-      val start = new java.util.Date().getTime.toString            
-      ctx.listener ! String.format("""[INFO][UID: %s] %s enrichment request received at %s.""",uid,name,start)
-     
-      try {
-        /*
-         * STEP #1: Read customer dataset from Parquet file and join
-         * with cluster reference Parquet file to assign the cluster
-         * center as well as the respective distance
-         */
-        val ds = readDataset(req_params).join(readClustered(req_params)).map(x => {
+    val uid = params(Names.REQ_UID)
+    val name = params(Names.REQ_NAME)
+    /*
+     * STEP #1: Read customer dataset from Parquet file and join
+     * with cluster reference Parquet file to assign the cluster
+     * center as well as the respective distance
+     */
+    val ds = readDataset(params).join(readClustered(params)).map(x => {
           
-          val (row,((site,user,item,col,label),(cluster,distance))) = x
-          (site,user,cluster,distance,label,item,col)
+      val (row,((site,user,item,col,label),(cluster,distance))) = x
+      (site,user,cluster,distance,label,item,col)
           
-        })
-        /*
-         * From the merged dataset, the customer persona distance (CPD) table
-         * is derived and stored as a Parquet file
-         */
-        val storeCPD = String.format("""%s/%s/%s/4""",ctx.getBase,name,uid)                 
-        val tableCPD = ds.map(x => ParquetCPD(x._1,x._2,x._3,x._4))
+    })
+    /*
+     * From the merged dataset, the customer persona distance (CPD) table
+     * is derived and stored as a Parquet file
+     */
+    val storeCPD = String.format("""%s/%s/%s/4""",ctx.getBase,name,uid)                 
+    val tableCPD = ds.map(x => ParquetCPD(x._1,x._2,x._3,x._4))
         
-        tableCPD.saveAsParquetFile(storeCPD)
+    tableCPD.saveAsParquetFile(storeCPD)
 
-        /*
-         * STEP #2: Dermine persona description from cluster center
-         * specification and also the respective item label
-         */
-        val ds1 = ds.map(x => (x._5,x._6,x._7)).groupBy(x => x._3).map(x => {          
+    /*
+     * STEP #2: Dermine persona description from cluster center
+     * specification and also the respective item label
+     */
+    val ds1 = ds.map(x => (x._5,x._6,x._7)).groupBy(x => x._3).map(x => {          
           
-          val col = x._1.toInt
-          val (label,item) = x._2.map(v => (v._1,v._2)).head   
+      val col = x._1.toInt
+      val (label,item) = x._2.map(v => (v._1,v._2)).head   
           
-          (col,(item,label))
+      (col,(item,label))
           
-        })
+    })
         
-        val ds2 = readCentroids(req_params).flatMap(x => {
+    val ds2 = readCentroids(params).flatMap(x => {
           
-          val (cluster,features) = x
-          features.zipWithIndex.map(v => {
+      val (cluster,features) = x
+      features.zipWithIndex.map(v => {
             
-            val (value,col) = v
-            (col,(cluster,value))
+        val (value,col) = v
+        (col,(cluster,value))
             
-          })
+      })
           
-        })
-        /*
-         * From the result, the persona description (PSA) table
-         * is derived and stored as a Parquet file.
-         */
-        val storePSA = String.format("""%s/%s/%s/5""",ctx.getBase,name,uid)         
-        val tablePSA = ds1.join(ds2).map(x => {
+    })
+    /*
+     * From the result, the persona description (PSA) table
+     * is derived and stored as a Parquet file.
+     */
+    val storePSA = String.format("""%s/%s/%s/5""",ctx.getBase,name,uid)         
+    val tablePSA = ds1.join(ds2).map(x => {
           
-          val (col, ((item,label), (cluster,value))) = x
-          ParquetPSA(cluster,item,label,value)
+      val (col, ((item,label), (cluster,value))) = x
+      ParquetPSA(cluster,item,label,value)
           
-        })
+    })
         
-        tablePSA.saveAsParquetFile(storePSA)
-
-        val end = new java.util.Date().getTime.toString
-        ctx.listener ! String.format("""[INFO][UID: %s] %s  enrichment finished at %s.""",uid,end)
-        
-        
-      } catch {
-        case e:Exception => {
-                    
-          ctx.listener ! String.format("""[ERROR][UID: %s] %s enrichment failed due to an internal error.""",uid,name)
-          
-          val res_params = Map(Names.REQ_MESSAGE -> e.getMessage) ++ req_params
-
-          context.parent ! EnrichFailed(res_params)            
-          context.stop(self)
-          
-        }
-    
-      }
-      
-    }
+    tablePSA.saveAsParquetFile(storePSA)
     
   }
 

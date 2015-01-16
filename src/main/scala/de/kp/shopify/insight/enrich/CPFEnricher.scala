@@ -24,8 +24,6 @@ import de.kp.spark.core.Names
 import de.kp.spark.core.model._
 
 import de.kp.shopify.insight.RequestContext
-
-import de.kp.shopify.insight.actor._
 import de.kp.shopify.insight.model._
 
 import scala.collection.mutable.ArrayBuffer
@@ -36,69 +34,40 @@ private case class MarkovStep(step:Int,amount:Double,time:Long,state:String,scor
  * also the PRMLearner; note, that this implies that the respective Parquet
  * file names must be adjusted before the respective read request is performed.
  */
-class CPFEnricher(ctx:RequestContext,params:Map[String,String]) extends BaseActor(ctx) {
+class CPFEnricher(ctx:RequestContext,params:Map[String,String]) extends BaseEnricher(ctx,params) {
         
   private val DAY = 24 * 60 * 60 * 1000 // day in milliseconds
         
   import sqlc.createSchemaRDD
-  override def receive = {
-   
-    case message:StartEnrich => {
+  override def enrich(params:Map[String,String]) {
       
-      val req_params = params
-      
-      val uid = req_params(Names.REQ_UID)
-      val name = req_params(Names.REQ_NAME)
-      
-      val start = new java.util.Date().getTime.toString            
-      ctx.listener ! String.format("""[INFO][UID: %s] %s enrichment request received at %s.""",uid,name,start)
-      
-      try {
-      
-        val tableCPS = readCPS(req_params)
-        val tableMSP = readMSP(req_params)
-        
-        /*
-         * Build lookup table from MSP table
-         */
-        val lookup = ctx.sparkContext.broadcast(tableMSP.groupBy(x => x._1).map(x => {
-          
-          val last_state = x._1
-          val data = x._2.map(v => (v._2,v._3,v._4)).toSeq.sortBy(v => v._1)
-          
-          (last_state,data)
-          
-        }).collect.toMap)
-
-        val tableCPF = tableCPS.flatMap(x => {
-      
-          val forecasts = buildForecasts(x,lookup.value(x.state))
-          forecasts.map(v => ParquetCPF(x.site,x.user,v.step,v.amount,v.time,v.state,v.score))
+    val uid = params(Names.REQ_UID)
+    val name = params(Names.REQ_NAME)
     
-        })
+    val tableCPS = readCPS(params)
+    val tableMSP = readMSP(params)
+        
+    /*
+     * Build lookup table from MSP table
+     */
+    val lookup = ctx.sparkContext.broadcast(tableMSP.groupBy(x => x._1).map(x => {
+          
+      val last_state = x._1
+      val data = x._2.map(v => (v._2,v._3,v._4)).toSeq.sortBy(v => v._1)
+          
+      (last_state,data)
+          
+    }).collect.toMap)
+
+    val tableCPF = tableCPS.flatMap(x => {
+      
+      val forecasts = buildForecasts(x,lookup.value(x.state))
+      forecasts.map(v => ParquetCPF(x.site,x.user,v.step,v.amount,v.time,v.state,v.score))
+    
+    })
          
-        val store = String.format("""%s/%s/%s/1""",ctx.getBase,name,uid)                
-        tableCPF.saveAsParquetFile(store)
-
-        val end = new java.util.Date().getTime.toString
-        ctx.listener ! String.format("""[INFO][UID: %s] %s enrichment finished at %s.""",uid,end)
-       
-        
-      } catch {
-        case e:Exception => {
-
-          ctx.listener ! String.format("""[ERROR][UID: %s] %s enrichment failed due to an internal error.""",uid,name)
-          
-          val params = Map(Names.REQ_MESSAGE -> e.getMessage) ++ req_params
-
-          context.parent ! EnrichFailed(params)            
-          context.stop(self)
-          
-        }
-    
-      }
-    
-    }
+    val store = String.format("""%s/%s/%s/1""",ctx.getBase,name,uid)                
+    tableCPF.saveAsParquetFile(store)
 
   }  
   /*
