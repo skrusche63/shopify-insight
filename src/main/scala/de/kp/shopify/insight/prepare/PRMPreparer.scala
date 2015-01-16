@@ -45,7 +45,7 @@ class PRMPreparer(ctx:RequestContext,orders:RDD[InsightOrder]) extends BasePrepa
      * bought together; to this end, we filter those transactions
      * with more than one item purchased 
      */
-    val ds = orders.filter(x => x.items.size > 1).flatMap(x => x.items.map(v => (x.site,x.user,x.group,v.item)))
+    val ds = orders.filter(x => x.items.size > 1).flatMap(x => x.items.map(v => (x.site,x.user,x.timestamp,x.group,v.item)))
     /*
      * STEP #1: Restrict the purchase orders to those records that match
      * the provided customer type. In case of customer type = '0', the 
@@ -61,7 +61,7 @@ class PRMPreparer(ctx:RequestContext,orders:RDD[InsightOrder]) extends BasePrepa
        * have to be taken into account when computing the item
        * segmentation 
        */
-      ds.map(x => ParquetASR(x._1,x._2,x._3,x._4))
+      ds.map(x => ParquetASR(x._1,x._2,x._3,x._4,x._5))
 
     } else {
       /*
@@ -69,15 +69,15 @@ class PRMPreparer(ctx:RequestContext,orders:RDD[InsightOrder]) extends BasePrepa
        * and filter those customers that match the provided customer type
        */
       val parquetCST = readCST(uid).filter(x => x._2 == ctype.value)      
-      ds.map(x => ((x._1,x._2),(x._3,x._4))).join(parquetCST).map(x => {
+      ds.map(x => ((x._1,x._2),(x._3,x._4,x._5))).join(parquetCST).map{
 
-    	val ((site,user),((group,item),rfm_type)) = x
+        case ((site,user),((timestamp,group,item),rfm_type)) =>
     	/*
     	 * Note, that we replace the 'user' by the respective rfm_type
     	 */
-    	ParquetASR(site,rfm_type.toString,group,item)
+    	ParquetASR(site,rfm_type.toString,timestamp,group,item)
 
-      })
+      }
     })               
     /* 
      * The RDD is implicitly converted to a SchemaRDD by createSchemaRDD, 

@@ -72,10 +72,9 @@ class LoaderService(val appName:String) extends SparkService {
       compactUsage = true,
       preUsage = Some("Version %s. Copyright (c) 2015, %s.".format("1.0","Dr. Krusche & Partner PartG"))
     )
-    
-    /*
-     * The 'uid' parameter must be provided with the -uid option
-     */
+
+    val site = parser.option[String](List("key"),"key","Unique application key")
+
     val uid = parser.option[String](List("uid"),"uid","Unique preparation identifier")
     val job = parser.option[String](List("job"),"job","Unique job descriptor")
 
@@ -84,18 +83,23 @@ class LoaderService(val appName:String) extends SparkService {
     parser.parse(args)
       
     /* Validate parameters */
+    if (site.hasValue == false)
+      throw new Exception("Parameter 'key' is missing.")
+
     if (uid.hasValue == false)
       throw new Exception("Parameter 'uid' is missing.")
     
     if (job.hasValue == false)
       throw new Exception("Parameter 'job' is missing.")
   
-    val jobs = List("CLS","CPF","CPP","LOC","POM","PPF","PRM","RFM")
+    val jobs = List("CLS","CPF","CPP","CPR","LOC","POM","PPF","PRM","RFM")
     if (jobs.contains(job.value.get) == false)
-      throw new Exception("Job parameter must be one of [CLS, CPF, CPP, LOC, POM, PPF, PRM, RFM].")
+      throw new Exception("Job parameter must be one of [CLS, CPF, CPP, CPR, LOC, POM, PPF, PRM, RFM].")
      
     /* Collect parameters */
     val params = HashMap.empty[String,String]
+     
+    params += "site" -> site.value.get
      
     params += "uid" -> uid.value.get
     params += "job" -> job.value.get

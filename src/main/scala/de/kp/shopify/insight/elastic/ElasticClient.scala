@@ -150,6 +150,11 @@ class ElasticClient {
 
         val builder = new EsCPPBuilder().createBuilder(mapping)
         create(index,mapping,builder)
+       
+      } else if (topic == "CPR") {
+
+        val builder = new EsCPRBuilder().createBuilder(mapping)
+        create(index,mapping,builder)
       
       } else if (topic == "LOC") {
 

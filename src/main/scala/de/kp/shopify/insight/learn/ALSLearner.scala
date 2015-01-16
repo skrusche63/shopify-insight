@@ -58,7 +58,6 @@ class ALSLearner(ctx:RequestContext,params:Map[String,String]) extends BaseActor
       
       val start = new java.util.Date().getTime.toString            
       ctx.listener ! String.format("""[INFO][UID: %s] %s learning request received at %s.""",uid,name,start)
-     
       
       try {
     
@@ -120,7 +119,7 @@ class ALSLearner(ctx:RequestContext,params:Map[String,String]) extends BaseActor
         val modelMF = new MFModel(rank,rmse,model.userFeatures,model.productFeatures)
 
         val store = String.format("""%s/%s/%s/2""",ctx.getBase,name,uid)         
-        new MFUtil(ctx.sparkContext).writeModel(store, modelMF)
+        new MFUtil(ctx.sparkContext).write(store,udict.value.lookup,idict.value.lookup,modelMF)
 
         val end = new java.util.Date().getTime.toString
         ctx.listener ! String.format("""[INFO][UID: %s] %s learning finished at %s.""",uid,end)

@@ -91,19 +91,15 @@ case class PrepareFinished(data:Map[String,String])
 
 /****************************************************************************
  * 
- *                      SUB PROCESS 'BUILD'
+ *                      SUB PROCESS 'LEARN'
  * 
  ***************************************************************************/
 
-/**
- * StartBuild specifies a message sent from the DataPipeline actor to the remote 
- * builder to initiate a data mining or model building task
- */
-case class StartBuild()
+case class StartLearn()
 
-case class BuildFailed(data:Map[String,String])
+case class LearnFailed(data:Map[String,String])
 
-case class BuildFinished(data:Map[String,String])
+case class LearnFinished(data:Map[String,String])
 
 /****************************************************************************
  * 
@@ -111,7 +107,7 @@ case class BuildFinished(data:Map[String,String])
  * 
  ***************************************************************************/
 
-case class StartEnrich(data:Map[String,String])
+case class StartEnrich()
 
 case class EnrichFailed(data:Map[String,String])
 
@@ -119,11 +115,23 @@ case class EnrichFinished(data:Map[String,String])
 
 /****************************************************************************
  * 
+ *                      SUB PROCESS 'PREDICT'
+ * 
+ ***************************************************************************/
+
+case class StartPredict()
+
+case class PredictFailed(data:Map[String,String])
+
+case class PredictFinished(data:Map[String,String])
+
+/****************************************************************************
+ * 
  *                      SUB PROCESS 'PROFILE'
  * 
  ***************************************************************************/
 
-case class StartProfile(data:Map[String,String])
+case class StartProfile()
 
 case class ProfileFailed(data:Map[String,String])
 
@@ -135,7 +143,7 @@ case class ProfileFinished(data:Map[String,String])
  * 
  ***************************************************************************/
 
-case class StartLoad(data:Map[String,String])
+case class StartLoad()
 
 case class LoadFailed(data:Map[String,String])
 

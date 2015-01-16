@@ -116,7 +116,7 @@ class DataPipeline(requestCtx:RequestContext) extends BaseActor(requestCtx) {
       //actor ! StartBuild(message.data)
       
     }    
-    case message:BuildFailed => {
+    case message:LearnFailed => {
       /*
        * The DataBuilder actors (ASR,STM and HSM) already sent an error message to 
        * the message listener; no additional notification has to be done, so just 
@@ -125,7 +125,7 @@ class DataPipeline(requestCtx:RequestContext) extends BaseActor(requestCtx) {
       context.stop(self)
       
     }    
-    case message:BuildFinished => {
+    case message:LearnFinished => {
       /*
        * This message is sent by the DataBuilder actor and indicates that the model
        * building sub process has been successfully finished. Note, that this actor 
@@ -141,8 +141,8 @@ class DataPipeline(requestCtx:RequestContext) extends BaseActor(requestCtx) {
        * 
        *********************************************************************/
       
-      val actor = context.actorOf(Props(new DataEnricher(requestCtx)))  
-      actor ! StartEnrich(message.data)
+//      val actor = context.actorOf(Props(new DataEnricher(requestCtx)))  
+//      actor ! StartEnrich(message.data)
       
     }
     case message:EnrichFailed => {
@@ -162,11 +162,11 @@ class DataPipeline(requestCtx:RequestContext) extends BaseActor(requestCtx) {
        * 
        *******************************************************************/
          
-      val user_profiler = context.actorOf(Props(new UserProfiler(requestCtx)))
-      user_profiler ! StartProfile(message.data)
-         
-      val product_profiler = context.actorOf(Props(new ProductProfiler(requestCtx)))  
-      product_profiler ! StartProfile(message.data)
+//      val user_profiler = context.actorOf(Props(new UserProfiler(requestCtx)))
+//      user_profiler ! StartProfile(message.data)
+//         
+//      val product_profiler = context.actorOf(Props(new ProductProfiler(requestCtx)))  
+//      product_profiler ! StartProfile(message.data)
       
     }
     case message:ProfileFailed => {

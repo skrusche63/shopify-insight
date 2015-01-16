@@ -75,6 +75,8 @@ class PreparerService(val appName:String) extends SparkService {
       compactUsage = true,
       preUsage = Some("Version %s. Copyright (c) 2015, %s.".format("1.0","Dr. Krusche & Partner PartG"))
     )
+
+    val site = parser.option[String](List("key"),"key","Unique application key")
     
     val uid = parser.option[String](List("uid"),"uid","Unique preparation identifier")
     val job = parser.option[String](List("job"),"job","Unique job descriptor")
@@ -90,6 +92,9 @@ class PreparerService(val appName:String) extends SparkService {
     parser.parse(args)
       
     /* Validate parameters */
+    if (site.hasValue == false)
+      throw new Exception("Parameter 'key' is missing.")
+
     if (uid.hasValue == false)
       throw new Exception("Parameter 'uid' is missing.")
     
@@ -108,6 +113,8 @@ class PreparerService(val appName:String) extends SparkService {
     
     /* Collect parameters */
     val params = HashMap.empty[String,String]
+     
+    params += "site" -> site.value.get
 
     params += "uid" -> uid.value.get
     params += "job" -> job.value.get

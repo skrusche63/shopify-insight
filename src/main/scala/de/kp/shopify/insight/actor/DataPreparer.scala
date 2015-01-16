@@ -22,7 +22,7 @@ import akka.actor.Props
  import de.kp.spark.core.Names
  import de.kp.shopify.insight._
  import de.kp.shopify.insight.model._
- import de.kp.shopify.spark.ElasticRDD
+ import de.kp.shopify.util.ElasticRDD
  import org.elasticsearch.index.query._
  import org.elasticsearch.common.xcontent.XContentFactory
  import scala.collection.mutable.Buffer

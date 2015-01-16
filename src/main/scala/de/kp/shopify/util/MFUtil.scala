@@ -29,12 +29,17 @@ import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{FileSystem,Path}
 
 private class MFStruct(
-    val rank:Int,val rmse:Double,val ufeat:Array[(Int,Array[Double])],val ifeat:Array[(Int,Array[Double])]
+    val rank:Int,
+    val rmse:Double,
+    val udict:Map[String,Int],
+    val idict:Map[String,Int],
+    val ufeat:Array[(Int,Array[Double])],
+    val ifeat:Array[(Int,Array[Double])]
 ) extends Serializable {}
 
 class MFUtil(@transient sc:SparkContext) extends Serializable {
   
-  def readModel(store:String):MFModel = {
+  def read(store:String):(Map[String,Int],Map[String,Int],MFModel) = {
     
     val conf = new Configuration()
 	val fs = FileSystem.get(conf)
@@ -47,20 +52,28 @@ class MFUtil(@transient sc:SparkContext) extends Serializable {
     val rank = struct.rank
     val rmse = struct.rmse
     
+    val udict = struct.udict
+    val idict = struct.idict
+    
     val ufeat = struct.ufeat
     val ifeat = struct.ifeat
     
-    new MFModel(rank,rmse,sc.parallelize(ufeat),sc.parallelize(ifeat))
+    (udict,idict,new MFModel(rank,rmse,sc.parallelize(ufeat),sc.parallelize(ifeat)))
     
   }
   
-  def writeModel(store:String,model:MFModel) {
+  def write(store:String,udict:Map[String,Int],idict:Map[String,Int],model:MFModel) {
     /*
      * STEP #1: Convert model into MFStruct as RDDs cannot
      * be persisted directly
      */
     val struct = new MFStruct(
-        model.rank,model.rmse,model.userFeatures.collect,model.productFeatures.collect
+        model.rank,
+        model.rmse,
+        udict,
+        idict,
+        model.userFeatures.collect,
+        model.productFeatures.collect
     )
     
     val conf = new Configuration()
