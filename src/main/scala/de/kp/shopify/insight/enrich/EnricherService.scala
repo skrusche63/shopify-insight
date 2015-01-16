@@ -73,6 +73,8 @@ class EnricherService(val appName:String) extends SparkService {
     
     val uid = parser.option[String](List("uid"),"uid","Unique job identifier")
     val job = parser.option[String](List("job"),"job","Unique job descriptor")
+    
+    val customer = parser.option[Int](List("customer"),"customer","Customer type.")
 
     parser.parse(args)
     
@@ -93,6 +95,7 @@ class EnricherService(val appName:String) extends SparkService {
     params += "uid" -> uid.value.get
     params += "job" -> job.value.get
     
+    params += "customer" -> customer.value.getOrElse(0).toString
     params += "timestamp" -> new DateTime().getMillis.toString
 
     params.toMap

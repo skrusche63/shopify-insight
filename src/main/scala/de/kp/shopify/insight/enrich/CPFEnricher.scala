@@ -18,9 +18,6 @@ package de.kp.shopify.insight.enrich
 * If not, see <http://www.gnu.org/licenses/>.
 */
 
-import org.apache.spark.SparkContext
-import org.apache.spark.SparkContext._
-
 import org.apache.spark.rdd.RDD
 
 import de.kp.spark.core.Names
@@ -32,7 +29,6 @@ import de.kp.shopify.insight.actor._
 import de.kp.shopify.insight.model._
 
 import scala.collection.mutable.ArrayBuffer
-import de.kp.shopify.insight.learn.IREHandler
 
 private case class MarkovStep(step:Int,amount:Double,time:Long,state:String,score:Double)
 /**
@@ -74,15 +70,15 @@ class CPFEnricher(ctx:RequestContext,params:Map[String,String]) extends BaseActo
           
         }).collect.toMap)
 
-        val table = tableCPS.flatMap(x => {
+        val tableCPF = tableCPS.flatMap(x => {
       
           val forecasts = buildForecasts(x,lookup.value(x.state))
           forecasts.map(v => ParquetCPF(x.site,x.user,v.step,v.amount,v.time,v.state,v.score))
     
         })
          
-        val store = String.format("""%s/%s/%s/3""",ctx.getBase,name,uid)                
-        table.saveAsParquetFile(store)
+        val store = String.format("""%s/%s/%s/1""",ctx.getBase,name,uid)                
+        tableCPF.saveAsParquetFile(store)
 
         val end = new java.util.Date().getTime.toString
         ctx.listener ! String.format("""[INFO][UID: %s] %s enrichment finished at %s.""",uid,end)
