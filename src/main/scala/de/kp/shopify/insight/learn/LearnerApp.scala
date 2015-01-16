@@ -93,6 +93,8 @@ object LearnerApp extends LearnerService("Learner") {
 
           case "CPS" => context.actorOf(Props(new IRELearner(ctx,params))) 
           
+          case "CPR" => context.actorOf(Props(new ALSLearner(ctx,params))) 
+          
           case "CSA" => context.actorOf(Props(new SAELearner(ctx,params))) 
           
           case "PRM" => context.actorOf(Props(new AAELearner(ctx,params))) 
