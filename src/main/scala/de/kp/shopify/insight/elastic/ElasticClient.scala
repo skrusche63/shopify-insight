@@ -140,6 +140,16 @@ class ElasticClient {
 
         val builder = new EsCLSBuilder().createBuilder(mapping)
         create(index,mapping,builder)
+       
+      } else if (topic == "CPF") {
+
+        val builder = new EsCPFBuilder().createBuilder(mapping)
+        create(index,mapping,builder)
+       
+      } else if (topic == "CPP") {
+
+        val builder = new EsCPPBuilder().createBuilder(mapping)
+        create(index,mapping,builder)
       
       } else if (topic == "LOC") {
 
@@ -164,20 +174,6 @@ class ElasticClient {
       } else if (topic == "RFM") {
 
         val builder = new EsRFMBuilder().createBuilder(mapping)
-        create(index,mapping,builder)
-       
-      } else if (topic == "UFM") {
-
-        val builder = new EsUFMBuilder().createBuilder(mapping)
-        create(index,mapping,builder)
-       
-      } else if (topic == "profile") {
-        /*
-         * Topic 'profile' is indexed by user profiler and does not require a
-         * metadata specification as these data are not shared with predictive
-         * engines
-         */
-        val builder = new ElasticProfileBuilder().createBuilder(mapping)
         create(index,mapping,builder)
           
       } else if (topic == "recommendation") {

@@ -25,7 +25,7 @@ import de.kp.spark.core.Names
 import scala.collection.JavaConversions._
 import scala.collection.mutable.HashMap
 
-class EsUFMBuilder {
+class EsCPFBuilder {
 
   import de.kp.spark.core.Names._
   
@@ -71,7 +71,7 @@ class EsUFMBuilder {
 
                 /* amount */
                 .startObject(AMOUNT_FIELD)
-                  .field("type", "float")
+                  .field("type", "double")
                 .endObject()
 
                 /* time */
