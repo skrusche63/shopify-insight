@@ -34,26 +34,30 @@ import de.kp.shopify.insight.model._
 import de.kp.shopify.insight.elastic._
 import org.elasticsearch.common.xcontent.{XContentBuilder,XContentFactory}
 
-class UFMLoader(ctx:RequestContext) extends BaseLoader(ctx) {
+/**
+ * CPFLoader class loads the results of the CPFEnricher
+ * into the customers/forecasts index.
+ */
+class CPFLoader(ctx:RequestContext,params:Map[String,String]) extends BaseLoader(ctx,params) {
 
   override def load(params:Map[String,String]) {
 
     val uid = params(Names.REQ_UID)
     val name = params(Names.REQ_NAME)
     
-    val store = String.format("""%s/%s/%s""",ctx.getBase,name,uid)         
+    val store = String.format("""%s/%s/%s/1""",ctx.getBase,name,uid)         
     val parquetFile = extract(store)
 
     ctx.listener ! String.format("""[INFO][UID: %s] Parquet file successfully retrieved.""",uid)
         
     val sources = transform(params,parquetFile)
 
-    if (ctx.putSources("users","forecasts",sources) == false)
+    if (ctx.putSources("customers","forecasts",sources) == false)
       throw new Exception("Loading process has been stopped due to an internal error.")
     
   }
 
-  private def extract(store:String):RDD[ParquetUFM] = {
+  private def extract(store:String):RDD[ParquetCPF] = {
    
     /* 
      * Read in the parquet file created above.  Parquet files are self-describing 
@@ -85,16 +89,16 @@ class UFMLoader(ctx:RequestContext) extends BaseLoader(ctx) {
       val amount = data("amount").asInstanceOf[Double]
       val time = data("time").asInstanceOf[Long]
 
-      val state = data("state").asInstanceOf[String]
+      val rm_state = data("rm_state").asInstanceOf[String]
       val score = data("score").asInstanceOf[Double]
       
-      ParquetUFM(site,user,step,amount,time,state,score)    
+      ParquetCPF(site,user,step,amount,time,rm_state,score)    
 
     })
 
   }
 
-  private def transform(params:Map[String,String],forecasts:RDD[ParquetUFM]):List[XContentBuilder] = {
+  private def transform(params:Map[String,String],forecasts:RDD[ParquetCPF]):List[XContentBuilder] = {
 
     val uid = params(Names.REQ_UID)
    
@@ -129,7 +133,7 @@ class UFMLoader(ctx:RequestContext) extends BaseLoader(ctx) {
       builder.field("time",x.time)
         
       /* state */
-      builder.field("state",x.state)
+      builder.field("state",x.rm_state)
         
       /* score */
       builder.field("score",x.score)

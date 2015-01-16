@@ -47,3 +47,44 @@ The result is a time series of geospatial data for every single customer.
 
 The loader results can directly be used to visualize the geospatial purchase behavior of every individual
 customer on a geospatial map, or, customers can be aggregated by their countries, regions or cities.
+
+---
+
+### Customer Purchase Forecast (CPF)
+
+##### How it works
+
+The *enrich* subsystem evaluates the customer purchase process model for every single customer 
+and determines the most likely next purchase amounts and times, n steps ahead. It also specifies
+the most probable next recency & monetary states segments the customer can be assigned to. 
+
+The enricher stores the purchase forecast data as a Parquet file on the file system and enables other 
+applications to leverage the data.
+
+The *loader* subsystem extracts the Parquet file, transforms the content into JSON documents and
+indexes these documents in an Elasticsearch index.
+
+The result is a time series of purchase forecast data for every single customer.
+
+##### Usage
+
+The loader results can directly be used to visualize the purchase forecast data of every individual
+customer, or, customers can be aggregated e.g. by their next most probable purchase times to feed 
+targeting campaigns.
+
+---
+
+### Customer Segment Profile (RFM)
+
+---
+
+### Purchase Overview Metric (POM)
+
+---
+
+### Purchase Frequency Profile (PPF)
+
+---
+
+### Product Relation Model (PRM)
+

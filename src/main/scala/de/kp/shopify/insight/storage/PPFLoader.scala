@@ -33,15 +33,18 @@ import de.kp.shopify.insight.model._
 
 import de.kp.shopify.insight.elastic._
 import org.elasticsearch.common.xcontent.{XContentBuilder,XContentFactory}
-
-class PPFLoader(ctx:RequestContext) extends BaseLoader(ctx) {
+/**
+ * PPFLoader class loads the results of the PPFPreparer
+ * into the products/segments index.
+ */
+class PPFLoader(ctx:RequestContext,params:Map[String,String]) extends BaseLoader(ctx,params) {
 
   override def load(params:Map[String,String]) {
 
     val uid = params(Names.REQ_UID)
     val name = params(Names.REQ_NAME)
     
-    val store = String.format("""%s/%s/%s""",ctx.getBase,name,uid)         
+    val store = String.format("""%s/%s/%s/1""",ctx.getBase,name,uid)         
     val parquetFile = extract(store)
 
     ctx.listener ! String.format("""[INFO][UID: %s] Parquet file successfully retrieved.""",uid)

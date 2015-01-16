@@ -33,22 +33,25 @@ import de.kp.shopify.insight.model._
 
 import de.kp.shopify.insight.elastic._
 import org.elasticsearch.common.xcontent.{XContentBuilder,XContentFactory}
-
-class CLSLoader (ctx:RequestContext) extends BaseLoader(ctx) {
+/**
+ * CLSLoader class directly loads the results of the CLSPreparer
+ * into the customers/loyalties index.
+ */
+class CLSLoader (ctx:RequestContext,params:Map[String,String]) extends BaseLoader(ctx,params) {
 
   override def load(params:Map[String,String]) {
 
     val uid = params(Names.REQ_UID)
     val name = params(Names.REQ_NAME)
     
-    val store = String.format("""%s/%s/%s""",ctx.getBase,name,uid)         
+    val store = String.format("""%s/%s/%s/1""",ctx.getBase,name,uid)         
     val parquetFile = extract(store)
 
     ctx.listener ! String.format("""[INFO][UID: %s] Parquet file successfully retrieved.""",uid)
         
     val sources = transform(params,parquetFile)
 
-    if (ctx.putSources("users","loyalties",sources) == false)
+    if (ctx.putSources("customers","loyalties",sources) == false)
       throw new Exception("Loading process has been stopped due to an internal error.")
     
   }
@@ -56,7 +59,7 @@ class CLSLoader (ctx:RequestContext) extends BaseLoader(ctx) {
   private def extract(store:String):RDD[ParquetCLS] = {
     
     /* 
-     * Read in the parquet file created above.  Parquet files are self-describing 
+     * Read in the parquet file created above. Parquet files are self-describing 
      * so the schema is preserved. The result of loading a Parquet file is also a 
      * SchemaRDD. 
      */

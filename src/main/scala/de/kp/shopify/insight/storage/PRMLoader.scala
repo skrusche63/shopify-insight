@@ -35,24 +35,24 @@ import de.kp.shopify.insight.elastic._
 import org.elasticsearch.common.xcontent.{XContentBuilder,XContentFactory}
 
 /**
- * The PRMLoader stores the product relation model in the server layer,
- * i.e. in an Elasticsearch index.
+ * PRMLoader class loads the results of the PRMLearner
+ * into the products/relations index.
  */
-class PRMLoader(ctx:RequestContext) extends BaseLoader(ctx) {
+class PRMLoader(ctx:RequestContext,params:Map[String,String]) extends BaseLoader(ctx,params) {
 
   override def load(params:Map[String,String]) {
 
     val uid = params(Names.REQ_UID)
     val name = params(Names.REQ_NAME)
     
-    val store = String.format("""%s/%s/%s""",ctx.getBase,name,uid)         
+    val store = String.format("""%s/%s/%s/2""",ctx.getBase,name,uid)         
     val parquetFile = extract(store)
 
     ctx.listener ! String.format("""[INFO][UID: %s] Parquet file successfully retrieved.""",uid)
         
     val sources = transform(params,parquetFile)
 
-    if (ctx.putSources("products","rules",sources) == false)
+    if (ctx.putSources("products","relations",sources) == false)
       throw new Exception("Loading process has been stopped due to an internal error.")
     
   }

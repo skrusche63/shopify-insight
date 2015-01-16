@@ -35,24 +35,24 @@ import de.kp.shopify.insight.elastic._
 import org.elasticsearch.common.xcontent.{XContentBuilder,XContentFactory}
 
 /**
- * The LOCLoader stores the customers' movement profile in the server layer,
- * i.e. in an Elasticsearch index.
+ * LOCLoader class directly loads the results of the LOCPreparer
+ * into the customers/locations index.
  */
-class LOCLoader(ctx:RequestContext) extends BaseLoader(ctx) {
+class LOCLoader(ctx:RequestContext,params:Map[String,String]) extends BaseLoader(ctx,params) {
 
   override def load(params:Map[String,String]) {
 
     val uid = params(Names.REQ_UID)
     val name = params(Names.REQ_NAME)
     
-    val store = String.format("""%s/%s/%s""",ctx.getBase,name,uid)         
+    val store = String.format("""%s/%s/%s/1""",ctx.getBase,name,uid)         
     val parquetFile = extract(store)
 
     ctx.listener ! String.format("""[INFO][UID: %s] Parquet file successfully retrieved.""",uid)
         
     val sources = transform(params,parquetFile)
 
-    if (ctx.putSources("users","locations",sources) == false)
+    if (ctx.putSources("customers","locations",sources) == false)
       throw new Exception("Loading process has been stopped due to an internal error.")
     
   }

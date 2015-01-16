@@ -25,13 +25,13 @@ import de.kp.shopify.insight.RequestContext
 import de.kp.shopify.insight.actor._
 import de.kp.shopify.insight.model._
 
-abstract class BaseLoader(ctx:RequestContext) extends BaseActor(ctx) {
+abstract class BaseLoader(ctx:RequestContext,params:Map[String,String]) extends BaseActor(ctx) {
 
   override def receive = {
    
     case message:StartLoad => {
       
-      val req_params = message.data
+      val req_params = params
       
       val uid = req_params(Names.REQ_UID)
       val name = req_params(Names.REQ_NAME)
@@ -54,7 +54,7 @@ abstract class BaseLoader(ctx:RequestContext) extends BaseActor(ctx) {
 
           ctx.listener ! String.format("""[ERROR][UID: %s] %s loading failed due to an internal error.""",uid,name)
           
-          val params = Map(Names.REQ_MESSAGE -> e.getMessage) ++ message.data
+          val params = Map(Names.REQ_MESSAGE -> e.getMessage) ++ req_params
 
           context.parent ! LoadFailed(params)            
           context.stop(self)
