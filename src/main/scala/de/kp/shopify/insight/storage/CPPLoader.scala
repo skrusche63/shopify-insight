@@ -33,12 +33,13 @@ import de.kp.shopify.insight.model._
 
 import de.kp.shopify.insight.elastic._
 import org.elasticsearch.common.xcontent.{XContentBuilder,XContentFactory}
-/**
- * CLSLoader class directly loads the results of the CLSPreparer
- * into the customers/loyalties index.
- */
-class CLSLoader(ctx:RequestContext,params:Map[String,String]) extends BaseLoader(ctx,params) {
 
+/**
+ * CPPLoader class loads the results of the CPPProfiler
+ * into the customers/personas index.
+ */
+class CPPLoader(ctx:RequestContext,params:Map[String,String]) extends BaseLoader(ctx,params) {
+  
   override def load(params:Map[String,String]) {
 
     val uid = params(Names.REQ_UID)
@@ -51,12 +52,12 @@ class CLSLoader(ctx:RequestContext,params:Map[String,String]) extends BaseLoader
         
     val sources = transform(params,parquetFile)
 
-    if (ctx.putSources("customers","loyalties",sources) == false)
+    if (ctx.putSources("customers","personas",sources) == false)
       throw new Exception("Loading process has been stopped due to an internal error.")
     
   }
 
-  private def extract(store:String):RDD[ParquetCLS] = {
+  private def extract(store:String):RDD[ParquetCPP] = {
     
     /* 
      * Read in the parquet file created above. Parquet files are self-describing 
@@ -83,19 +84,36 @@ class CLSLoader(ctx:RequestContext,params:Map[String,String]) extends BaseLoader
       val site = data("site").asInstanceOf[String]
       val user = data("user").asInstanceOf[String]
       
-      val amount = data("amount").asInstanceOf[Double]
-      val timespan = data("timespan").asInstanceOf[Int]
+      val d_type = data("d_type").asInstanceOf[Int]
+      val d_distance = data("d_distance").asInstanceOf[Double]
+      
+      val h_type = data("h_type").asInstanceOf[Int]
+      val h_distance = data("h_distance").asInstanceOf[Double]
+      
+      val r_type = data("r_type").asInstanceOf[Int]
+      val r_distance = data("r_distance").asInstanceOf[Double]
+      
+      val p_type = data("p_type").asInstanceOf[Int]
+      val p_distance = data("p_distance").asInstanceOf[Double]
 
-      val loyalty = data("loyalty").asInstanceOf[Integer]
-      val rfm_type = data("rfm_type").asInstanceOf[Int]
-
-      ParquetCLS(site,user,amount,timespan,loyalty,rfm_type)
+      ParquetCPP(
+          site,
+          user,
+          d_type,
+          d_distance,
+          h_type,
+          h_distance,
+          r_type,
+          r_distance,
+          p_type,
+          p_distance
+      )
       
     })
     
   }
   
-  private def transform(params:Map[String,String],dataset:RDD[ParquetCLS]):List[XContentBuilder] = {
+  private def transform(params:Map[String,String],dataset:RDD[ParquetCPP]):List[XContentBuilder] = {
             
     dataset.map(x => {
       
@@ -113,22 +131,34 @@ class CLSLoader(ctx:RequestContext,params:Map[String,String]) extends BaseLoader
 	  /* site */
       builder.field(Names.SITE_FIELD,x.site)
       
-      /********** USER DATA **********/
+      /********** PERSONA DATA **********/
 	  
 	  /* user */
       builder.field(Names.USER_FIELD,x.user)
 
-	  /* amount */
-	  builder.field("amount",x.amount)
+	  /* d_type */
+	  builder.field("d_type",x.d_type)
 
-	  /* recency */
-	  builder.field("recency",x.timespan)
+	  /* d_distance */
+	  builder.field("d_distance",x.d_distance)
 
-	  /* loyalty */
-	  builder.field("churner",x.loyalty)
+	  /* h_type */
+	  builder.field("h_type",x.h_type)
 
-	  /* customer_type */
-	  builder.field("customer_type",x.rfm_type)
+	  /* h_distance */
+	  builder.field("h_distance",x.h_distance)
+
+	  /* r_type */
+	  builder.field("r_type",x.r_type)
+
+	  /* r_distance */
+	  builder.field("r_distance",x.r_distance)
+
+	  /* p_type */
+	  builder.field("p_type",x.p_type)
+
+	  /* p_distance */
+	  builder.field("p_distance",x.p_distance)
 	  
 	  builder.endObject()
 	  
@@ -137,5 +167,5 @@ class CLSLoader(ctx:RequestContext,params:Map[String,String]) extends BaseLoader
       
     }).collect.toList
   }
- 
+
 }

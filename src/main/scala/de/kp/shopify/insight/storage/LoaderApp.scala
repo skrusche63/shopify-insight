@@ -98,6 +98,8 @@ object LoaderApp extends LoaderService("Loader") {
           
           case "CPF" => context.actorOf(Props(new CPFLoader(ctx,params))) 
           
+          case "CPP" => context.actorOf(Props(new CPPLoader(ctx,params))) 
+          
           case "LOC" => context.actorOf(Props(new LOCLoader(ctx,params))) 
           
           case "POM" => context.actorOf(Props(new POMLoader(ctx,params))) 

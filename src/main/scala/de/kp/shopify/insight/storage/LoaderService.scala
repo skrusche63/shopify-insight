@@ -90,9 +90,9 @@ class LoaderService(val appName:String) extends SparkService {
     if (job.hasValue == false)
       throw new Exception("Parameter 'job' is missing.")
   
-    val jobs = List("CLS","CPF","LOC","POM","PPF","PRM","RFM")
+    val jobs = List("CLS","CPF","CPP","LOC","POM","PPF","PRM","RFM")
     if (jobs.contains(job.value.get) == false)
-      throw new Exception("Job parameter must be one of [CLS, CPF, LOC, POM, PPF, PRM, RFM].")
+      throw new Exception("Job parameter must be one of [CLS, CPF, CPP, LOC, POM, PPF, PRM, RFM].")
      
     /* Collect parameters */
     val params = HashMap.empty[String,String]
@@ -173,6 +173,9 @@ class LoaderService(val appName:String) extends SparkService {
      * that holds synchronized aggregated order data relevant for the 
      * insight server
      * 
+     * The 'persona' index (mapping) specifies the customer persona database 
+     * due to the learned clusters from CDA, CHA, CPA and CSA
+     * 
      * The 'recommendation' index (mapping) specifies a product recommendation
      * database derived from the Association rules and the last items purchased
      * 
@@ -201,18 +204,21 @@ class LoaderService(val appName:String) extends SparkService {
       throw new Exception("Index creation for 'products/segments' has been stopped due to an internal error.")
  
     /********** CUSTOMERS ******/
-            
-    if (ctx.createIndex(params,"customers","loyalties","CLS") == false)
-      throw new Exception("Index creation for 'users/loyalties' has been stopped due to an internal error.")
-
-    if (ctx.createIndex(params,"customers","locations","LOC") == false)
-      throw new Exception("Index creation for 'users/locations' has been stopped due to an internal error.")
-            
-    if (ctx.createIndex(params,"customers","segments","RFM") == false)
-      throw new Exception("Index creation for 'users/segments' has been stopped due to an internal error.")
     
     if (ctx.createIndex(params,"customers","forecasts","CPF") == false)
-      throw new Exception("Index creation for 'users/forecasts' has been stopped due to an internal error.")
+      throw new Exception("Index creation for 'customers/forecasts' has been stopped due to an internal error.")
+
+    if (ctx.createIndex(params,"customers","locations","LOC") == false)
+      throw new Exception("Index creation for 'customers/locations' has been stopped due to an internal error.")
+            
+    if (ctx.createIndex(params,"customers","loyalties","CLS") == false)
+      throw new Exception("Index creation for 'customers/loyalties' has been stopped due to an internal error.")
+
+    if (ctx.createIndex(params,"customers","personas","CPP") == false)
+      throw new Exception("Index creation for 'customers/personas' has been stopped due to an internal error.")
+            
+    if (ctx.createIndex(params,"customers","segments","RFM") == false)
+      throw new Exception("Index creation for 'customers/segments' has been stopped due to an internal error.")
 
     // TODO
             
