@@ -1,4 +1,4 @@
-package de.kp.shopify.insight.elastic
+package de.kp.shopify.elastic
 /* Copyright (c) 2014 Dr. Krusche & Partner PartG
 * 
 * This file is part of the Shopify-Insight project
@@ -20,81 +20,60 @@ package de.kp.shopify.insight.elastic
 
 import org.elasticsearch.common.xcontent.{XContentBuilder,XContentFactory}
 
-import de.kp.spark.core.Names
-
-import scala.collection.JavaConversions._
-import scala.collection.mutable.HashMap
-
-class EsCPFBuilder {
+class EsRFM_FBuilder {
 
   import de.kp.spark.core.Names._
   
   def createBuilder(mapping:String):XContentBuilder = {
-
+    
     val builder = XContentFactory.jsonBuilder()
           .startObject()
             .startObject(mapping)
+              
               .startObject("properties")
                 
                 /********** METADATA **********/
-
-                /* uid */
-                .startObject(UID_FIELD)
-                  .field("type", "string")
-                  .field("index", "not_analyzed")
-                .endObject()
-                
-                /* timestamp */
-                .startObject(TIMESTAMP_FIELD)
-                  .field("type", "long")
-                  .field("index", "not_analyzed")
-                .endObject()
                     
                 /* site */
                 .startObject(SITE_FIELD)
-                  .field("type", "string")
-                  .field("index", "not_analyzed")
+                   .field("type", "string")
+                   .field("index", "not_analyzed")
                 .endObject()
                 
                 /********** FORECAST DATA **********/
 
-                /* user */
-                .startObject(USER_FIELD)
-                  .field("type", "string")
-                  .field("index", "not_analyzed")
+                /* recency */
+                .startObject("recency")
+                   .field("type", "integer")
                 .endObject()
-               
-                /* step */
-                .startObject(STEP_FIELD)
-                  .field("type", "integer")
+
+                /* frequency */
+                .startObject("frequency")
+                   .field("type", "integer")
                 .endObject()
 
                 /* amount */
-                .startObject(AMOUNT_FIELD)
+                .startObject("amount")
                   .field("type", "double")
                 .endObject()
 
-                /* time */
-                .startObject(TIME_FIELD)
+                /* timestamp */
+                .startObject("timestamp")
                   .field("type", "long")
                 .endObject()
 
-                /* state */
-                .startObject(STATE_FIELD)
-                  .field("type", "string")
+                /* customer_type */
+                .startObject("customer_type")
+                  .field("type", "integer")
                 .endObject()
-               
-                /* score */
-                .startObject(SCORE_FIELD)
-                  .field("type", "double")
-                .endObject()
-
-              .endObject() // properties
-            .endObject()   // mapping
+             
+              .endObject()
+              
+            .endObject()
           .endObject()
-                    
+    
     builder
-
+  
   }
 
 }

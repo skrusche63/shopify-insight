@@ -18,7 +18,7 @@ package de.kp.shopify.insight
  * If not, see <http://www.gnu.org/licenses/>.
  */
 
-class ShopifyConfiguration(endpoint:String,apikey:String,password:String) {
+class StoreConfig(endpoint:String,apikey:String,password:String) {
 
   def getEndpoint():String = endpoint
 

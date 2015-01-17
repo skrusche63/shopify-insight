@@ -1,4 +1,4 @@
-package de.kp.shopify.insight.elastic
+package de.kp.shopify.elastic
 /* Copyright (c) 2014 Dr. Krusche & Partner PartG
 * 
 * This file is part of the Shopify-Insight project
@@ -25,7 +25,7 @@ import de.kp.spark.core.Names
 import scala.collection.JavaConversions._
 import scala.collection.mutable.HashMap
 
-class EsPPFBuilder {
+class EsCPPBuilder {
 
   import de.kp.spark.core.Names._
   
@@ -35,7 +35,7 @@ class EsPPFBuilder {
           .startObject()
             .startObject(mapping)
               .startObject("properties")
-      
+                
                 /********** METADATA **********/
 
                 /* uid */
@@ -49,29 +49,61 @@ class EsPPFBuilder {
                   .field("type", "long")
                   .field("index", "not_analyzed")
                 .endObject()
-      
-                /********** SEGMENT DATA **********/
-
-                /* customer_supp */
-                .startObject("customer_supp")
-                  .field("type", "integer")
+                    
+                /* site */
+                .startObject(SITE_FIELD)
+                  .field("type", "string")
+                  .field("index", "not_analyzed")
                 .endObject()
                
-                /* purchase_supp */
-                .startObject("purchase_supp")
+                /********** PROFILE DATA **********/
+
+                /* user */
+                .startObject(USER_FIELD)
+                  .field("type", "string")
+                  .field("index", "not_analyzed")
+                .endObject()
+               
+                /* d_type */
+                .startObject("d_type")
                   .field("type", "integer")
                 .endObject()
 
-                /* c_segment */
-                .startObject("c_segment")
+                /* d_distance */
+                .startObject("d_distance")
+                  .field("type", "double")
+                .endObject()
+               
+                /* h_type */
+                .startObject("h_type")
                   .field("type", "integer")
                 .endObject()
 
-                /* p_segment */
-                .startObject("p_segment")
+                /* h_distance */
+                .startObject("h_distance")
+                  .field("type", "double")
+                .endObject()
+               
+                /* r_type */
+                .startObject("r_type")
                   .field("type", "integer")
                 .endObject()
-                
+
+                /* r_distance */
+                .startObject("r_distance")
+                  .field("type", "double")
+                .endObject()
+               
+                /* p_type */
+                .startObject("p_type")
+                  .field("type", "integer")
+                .endObject()
+
+                /* p_distance */
+                .startObject("p_distance")
+                  .field("type", "double")
+                .endObject()
+
               .endObject() // properties
             .endObject()   // mapping
           .endObject()

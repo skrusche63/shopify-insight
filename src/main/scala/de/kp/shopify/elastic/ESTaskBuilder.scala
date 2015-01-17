@@ -1,4 +1,4 @@
-package de.kp.shopify.insight.elastic
+package de.kp.shopify.elastic
 /* Copyright (c) 2014 Dr. Krusche & Partner PartG
 * 
 * This file is part of the Shopify-Insight project
@@ -20,60 +20,40 @@ package de.kp.shopify.insight.elastic
 
 import org.elasticsearch.common.xcontent.{XContentBuilder,XContentFactory}
 
-class EsRFM_FBuilder {
-
-  import de.kp.spark.core.Names._
+class ESTaskBuilder {
   
   def createBuilder(mapping:String):XContentBuilder = {
-    
+  
     val builder = XContentFactory.jsonBuilder()
           .startObject()
             .startObject(mapping)
               
-              .startObject("properties")
-                
-                /********** METADATA **********/
-                    
-                /* site */
-                .startObject(SITE_FIELD)
-                   .field("type", "string")
-                   .field("index", "not_analyzed")
-                .endObject()
-                
-                /********** FORECAST DATA **********/
-
-                /* recency */
-                .startObject("recency")
-                   .field("type", "integer")
-                .endObject()
-
-                /* frequency */
-                .startObject("frequency")
-                   .field("type", "integer")
-                .endObject()
-
-                /* amount */
-                .startObject("amount")
-                  .field("type", "double")
-                .endObject()
-
-                /* timestamp */
-                .startObject("timestamp")
-                  .field("type", "long")
-                .endObject()
-
-                /* customer_type */
-                .startObject("customer_type")
-                  .field("type", "integer")
-                .endObject()
-             
+              .startObject("_id")
+                .field("path","key")
               .endObject()
               
-            .endObject()
-          .endObject()
+              .startObject("properties")
+              
+                .startObject("key")
+                   .field("type","string")
+                   .field("index","not_analyzed")
+                .endObject()
+
+                .startObject("task")
+                   .field("type","string")
+                .endObject()
+
+                .startObject("timestamp")
+                   .field("type","long")
+                   .field("index","not_analyzed")
+                .endObject()
+                
+              .endObject()
+              
+            .endObject
+          .endObject
     
     builder
-  
   }
 
 }

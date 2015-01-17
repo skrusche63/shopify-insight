@@ -1,4 +1,4 @@
-package de.kp.shopify.insight.elastic
+package de.kp.shopify.elastic
 /* Copyright (c) 2014 Dr. Krusche & Partner PartG
 * 
 * This file is part of the Shopify-Insight project
@@ -20,7 +20,7 @@ package de.kp.shopify.insight.elastic
 
 import org.elasticsearch.common.xcontent.{XContentBuilder,XContentFactory}
 
-class EsPRDBuilder {
+class EsCSMBuilder {
 
   import de.kp.spark.core.Names._
   
@@ -47,63 +47,62 @@ class EsPRDBuilder {
                    .field("index", "not_analyzed")
                 .endObject()
 
-                /* id */
+                /* 
+                 * id:
+                 * 
+                 * Unique identifier that designates a certain Shopify
+                 * store customer
+                 */
                 .startObject("id")
                    .field("type", "string")
                    .field("index", "not_analyzed")
                 .endObject()
               
-                /* name */
-                .startObject("name")
-                   .field("type", "string")
-                .endObject()
-              
-                /* 
-                 * category:
-                 * 
-                 * The category assigned to a certain product, this field
-                 * can be used to group similar products or to determine
-                 * customer preferences
-                 */
-                .startObject("category")
+                /* first_name */
+                .startObject("first_name")
                    .field("type", "string")
                 .endObject()
 
-                /* tags:
-                 * 
-                 * 'tags' describes a comma separated list of keywords
-                 * that describe a certain product
-                 */
-                .startObject("tags")
+                /* last_name */
+                .startObject("last_name")
                    .field("type", "string")
                 .endObject()
 
-                /* images */
-                .startObject("images")
-                  .startObject("properties")
-
-                    .startObject("id")
-                      .field("type","string")
-                    .endObject
-
-                    .startObject("position")
-                      .field("type","integer")
-                    .endObject
-
-                    .startObject("source")
-                      .field("type","string")
-                    .endObject
-                    
-                .endObject()
-              
-                /* vendor */
-                .startObject("vendor")
+                /* signup_date */
+                .startObject("signup_date")
                    .field("type", "string")
+                .endObject()
+
+                /* last_sync */
+                .startObject("last_sync")
+                   .field("type", "long")
+                   .field("index", "not_analyzed")
                 .endObject()
                 
-              .endObject()
-              
+                /* email */
+                .startObject("email")
+                  .field("type", "string")
+                .endObject()
+
+                /* email_verified */
+                .startObject("email_verified")
+                  .field("type", "boolean")
+                .endObject()
+
+                /* accepts_marketing */
+                .startObject("accepts_marketing")
+                  .field("type", "boolean")
+                .endObject()
+
+                /* operational_state */
+                .startObject("operational_state")
+                  .field("type", "string")
+                .endObject()
+
+              .endObject() // properties
+            
             .endObject()
+          
           .endObject()
     
     builder

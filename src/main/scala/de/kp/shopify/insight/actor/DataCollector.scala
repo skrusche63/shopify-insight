@@ -25,7 +25,7 @@ import de.kp.spark.core.Names
 import de.kp.shopify.insight._
 
 import de.kp.shopify.insight.model._
-import de.kp.shopify.insight.elastic._
+import de.kp.shopify.elastic._
 
 import scala.collection.mutable.ArrayBuffer
 import org.elasticsearch.common.xcontent.{XContentBuilder,XContentFactory}

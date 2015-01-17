@@ -28,7 +28,6 @@ import com.fasterxml.jackson.databind.{Module, ObjectMapper}
 import com.fasterxml.jackson.module.scala.DefaultScalaModule
 
 import de.kp.shopify.insight.model._
-//import de.kp.shopify.insight.util.StringJoiner
 
 import org.slf4j.{Logger,LoggerFactory}
 import de.kp.shopify.insight.model.ShopifyRequest
@@ -36,7 +35,7 @@ import de.kp.shopify.insight.model.ShopifyRequest
 import scala.collection.mutable.HashMap
 import scala.collection.JavaConversions._
 
-class ShopifyClient(configuration:ShopifyConfiguration) {
+class ShopifyClient(configuration:StoreConfig) {
 
   private val LOG = LoggerFactory.getLogger(classOf[ShopifyClient])
 

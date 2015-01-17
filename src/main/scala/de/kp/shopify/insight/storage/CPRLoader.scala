@@ -31,7 +31,6 @@ import de.kp.shopify.insight.RequestContext
 import de.kp.shopify.insight.actor._
 import de.kp.shopify.insight.model._
 
-import de.kp.shopify.insight.elastic._
 import org.elasticsearch.common.xcontent.{XContentBuilder,XContentFactory}
 /**
  * CPRLoader class directly loads the results of the CPREnricher

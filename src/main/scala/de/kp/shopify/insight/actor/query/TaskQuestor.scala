@@ -23,7 +23,7 @@ import de.kp.spark.core.Names
 import de.kp.shopify.insight.RequestContext
 import de.kp.shopify.insight.actor.BaseActor
 
-import de.kp.shopify.insight.elastic._
+import de.kp.shopify.elastic._
 import de.kp.shopify.insight.model._
 
 class TaskQuestor(requestCtx:RequestContext) extends BaseActor(requestCtx) {

@@ -1,4 +1,4 @@
-package de.kp.shopify.insight.elastic
+package de.kp.shopify.elastic
 /* Copyright (c) 2014 Dr. Krusche & Partner PartG
 * 
 * This file is part of the Shopify-Insight project
@@ -20,7 +20,7 @@ package de.kp.shopify.insight.elastic
 
 import org.elasticsearch.common.xcontent.{XContentBuilder,XContentFactory}
 
-class EsPRMBuilder {
+class EsCLSBuilder {
 
   import de.kp.spark.core.Names._
   
@@ -31,7 +31,9 @@ class EsPRMBuilder {
             .startObject(mapping)
               
               .startObject("properties")
-
+               
+               /********** METADATA **********/
+              
                /* uid */
                .startObject(UID_FIELD)
                  .field("type", "string")
@@ -42,30 +44,39 @@ class EsPRMBuilder {
                 .startObject(TIMESTAMP_FIELD)
                   .field("type", "long")
                 .endObject()
-
-                /* antecedent */
-                .startObject(ANTECEDENT_FIELD)
-                  .field("type", "integer")
+                    
+                /* site */
+                .startObject(SITE_FIELD)
+                   .field("type", "string")
+                   .field("index", "not_analyzed")
                 .endObject()
+               
+               /********** USER DATA **********/
 
-                /* consequent */
-                .startObject(CONSEQUENT_FIELD)
-                  .field("type", "integer")
-                .endObject()
+                /* user */
+                .startObject(USER_FIELD)
+                   .field("type", "string")
+                   .field("index", "not_analyzed")
+                .endObject()//
 
-                /* support */
-                .startObject(SUPPORT_FIELD)
-                  .field("type", "integer")
-                .endObject()
-
-                /* total */
-                .startObject(TOTAL_FIELD)
-                  .field("type", "integer")
-                .endObject()
-
-                /* confidence */
-                .startObject(CONFIDENCE_FIELD)
+                /* amount */
+                .startObject("amount")
                   .field("type", "double")
+                .endObject()
+
+                /* recency */
+                .startObject("recency")
+                  .field("type", "integer")
+                .endObject()
+
+                /* loyalty */
+                .startObject("loyalty")
+                  .field("type", "integer")
+                .endObject()
+
+                /* customer_type */
+                .startObject("customer_type")
+                  .field("type", "integer")
                 .endObject()
              
               .endObject()

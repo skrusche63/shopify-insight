@@ -1,4 +1,4 @@
-package de.kp.shopify.insight.elastic
+package de.kp.shopify.elastic
 /* Copyright (c) 2014 Dr. Krusche & Partner PartG
 * 
 * This file is part of the Shopify-Insight project
@@ -20,72 +20,81 @@ package de.kp.shopify.insight.elastic
 
 import org.elasticsearch.common.xcontent.{XContentBuilder,XContentFactory}
 
-class EsCLSBuilder {
+import de.kp.spark.core.Names
+
+import scala.collection.JavaConversions._
+import scala.collection.mutable.HashMap
+
+class EsCPFBuilder {
 
   import de.kp.spark.core.Names._
   
   def createBuilder(mapping:String):XContentBuilder = {
-  
+
     val builder = XContentFactory.jsonBuilder()
           .startObject()
             .startObject(mapping)
-              
               .startObject("properties")
-               
-               /********** METADATA **********/
-              
-               /* uid */
-               .startObject(UID_FIELD)
-                 .field("type", "string")
-                 .field("index", "not_analyzed")
-               .endObject()
+                
+                /********** METADATA **********/
 
+                /* uid */
+                .startObject(UID_FIELD)
+                  .field("type", "string")
+                  .field("index", "not_analyzed")
+                .endObject()
+                
                 /* timestamp */
                 .startObject(TIMESTAMP_FIELD)
                   .field("type", "long")
+                  .field("index", "not_analyzed")
                 .endObject()
                     
                 /* site */
                 .startObject(SITE_FIELD)
-                   .field("type", "string")
-                   .field("index", "not_analyzed")
+                  .field("type", "string")
+                  .field("index", "not_analyzed")
                 .endObject()
-               
-               /********** USER DATA **********/
+                
+                /********** FORECAST DATA **********/
 
                 /* user */
                 .startObject(USER_FIELD)
-                   .field("type", "string")
-                   .field("index", "not_analyzed")
-                .endObject()//
+                  .field("type", "string")
+                  .field("index", "not_analyzed")
+                .endObject()
+               
+                /* step */
+                .startObject(STEP_FIELD)
+                  .field("type", "integer")
+                .endObject()
 
                 /* amount */
-                .startObject("amount")
+                .startObject(AMOUNT_FIELD)
                   .field("type", "double")
                 .endObject()
 
-                /* recency */
-                .startObject("recency")
-                  .field("type", "integer")
+                /* time */
+                .startObject(TIME_FIELD)
+                  .field("type", "long")
                 .endObject()
 
-                /* loyalty */
-                .startObject("loyalty")
-                  .field("type", "integer")
+                /* state */
+                .startObject(STATE_FIELD)
+                  .field("type", "string")
+                .endObject()
+               
+                /* score */
+                .startObject(SCORE_FIELD)
+                  .field("type", "double")
                 .endObject()
 
-                /* customer_type */
-                .startObject("customer_type")
-                  .field("type", "integer")
-                .endObject()
-             
-              .endObject()
-            
-            .endObject()
+              .endObject() // properties
+            .endObject()   // mapping
           .endObject()
-          
+                    
     builder
-    
+
   }
 
 }

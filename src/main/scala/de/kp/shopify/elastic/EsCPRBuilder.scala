@@ -1,4 +1,4 @@
-package de.kp.shopify.insight.elastic
+package de.kp.shopify.elastic
 /* Copyright (c) 2014 Dr. Krusche & Partner PartG
 * 
 * This file is part of the Shopify-Insight project
@@ -25,7 +25,7 @@ import de.kp.spark.core.Names
 import scala.collection.JavaConversions._
 import scala.collection.mutable.HashMap
 
-class EsLOCBuilder {
+class EsCPRBuilder {
 
   import de.kp.spark.core.Names._
   
@@ -35,7 +35,7 @@ class EsLOCBuilder {
           .startObject()
             .startObject(mapping)
               .startObject("properties")
-      
+                
                 /********** METADATA **********/
 
                 /* uid */
@@ -55,8 +55,8 @@ class EsLOCBuilder {
                   .field("type", "string")
                   .field("index", "not_analyzed")
                 .endObject()
-      
-                /********** LOCATION DATA **********/
+               
+                /********** USER DATA **********/
 
                 /* user */
                 .startObject(USER_FIELD)
@@ -64,66 +64,16 @@ class EsLOCBuilder {
                   .field("index", "not_analyzed")
                 .endObject()
                
-                /* ip_address */
-                .startObject("ip_address")
-                  .field("type", "string")
-                .endObject()//
-
-                /* time */
-                .startObject("time")
-                  .field("type", "long")
-                .endObject()
-
-                /* countryname */
-                .startObject("countryname")
-                  .field("type", "string")
-                .endObject()
-
-                /* countrycode */
-                .startObject("countrycode")
-                  .field("type", "string")
-                .endObject()
-
-                /* region */
-                .startObject("region")
-                  .field("type", "string")
-                .endObject()
-
-                /* regionname */
-                .startObject("regionname")
-                  .field("type", "string")
-                .endObject()
-
-                /* areacode */
-                .startObject("areacode")
+                /* item */
+                .startObject("item")
                   .field("type", "integer")
                 .endObject()
 
-                /* dmacode */
-                .startObject("dmacode")
-                  .field("type", "integer")
+                /* score */
+                .startObject("score")
+                  .field("type", "double")
                 .endObject()
 
-                /* metrocode */
-                .startObject("metrocode")
-                  .field("type", "integer")
-                .endObject()
-
-                /* city */
-                .startObject("city")
-                  .field("type", "string")
-                .endObject()
-
-                /* postalcode */
-                .startObject("postalcode")
-                  .field("type", "string")
-                .endObject()
-
-                /* location */
-                .startObject("location")
-                  .field("type", "geo_point")
-                .endObject()
-                
               .endObject() // properties
             .endObject()   // mapping
           .endObject()

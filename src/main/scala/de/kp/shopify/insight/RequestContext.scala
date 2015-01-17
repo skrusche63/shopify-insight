@@ -26,8 +26,9 @@ import akka.actor.ActorRef
 import de.kp.spark.core.Names
 import de.kp.spark.core.model._
 
+import de.kp.shopify.elastic._
+
 import de.kp.shopify.insight.model._
-import de.kp.shopify.insight.elastic._
 
 import scala.collection.mutable.{Buffer,HashMap}
 
@@ -62,11 +63,11 @@ class RequestContext(
    * (application.conf). Configuration is the accessor to this file.
    */
   private val (endpoint, apikey, password) = Configuration.shopify
-  private val shopifyConfig = new ShopifyConfiguration(endpoint,apikey,password)  
+  private val storeConfig = new StoreConfig(endpoint,apikey,password)  
   /*
    * This is the reference to the Shopify REST client
    */
-  private val shopifyClient = new ShopifyClient(shopifyConfig)
+  private val shopifyClient = new ShopifyClient(storeConfig)
   
   private val elasticClient = new ElasticClient()
   /*
@@ -95,7 +96,7 @@ class RequestContext(
   
   def getRemoteContext = remoteContext
   
-  def getShopifyConfig = shopifyConfig
+  def getShopifyConfig = storeConfig
   /*
    * The 'apikey' is used as the 'site' parameter when indexing
    * Shopify data with Elasticsearch

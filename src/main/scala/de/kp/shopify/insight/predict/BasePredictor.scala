@@ -25,9 +25,9 @@ import de.kp.spark.core.Names
 import de.kp.spark.core.model._
 
 import de.kp.shopify.insight.RequestContext
+
 import de.kp.shopify.insight.actor._
 import de.kp.shopify.insight.model._
-import de.kp.shopify.insight.elastic._
 
 abstract class BasePredictor(ctx:RequestContext,params:Map[String,String]) extends BaseActor(ctx) {
   
