@@ -21,7 +21,7 @@ package de.kp.shopify.util
 import org.apache.spark.SparkContext
 import org.apache.spark.rdd.RDD
 
-import org.apache.hadoop.io.{ArrayWritable,FloatWritable,IntWritable,LongWritable,MapWritable,NullWritable,Text}
+import org.apache.hadoop.io.{ArrayWritable,DoubleWritable,IntWritable,LongWritable,MapWritable,NullWritable,Text}
 
 import org.apache.hadoop.conf.{Configuration => HadoopConfig}
 import org.elasticsearch.hadoop.mr.EsInputFormat
@@ -43,6 +43,49 @@ class ElasticRDD(@transient sc:SparkContext) {
     source.map(_._2)
     
   }
+  
+  /**
+   * Convert MapWritable representation of a certain customer
+   * segment into a customer rfm representation
+   */
+  def rfm(rawset:RDD[MapWritable]):RDD[(String,String,Double,Int,Int,Long)] = {
+    
+    rawset.map(x => {
+
+      val entries = x.entrySet().map(kv => {
+        
+        val k = kv.getKey().asInstanceOf[Text].toString
+        val v = kv.getValue() match {
+          
+          case valu:IntWritable => valu.get()
+          case valu:DoubleWritable => valu.get()
+
+          case valu:LongWritable => valu.get()          
+          case valu:Text => valu.toString
+          
+          case _ => throw new Exception("Data type is not supported for orders.")
+          
+        }
+      
+        (k,v)
+        
+      }).toMap
+   
+      val site = entries("site").asInstanceOf[String]
+      val user = entries("user").asInstanceOf[String]
+    
+      val amount = entries("amount").asInstanceOf[Double]
+
+      val recency = entries("recency").asInstanceOf[Int]
+      val frequency = entries("frequency").asInstanceOf[Int]
+      
+      val timestamp = entries("timestamp").asInstanceOf[Long]
+      
+      (site,user,amount,recency,frequency,timestamp)
+      
+    })
+    
+  }
 
   /**
    * Convert MapWritable representation of a certain order into
@@ -58,17 +101,24 @@ class ElasticRDD(@transient sc:SparkContext) {
         val v = kv.getValue() match {
           
           case valu:ArrayWritable => {
-            /* 
-             * This array describes the items of a certain
-             * order and represents a list of (Int,Int)
-             * 
-             */
+
             val array = valu.get
             array.map(record => {
               
               record.asInstanceOf[MapWritable].entrySet().map(entry => {
                 
-                (entry.getKey().asInstanceOf[Text].toString(),entry.getValue().asInstanceOf[IntWritable].get)
+                val sub_k = entry.getKey().asInstanceOf[Text].toString()
+                val sub_v = entry.getValue() match {
+          
+                  case sub_valu:IntWritable => valu.get()
+                  case sub_valu:DoubleWritable => valu.get()
+          
+                  case sub_valu:LongWritable => valu.get()
+                  case sub_valu:Text => valu.toString
+                  
+                }
+                
+                (sub_k,sub_v)
                 
               }).toMap
               
@@ -77,9 +127,11 @@ class ElasticRDD(@transient sc:SparkContext) {
           }
           
           case valu:IntWritable => valu.get()
-          case valu:FloatWritable => valu.get()
+          case valu:DoubleWritable => valu.get()
           
+          case valu:LongWritable => valu.get()
           case valu:Text => valu.toString
+
           case _ => throw new Exception("Data type is not supported for orders.")
           
         }
@@ -97,7 +149,7 @@ class ElasticRDD(@transient sc:SparkContext) {
       val site = entries("site").asInstanceOf[String]
       val user = entries("user").asInstanceOf[String]
     
-      val amount = entries("amount").asInstanceOf[Float]
+      val amount = entries("amount").asInstanceOf[Double]
       val timestamp = entries("timestamp").asInstanceOf[Long]
     
       val group = entries("group").asInstanceOf[String]

@@ -180,14 +180,18 @@ class ElasticClient {
 
         val builder = new EsRFMBuilder().createBuilder(mapping)
         create(index,mapping,builder)
-          
-      } else if (topic == "recommendation") {
-        /*
-         * Topic 'recommendation' is indexed by the loyalty modeler and does not 
-         * require a metadata specification as these data are not shared with 
-         * predictive engines
-         */
-        val builder = new ESRecommendationBuilder().createBuilder(mapping)
+       
+      } 
+      
+      /**********************************************************************
+       * 
+       *                     SUB PROCESS 'PREDICT'
+       *                     
+       *********************************************************************/
+      
+      else if (topic == "RFM_F") {
+
+        val builder = new EsRFM_FBuilder().createBuilder(mapping)
         create(index,mapping,builder)
        
       } 

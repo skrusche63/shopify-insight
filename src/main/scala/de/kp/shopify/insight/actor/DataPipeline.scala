@@ -23,7 +23,6 @@ import akka.actor.Props
 import de.kp.spark.core.Names
 
 import de.kp.shopify.insight._
-import de.kp.shopify.insight.actor.profile._
 
 import de.kp.shopify.insight.model._
 import org.elasticsearch.common.xcontent.{XContentBuilder,XContentFactory}

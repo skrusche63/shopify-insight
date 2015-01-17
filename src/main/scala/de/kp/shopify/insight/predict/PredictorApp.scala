@@ -1,4 +1,4 @@
-package de.kp.shopify.insight.profile
+package de.kp.shopify.insight.predict
 /* Copyright (c) 2014 Dr. Krusche & Partner PartG
 * 
 * This file is part of the Shopify-Insight project
@@ -29,7 +29,7 @@ import de.kp.shopify.insight.model._
 import scala.concurrent.duration.DurationInt
 import scala.collection.mutable.HashMap
 
-object ProfilerApp extends ProfilerService("Profiler") {
+object PredictorApp extends PredictorService("Predictor") {
   
   def main(args:Array[String]) {
 
@@ -41,12 +41,12 @@ object ProfilerApp extends ProfilerService("Profiler") {
       val customer = params("customer")
       
       val req_params = params ++ Map(Names.REQ_NAME -> String.format("""%s-%s""",job,customer))
-     initialize(req_params)
+      initialize(req_params)
 
       val actor = system.actorOf(Props(new Handler(ctx,req_params)))   
       inbox.watch(actor)
     
-      actor ! StartProfile
+      actor ! StartPredict
 
       val timeout = DurationInt(30).minute
     
@@ -69,37 +69,37 @@ object ProfilerApp extends ProfilerService("Profiler") {
     
     override def receive = {
     
-      case msg:StartProfile => {
+      case msg:StartPredict => {
 
         val start = new java.util.Date().getTime     
-        println("Profiler started at " + start)
+        println("Predictor started at " + start)
  
         val job = params("job")        
         val loader = job match {
           
-          case "CPP" => context.actorOf(Props(new CPPProfiler(ctx,params))) 
+          case "RFM" => context.actorOf(Props(new RFMPredictor(ctx,params))) 
           
           case _ => throw new Exception("Wrong job descriptor.")
           
         }
         
-        loader ! StartProfile
+        loader ! StartPredict
        
       }
     
-      case msg:ProfileFailed => {
+      case msg:PredictFailed => {
     
         val end = new java.util.Date().getTime           
-        println("Profiler failed at " + end)
+        println("Predictor failed at " + end)
     
         context.stop(self)
       
       }
     
-      case msg:ProfileFinished => {
+      case msg:PredictFinished => {
     
         val end = new java.util.Date().getTime           
-        println("Profiler finished at " + end)
+        println("Predict finished at " + end)
     
         context.stop(self)
     

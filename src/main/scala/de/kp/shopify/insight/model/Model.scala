@@ -339,7 +339,7 @@ case class Order(
   /*
    * The total amount of a certain purchase or transaction
    */
-  amount:Float,
+  amount:Double,
   /*
    * The items in an order
    */ 
@@ -389,7 +389,7 @@ case class Products(products:List[ShopifyProduct])
  * period of days, and the assigned score describes the likelihood that
  * this event happens
  */
-case class Forecast(site:String,user:String,amount:Float,days:Int,score:Double)
+case class Forecast(site:String,user:String,amount:Double,days:Int,score:Double)
 
 case class Forecasts(items:List[Forecast])
 

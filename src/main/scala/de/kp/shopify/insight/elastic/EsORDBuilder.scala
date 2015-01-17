@@ -70,7 +70,7 @@ class EsORDBuilder {
                
                /* amount */
                .startObject("amount")
-                 .field("type", "float")
+                 .field("type", "double")
                .endObject()
 
                /* timestamp */

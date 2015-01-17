@@ -111,7 +111,7 @@ class ShopifyMapper(ctx:RequestContext) {
      * The amount is retrieved from the total price
      * minus the total tax
      */
-    val amount = order.total_price.toFloat - order.total_tax.toFloat
+    val amount = order.total_price.toDouble - order.total_tax.toDouble
     /*
      * Convert all line items of the respective order
      * into 'OrderItem' for indexing

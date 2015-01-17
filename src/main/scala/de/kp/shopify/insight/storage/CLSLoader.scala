@@ -125,7 +125,7 @@ class CLSLoader(ctx:RequestContext,params:Map[String,String]) extends BaseLoader
 	  builder.field("recency",x.timespan)
 
 	  /* loyalty */
-	  builder.field("churner",x.loyalty)
+	  builder.field("loyalty",x.loyalty)
 
 	  /* customer_type */
 	  builder.field("customer_type",x.rfm_type)
