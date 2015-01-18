@@ -21,8 +21,6 @@ package de.kp.shopify.insight.collect
 import org.elasticsearch.common.xcontent.{XContentBuilder,XContentFactory}
 
 import de.kp.spark.core.Names
-import de.kp.spark.core.io._
-
 import de.kp.shopify.insight._
 
 import de.kp.shopify.insight.actor._
@@ -40,30 +38,24 @@ class PRDCollector(ctx:RequestContext,params:Map[String,String]) extends BaseAct
       val uid = params(Names.REQ_UID)
              
       val start = new java.util.Date().getTime.toString            
-      ctx.listener ! String.format("""[INFO][UID: %s] PRD collection request received at %s.""",uid,start)
+      ctx.putLog("info",String.format("""[UID: %s] PRD collection request received at %s.""",uid,start))
       
       try {
-
-        val writer = new ElasticWriter()
-
-        if (writer.open("database","products") == false)
-          throw new Exception("Product database cannot be opened.")
       
-        ctx.listener ! String.format("""[INFO][UID: %s] PRD collection started.""",uid)
+        ctx.putLog("info",String.format("""[UID: %s] PRD collection started.""",uid))
             
         val start = new java.util.Date().getTime            
         val products = ctx.getProducts(params)
        
-        ctx.listener ! String.format("""[INFO][UID: %s] Product base loaded from store.""",uid)
+        ctx.putLog("info",String.format("""[UID: %s] Product base loaded from store.""",uid))
 
         val ids = products.map(_.id)
         val sources = products.map(toSource(_))
         
-        writer.writeBulkJSON("database", "products", ids, sources)
-        writer.close()
+        ctx.putSources("database", "products", ids, sources)
         
         val end = new java.util.Date().getTime
-        ctx.listener ! String.format("""[INFO][UID: %s] PRD collection finished at %s.""",uid,end.toString)
+        ctx.putLog("info",String.format("""[UID: %s] PRD collection finished at %s.""",uid,end.toString))
         
         val new_params = Map(Names.REQ_MODEL -> "PRD") ++ params
 
@@ -73,7 +65,7 @@ class PRDCollector(ctx:RequestContext,params:Map[String,String]) extends BaseAct
       } catch {
         case e:Exception => {
 
-          ctx.listener ! String.format("""[ERROR][UID: %s] PRD collection failed due to an internal error.""",uid)
+          ctx.putLog("error",String.format("""[UID: %s] PRD collection failed due to an internal error.""",uid))
           
           val new_params = Map(Names.REQ_MESSAGE -> e.getMessage) ++ params
 

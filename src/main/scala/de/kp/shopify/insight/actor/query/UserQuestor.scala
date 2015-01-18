@@ -33,8 +33,6 @@ class UserQuestor(requestCtx:RequestContext) extends BaseActor(requestCtx) {
 
           case "user_forecast" => {
             
-            requestCtx.listener ! String.format("""[INFO][UID: %s] User forecast request received.""",uid)
-            
             val filters = buildUserFilters(req_params)
             
             val fbuilder = FilterBuilders.boolFilter()
@@ -49,8 +47,6 @@ class UserQuestor(requestCtx:RequestContext) extends BaseActor(requestCtx) {
           
           case "user_loyalty" => {
             
-            requestCtx.listener ! String.format("""[INFO][UID: %s] User loyalty request received.""",uid)
-            
             val filters = buildUserFilters(req_params)
             
             val fbuilder = FilterBuilders.boolFilter()
@@ -64,8 +60,6 @@ class UserQuestor(requestCtx:RequestContext) extends BaseActor(requestCtx) {
           }
           
           case "user_next_purchase" => {
-            
-            requestCtx.listener ! String.format("""[INFO][UID: %s] User next purchase request received.""",uid)
 
             /*
              * Retrieve all (user) forecasts that specify purchase events from today within
@@ -109,9 +103,7 @@ class UserQuestor(requestCtx:RequestContext) extends BaseActor(requestCtx) {
           }
           
           case "user_recommendation" => {
-            
-            requestCtx.listener ! String.format("""[INFO][UID: %s] User recommendation request received.""",uid)
-
+ 
             val total = if (req_params.contains(Names.REQ_TOTAL)) req_params(Names.REQ_TOTAL).toInt else 10
             val filters = buildUserFilters(req_params)
             
@@ -173,8 +165,6 @@ class UserQuestor(requestCtx:RequestContext) extends BaseActor(requestCtx) {
       
       } catch {
         case e:Exception => {
-            
-          requestCtx.listener ! String.format("""[ERROR][UID: %s] User query failed: %s.""",uid,e.getMessage)
 
           val created_at_min = req_params("created_at_min")
           val created_at_max = req_params("created_at_max")

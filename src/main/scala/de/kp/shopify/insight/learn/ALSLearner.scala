@@ -57,7 +57,7 @@ class ALSLearner(ctx:RequestContext,params:Map[String,String]) extends BaseActor
       val name = req_params(Names.REQ_NAME)
       
       val start = new java.util.Date().getTime.toString            
-      ctx.listener ! String.format("""[INFO][UID: %s] %s learning request received at %s.""",uid,name,start)
+      ctx.putLog("info",String.format("""[UID: %s] %s learning request received at %s.""",uid,name,start))
       
       try {
     
@@ -122,7 +122,7 @@ class ALSLearner(ctx:RequestContext,params:Map[String,String]) extends BaseActor
         new MFUtil(ctx.sparkContext).write(store,udict.value.lookup,idict.value.lookup,modelMF)
 
         val end = new java.util.Date().getTime.toString
-        ctx.listener ! String.format("""[INFO][UID: %s] %s learning finished at %s.""",uid,end)
+        ctx.putLog("info",String.format("""[UID: %s] %s learning finished at %s.""",uid,end))
  
         val res_params = Map(Names.REQ_MODEL -> name) ++ req_params
         context.parent ! LearnFinished(res_params)
@@ -132,7 +132,7 @@ class ALSLearner(ctx:RequestContext,params:Map[String,String]) extends BaseActor
       } catch {
         case e:Exception => {
                     
-          ctx.listener ! String.format("""[ERROR][UID: %s] %s learning failed due to an internal error.""",uid,name)
+          ctx.putLog("error",String.format("""[UID: %s] %s learning failed due to an internal error.""",uid,name))
           
           val res_params = Map(Names.REQ_MESSAGE -> e.getMessage) ++ req_params
 

@@ -38,11 +38,11 @@ abstract class BaseLoader(ctx:RequestContext,params:Map[String,String]) extends 
       
       try {
       
-        ctx.listener ! String.format("""[INFO][UID: %s] %s load request received.""",uid,name)
+        ctx.putLog("info",String.format("""[UID: %s] %s load request received.""",uid,name))
         
         load(req_params)
         
-        ctx.listener ! String.format("""[INFO][UID: %s] Purchase forecast model loading finished.""",uid)
+        ctx.putLog("info",String.format("""[UID: %s] Purchase forecast model loading finished.""",uid))
 
         val data = Map(Names.REQ_UID -> uid,Names.REQ_MODEL -> name)            
         context.parent ! LoadFinished(data)           
@@ -52,7 +52,7 @@ abstract class BaseLoader(ctx:RequestContext,params:Map[String,String]) extends 
       } catch {
         case e:Exception => {
 
-          ctx.listener ! String.format("""[ERROR][UID: %s] %s loading failed due to an internal error.""",uid,name)
+          ctx.putLog("error",String.format("""[UID: %s] %s loading failed due to an internal error.""",uid,name))
           
           val params = Map(Names.REQ_MESSAGE -> e.getMessage) ++ req_params
 

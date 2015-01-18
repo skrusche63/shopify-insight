@@ -43,12 +43,12 @@ abstract class BasePredictor(ctx:RequestContext,params:Map[String,String]) exten
       try {
       
         val start = new java.util.Date().getTime.toString            
-        ctx.listener ! String.format("""[INFO][UID: %s] %s prediction request received at %s.""",uid,name,start)
+        ctx.putLog("info",String.format("""[UID: %s] %s prediction request received at %s.""",uid,name,start))
         
         predict(req_params)
 
         val end = new java.util.Date().getTime
-        ctx.listener ! String.format("""[INFO][UID: %s] %s prediction finished at %s.""",uid,name,end.toString)
+        ctx.putLog("info",String.format("""[UID: %s] %s prediction finished at %s.""",uid,name,end.toString))
 
         val params = Map(Names.REQ_MODEL -> name) ++ req_params
         context.parent ! PredictFinished(params)
@@ -56,7 +56,7 @@ abstract class BasePredictor(ctx:RequestContext,params:Map[String,String]) exten
       } catch {
         case e:Exception => {
 
-          ctx.listener ! String.format("""[ERROR][UID: %s] %s prediction exception: %s.""",uid,name,e.getMessage)
+          ctx.putLog("error",String.format("""[UID: %s] %s prediction exception: %s.""",uid,name,e.getMessage))
           
           val params = Map(Names.REQ_MESSAGE -> e.getMessage) ++ req_params
           context.parent ! PredictFailed(params)

@@ -46,8 +46,6 @@ class PRMLoader(ctx:RequestContext,params:Map[String,String]) extends BaseLoader
     
     val store = String.format("""%s/%s/%s/2""",ctx.getBase,name,uid)         
     val parquetFile = extract(store)
-
-    ctx.listener ! String.format("""[INFO][UID: %s] Parquet file successfully retrieved.""",uid)
         
     val sources = transform(params,parquetFile)
 

@@ -50,8 +50,6 @@ class ProductQuestor(requestCtx:RequestContext) extends BaseActor(requestCtx) {
         method match {
           
           case "product_cross_sell" => {
-            
-            requestCtx.listener ! String.format("""[INFO][UID: %s] Product cross sell request received.""",uid)
  
             val items = query.data(Names.REQ_ITEMS).split(",")
             val total = if (req_params.contains(Names.REQ_TOTAL)) req_params(Names.REQ_TOTAL).toInt else 10
@@ -126,8 +124,6 @@ class ProductQuestor(requestCtx:RequestContext) extends BaseActor(requestCtx) {
           }
           
           case "product_promotion" => {
-             
-            requestCtx.listener ! String.format("""[INFO][UID: %s] Product promotion request received.""",uid)
  
             val items = query.data(Names.REQ_ITEMS).split(",")
             val total = if (req_params.contains(Names.REQ_TOTAL)) req_params(Names.REQ_TOTAL).toInt else 10
@@ -203,8 +199,6 @@ class ProductQuestor(requestCtx:RequestContext) extends BaseActor(requestCtx) {
           
           case "product_suggest" => {
             
-            requestCtx.listener ! String.format("""[INFO][UID: %s] Product suggest request received.""",uid)
-            
             val total = if (req_params.contains(Names.REQ_TOTAL)) req_params(Names.REQ_TOTAL).toInt else 10
             /*
              * Retrieve the product rules of a certain time span,
@@ -276,8 +270,6 @@ class ProductQuestor(requestCtx:RequestContext) extends BaseActor(requestCtx) {
           
           case "product_top_sell" => {
             
-            requestCtx.listener ! String.format("""[INFO][UID: %s] Product top sell request received.""",uid)
-            
             /*
              * This method retrieves the top selling products from the orders/aggregates
              * index and extracts those products with the highest support
@@ -309,9 +301,7 @@ class ProductQuestor(requestCtx:RequestContext) extends BaseActor(requestCtx) {
       
       } catch {
         case e:Exception => {
-            
-          requestCtx.listener ! String.format("""[ERROR][UID: %s] Product query failed: %s.""",uid,e.getMessage)
-
+ 
           val created_at_min = req_params("created_at_min")
           val created_at_max = req_params("created_at_max")
 

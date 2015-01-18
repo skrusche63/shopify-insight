@@ -42,8 +42,6 @@ class CDALoader(ctx:RequestContext,params:Map[String,String]) extends PSALoader(
     
     val store = String.format("""%s/%s/%s/5""",ctx.getBase,name,uid)         
     val parquetFile = extract(store)
-
-    ctx.listener ! String.format("""[INFO][UID: %s] Parquet file successfully retrieved.""",uid)
         
     val sources = transform(params,parquetFile)
 

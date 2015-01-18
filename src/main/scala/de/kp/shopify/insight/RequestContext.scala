@@ -21,8 +21,6 @@ package de.kp.shopify.insight
 import org.apache.spark.SparkContext
 import org.apache.spark.sql.SQLContext
 
-import akka.actor.ActorRef
-
 import de.kp.spark.core.Names
 import de.kp.spark.core.model._
 
@@ -46,12 +44,7 @@ class RequestContext(
    * to access HDFS based data sources or leverage the Spark machine
    * learning library or other Spark based functionality
    */
-  @transient val sparkContext:SparkContext, 
-   /*
-    * This is a specific actor instance, assigned to the global actor
-    * system, that is responsible for receiving any kind of messages
-    */
-   val listener:ActorRef) extends Serializable {
+  @transient val sparkContext:SparkContext) extends Serializable {
 
   val JSON_MAPPER = new ObjectMapper()  
   JSON_MAPPER.registerModule(DefaultScalaModule)
@@ -130,11 +123,16 @@ class RequestContext(
   def getAsString(index:String,mapping:String,id:String):String 
     = elasticClient.getAsString(index,mapping,id)
 
+  def putLog(level:String,message:String) = elasticClient.putLog(level,message)
+  
   def putSource(index:String,mapping:String,source:XContentBuilder):Boolean 
     = elasticClient.putSource(index,mapping,source)
   
   def putSources(index:String,mapping:String,sources:List[XContentBuilder]):Boolean 
     = elasticClient.putSources(index,mapping,sources)
+
+    def putSources(index:String,mapping:String,ids:List[String],sources:List[XContentBuilder]):Boolean 
+    = elasticClient.putSources(index,mapping,ids,sources)
   
   /**
    * A public method to retrieve Shopify customers from the REST interface;
@@ -155,8 +153,7 @@ class RequestContext(
      * maximum number (250) allowed by the Shopify interface
      */
     val count = shopifyClient.getCustomersCount(req_params)
-
-    listener ! String.format("""[UID: %s] Load total of %s customers from Shopify store.""",uid,count.toString)
+    putLog("info",String.format("""[UID: %s] Load total of %s customers from Shopify store.""",uid,count.toString))
 
     val pages = Math.ceil(count / 250.0)
     val excludes = List("limit","page")
@@ -175,7 +172,7 @@ class RequestContext(
     }
 
     val end = new java.util.Date().getTime
-    listener ! String.format("""[UID: %s] Customers loaded in %s milli seconds.""",uid,(end-start).toString)
+    putLog("info",String.format("""[UID: %s] Customers loaded in %s milli seconds.""",uid,(end-start).toString))
  
     customers.toList
     
@@ -199,8 +196,7 @@ class RequestContext(
      * maximum number (250) allowed by the Shopify interface
      */
     val count = shopifyClient.getProductsCount(req_params)
-
-    listener ! String.format("""[UID: %s] Load total of %s products from Shopify store.""",uid,count.toString)
+    putLog("info",String.format("""[UID: %s] Load total of %s products from Shopify store.""",uid,count.toString))
 
     val pages = Math.ceil(count / 250.0)
     val excludes = List("limit","page")
@@ -219,7 +215,7 @@ class RequestContext(
     }
 
     val end = new java.util.Date().getTime
-    listener ! String.format("""[UID: %s] Products loaded in %s milli seconds.""",uid,(end-start).toString)
+    putLog("info",String.format("""[UID: %s] Products loaded in %s milli seconds.""",uid,(end-start).toString))
  
     products.toList
     
@@ -247,7 +243,7 @@ class RequestContext(
      */
     val count = shopifyClient.getOrdersCount(order_params)
 
-    listener ! String.format("""[UID: %s] Load total of %s orders from Shopify store.""",uid,count.toString)
+    putLog("info",String.format("""[UID: %s] Load total of %s orders from Shopify store.""",uid,count.toString))
 
     val pages = Math.ceil(count / 250.0)
     val excludes = List("limit","page")
@@ -266,7 +262,7 @@ class RequestContext(
     }
 
     val end = new java.util.Date().getTime
-    listener ! String.format("""[UID: %s] Orders loaded in %s milli seconds.""",uid,(end-start).toString)
+    putLog("info",String.format("""[UID: %s] Orders loaded in %s milli seconds.""",uid,(end-start).toString))
  
     orders.toList
     

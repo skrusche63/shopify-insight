@@ -22,8 +22,6 @@ import org.apache.spark.SparkContext._
 import org.elasticsearch.common.xcontent.{XContentBuilder,XContentFactory}
 
 import de.kp.spark.core.Names
-import de.kp.spark.core.io._
-
 import de.kp.shopify.insight._
 
 import de.kp.shopify.insight.actor._
@@ -38,16 +36,16 @@ class ORDCollector(ctx:RequestContext,params:Map[String,String]) extends BaseAct
       val uid = params(Names.REQ_UID)
              
       val start = new java.util.Date().getTime.toString            
-      ctx.listener ! String.format("""[INFO][UID: %s] ORD collection request received at %s.""",uid,start)
+      ctx.putLog("info",String.format("""[UID: %s] ORD collection request received at %s.""",uid,start))
       
       try {
       
-        ctx.listener ! String.format("""[INFO][UID: %s] ORD collection started.""",uid)
+        ctx.putLog("info",String.format("""[UID: %s] ORD collection started.""",uid))
             
         val start = new java.util.Date().getTime            
         val orders = ctx.getOrders(params)
        
-        ctx.listener ! String.format("""[INFO][UID: %s] Order base loaded from store.""",uid)
+        ctx.putLog("info",String.format("""[UID: %s] Order base loaded from store.""",uid))
 
         /*
          * STEP #1: Write orders of a certain period of time 
@@ -56,7 +54,7 @@ class ORDCollector(ctx:RequestContext,params:Map[String,String]) extends BaseAct
         writeOrders(params,orders)
         
         val end = new java.util.Date().getTime
-        ctx.listener ! String.format("""[INFO][UID: %s] ORD collection finished at %.""",uid,end.toString)
+        ctx.putLog("info",String.format("""[UID: %s] ORD collection finished at %.""",uid,end.toString))
         
         val new_params = Map(Names.REQ_MODEL -> "ORD") ++ params
 
@@ -66,7 +64,7 @@ class ORDCollector(ctx:RequestContext,params:Map[String,String]) extends BaseAct
       } catch {
         case e:Exception => {
 
-          ctx.listener ! String.format("""[ERROR][UID: %s] ORD collection failed due to an internal error.""",uid)
+          ctx.putLog("error",String.format("""[UID: %s] ORD collection failed due to an internal error.""",uid))
           
           val new_params = Map(Names.REQ_MESSAGE -> e.getMessage) ++ params
 
@@ -83,15 +81,8 @@ class ORDCollector(ctx:RequestContext,params:Map[String,String]) extends BaseAct
  
   private def writeOrders(params:Map[String,String],orders:List[Order]) {
 
-    val writer = new ElasticWriter()
-
-    if (writer.open("database","orders") == false)
-      throw new Exception("Order database cannot be opened.")
-
-    val sources = orders.map(x=> buildOrder(params,x))
-        
-    writer.writeBulkJSON("database", "orders", sources)
-    writer.close()
+    val sources = orders.map(x=> buildOrder(params,x))       
+    ctx.putSources("database", "orders", sources)
     
   }
   

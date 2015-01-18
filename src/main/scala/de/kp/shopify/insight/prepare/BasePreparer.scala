@@ -52,12 +52,12 @@ abstract class BasePreparer(ctx:RequestContext) extends BaseActor(ctx) {
       try {
       
         val start = new java.util.Date().getTime.toString            
-        ctx.listener ! String.format("""[INFO][UID: %s] %s preparation request received at %s.""",uid,name,start)
+        ctx.putLog("info",String.format("""[UID: %s] %s preparation request received at %s.""",uid,name,start))
         
         prepare(req_params)
 
         val end = new java.util.Date().getTime
-        ctx.listener ! String.format("""[INFO][UID: %s] %s preparation finished at %s.""",uid,name,end.toString)
+        ctx.putLog("info",String.format("""[UID: %s] %s preparation finished at %s.""",uid,name,end.toString))
 
         val params = Map(Names.REQ_MODEL -> name) ++ req_params
         context.parent ! PrepareFinished(params)
@@ -68,7 +68,7 @@ abstract class BasePreparer(ctx:RequestContext) extends BaseActor(ctx) {
            * In case of an error the message listener gets informed, and also
            * the data processing pipeline in order to stop further sub processes 
            */
-          ctx.listener ! String.format("""[ERROR][UID: %s] %s preparation exception: %s.""",uid,name,e.getMessage)
+          ctx.putLog("error",String.format("""[UID: %s] %s preparation exception: %s.""",uid,name,e.getMessage))
           
           val params = Map(Names.REQ_MESSAGE -> e.getMessage) ++ req_params
           context.parent ! PrepareFailed(params)

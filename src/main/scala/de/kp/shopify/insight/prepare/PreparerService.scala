@@ -59,12 +59,7 @@ class PreparerService(val appName:String) extends SparkService {
     
   })
   
-  /*
-   * The listener actor is an overall listener that retrieves the error and
-   * interim messages from all the other actors
-   */
-  protected val listener = system.actorOf(Props(new MessageListener()))
-  protected val ctx = new RequestContext(sc,listener)
+  protected val ctx = new RequestContext(sc)
   
   protected def createParams(args:Array[String]):Map[String,String] = {
 
@@ -182,9 +177,9 @@ class PreparerService(val appName:String) extends SparkService {
 	
 	builder.endObject()
 	/*
-	 * Register data in the 'database/tasks' index
+	 * Register data in the 'admin/tasks' index
 	 */
-	ctx.putSource("database","tasks",builder)
+	ctx.putSource("admin","tasks",builder)
 
   }
   

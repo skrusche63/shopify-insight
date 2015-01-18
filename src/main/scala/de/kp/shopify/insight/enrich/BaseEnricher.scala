@@ -42,20 +42,20 @@ abstract class BaseEnricher(ctx:RequestContext,params:Map[String,String]) extend
       val name = req_params(Names.REQ_NAME)
       
       val start = new java.util.Date().getTime.toString            
-      ctx.listener ! String.format("""[INFO][UID: %s] %s enrichment request received at %s.""",uid,name,start)
+      ctx.putLog("info",String.format("""[UID: %s] %s enrichment request received at %s.""",uid,name,start))
       
       try {
        
         enrich(req_params)
         
         val end = new java.util.Date().getTime.toString
-        ctx.listener ! String.format("""[INFO][UID: %s] %s enrichment finished at %s.""",uid,end)
+        ctx.putLog("info",String.format("""[UID: %s] %s enrichment finished at %s.""",uid,end))
        
         
       } catch {
         case e:Exception => {
 
-          ctx.listener ! String.format("""[ERROR][UID: %s] %s enrichment failed due to an internal error.""",uid,name)
+          ctx.putLog("error",String.format("""[UID: %s] %s enrichment failed due to an internal error.""",uid,name))
           
           val params = Map(Names.REQ_MESSAGE -> e.getMessage) ++ req_params
 

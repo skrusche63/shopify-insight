@@ -31,10 +31,11 @@ import org.elasticsearch.action.index.IndexRequest.OpType
 import org.elasticsearch.action.index.IndexResponse
 
 import org.elasticsearch.common.logging.Loggers
-import org.elasticsearch.common.xcontent.XContentBuilder
+import org.elasticsearch.common.xcontent.{XContentBuilder,XContentFactory}
 
 import org.elasticsearch.index.query.QueryBuilder
 
+import org.joda.time.DateTime
 import java.util.concurrent.locks.ReentrantLock
 
 class ElasticClient extends Serializable {
@@ -329,7 +330,7 @@ class ElasticClient extends Serializable {
 	       * the index and / or the respective mapping may not exists
 	       */
           val msg = String.format("""Failed to register %s""", source.toString)
-          logger.info(msg,t)
+          logger.error(msg,t)
 	      
           close()
           throw new Exception(msg)
@@ -342,7 +343,7 @@ class ElasticClient extends Serializable {
   
   }
   
-  def writeBulkJSON(index:String,mapping:String,sources:List[XContentBuilder]):Boolean = {
+  private def writeBulkJSON(index:String,mapping:String,sources:List[XContentBuilder]):Boolean = {
     
     /*
      * Prepare bulk request and fill with sources
@@ -388,6 +389,83 @@ class ElasticClient extends Serializable {
   
   }
   
+  private def writeBulkJSON(index:String,mapping:String,ids:List[String],sources:List[XContentBuilder]):Boolean = {
+    
+    val zipped = ids.zip(sources)
+
+    /*
+     * Prepare bulk request and fill with sources
+     */
+    val bulkRequest = client.prepareBulk()
+    for ((id,source) <- zipped) {
+      bulkRequest.add(client.prepareIndex(index,mapping,id).setSource(source).setRefresh(true).setOpType(OpType.INDEX))
+    }
+    
+    bulkRequest.execute(new ActionListener[BulkResponse](){
+      override def onResponse(response:BulkResponse) {
+
+        if (response.hasFailures()) {
+          
+          val msg = String.format("""Failed to register data for %s/%s""",index,mapping)
+          logger.error(msg, response.buildFailureMessage())
+                
+        } else {
+          
+          val msg = "Successful registration of bulk sources."
+          logger.info(msg)
+          
+        }        
+      
+      }
+       
+      override def onFailure(t:Throwable) {
+	    /*
+	     * In case of failure, we expect one or both of the following causes:
+	     * the index and / or the respective mapping may not exists
+	     */
+        val msg = "Failed to register bulk of sources."
+        logger.info(msg,t)
+	      
+        close()
+        throw new Exception(msg)
+	    
+      }
+      
+    })
+    
+    true
+  
+  }
+  
+  def putLog(level:String,message:String) {
+     
+    try {
+    
+      val timestamp = new DateTime().getMillis
+    
+      val builder = XContentFactory.jsonBuilder()
+	  builder.startObject()
+	
+	  /* timestamp */
+	  builder.field("timestamp",timestamp)
+	
+	  /* level */
+	  builder.field("level",level)
+	
+	  /* message */
+	  builder.field("message",message)
+	
+	  builder.endObject()
+	  
+	  writeJSON("admin", "logs", builder) 
+    
+    } catch {
+      case e:Exception => logger.error("Logging failed", e)
+
+    }
+
+  }
+    
   def putSource(index:String,mapping:String,source:XContentBuilder):Boolean = {
      
     try {
@@ -422,6 +500,28 @@ class ElasticClient extends Serializable {
       } else {
       
         writeBulkJSON(index, mapping, sources)      
+        true
+      
+      }
+    
+    } catch {
+      case e:Exception => false
+    }
+   
+  }
+  
+  def putSources(index:String,mapping:String,ids:List[String],sources:List[XContentBuilder]):Boolean = {
+     
+    try {
+        
+      if (open(index,mapping) == false) {
+      
+        val msg = String.format("""Opening index '%s' and mapping '%s' for write failed.""",index,mapping)
+        throw new Exception(msg)
+      
+      } else {
+      
+        writeBulkJSON(index,mapping,ids,sources)      
         true
       
       }

@@ -43,7 +43,7 @@ class IRELearner(ctx:RequestContext,params:Map[String,String]) extends BaseActor
       val name = req_params(Names.REQ_NAME)
       
       val start = new java.util.Date().getTime.toString            
-      ctx.listener ! String.format("""[INFO][UID: %s] %s learning request received at %s.""",uid,name,start)
+      ctx.putLog("info",String.format("""[UID: %s] %s learning request received at %s.""",uid,name,start))
       /* 
        * Build service request message to invoke remote Intent Recognition 
        * engine to train a state transition model from a 'states' index
@@ -57,7 +57,7 @@ class IRELearner(ctx:RequestContext,params:Map[String,String]) extends BaseActor
       val serialized = Serializer.serializeRequest(req)
       val response = ctx.getRemoteContext.send(service,serialized).mapTo[String]  
       
-      ctx.listener ! String.format("""[INFO][UID: %s] %s learning started.""",uid,name)
+      ctx.putLog("info",String.format("""[UID: %s] %s learning started.""",uid,name))
 
       /*
        * The RemoteSupervisor actor monitors the Redis cache entries of this
@@ -79,7 +79,7 @@ class IRELearner(ctx:RequestContext,params:Map[String,String]) extends BaseActor
           val res = Serializer.deserializeResponse(result)
           if (res.status == ResponseStatus.FAILURE) {
       
-            ctx.listener ! String.format("""[INFO][UID: %s] %s learning failed due to an engine error.""",uid,name)
+            ctx.putLog("error",String.format("""[UID: %s] %s learning failed due to an engine error.""",uid,name))
  
             context.parent ! LearnFailed(res.data)
             context.stop(self)
@@ -93,7 +93,7 @@ class IRELearner(ctx:RequestContext,params:Map[String,String]) extends BaseActor
           
         case throwable => {
       
-          ctx.listener ! String.format("""[INFO][UID: %s] %s learning failed due to an internal error.""",uid,name)
+          ctx.putLog("error",String.format("""[UID: %s] %s learning failed due to an internal error.""",uid,name))
         
           val res_params = Map(Names.REQ_MESSAGE -> throwable.getMessage) ++ req_params
           context.parent ! LearnFailed(res_params)
@@ -112,7 +112,7 @@ class IRELearner(ctx:RequestContext,params:Map[String,String]) extends BaseActor
       val name = params(Names.REQ_NAME)
       
       val end = new java.util.Date().getTime.toString                  
-      ctx.listener ! String.format("""[INFO][UID: %s] &s learning finished at.""",uid,name,end)
+      ctx.putLog("info",String.format("""[UID: %s] &s learning finished at.""",uid,name,end))
 
       val res_params = Map(Names.REQ_UID -> event.uid,Names.REQ_MODEL -> name)
       context.parent ! LearnFinished(res_params)
