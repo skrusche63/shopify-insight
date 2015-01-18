@@ -32,33 +32,13 @@ import de.kp.shopify.insight.actor._
 import de.kp.shopify.insight.model._
 
 import org.elasticsearch.common.xcontent.{XContentBuilder,XContentFactory}
-/**
- * CPRLoader class directly loads the results of the CPREnricher
- * into the customers/recommendations index.
- */
-class CPRLoader(ctx:RequestContext,params:Map[String,String]) extends BaseLoader(ctx,params) {
 
-  override def load(params:Map[String,String]) {
+abstract class PSALoader(ctx:RequestContext,params:Map[String,String]) extends BaseLoader(ctx,params) {
 
-    val uid = params(Names.REQ_UID)
-    val name = params(Names.REQ_NAME)
-    
-    val store = String.format("""%s/%s/%s/3""",ctx.getBase,name,uid)         
-    val parquetFile = extract(store)
-
-    ctx.listener ! String.format("""[INFO][UID: %s] Parquet file successfully retrieved.""",uid)
-        
-    val sources = transform(params,parquetFile)
-
-    if (ctx.putSources("customers","recommendations",sources) == false)
-      throw new Exception("Loading process has been stopped due to an internal error.")
-    
-  }
-
-  private def extract(store:String):RDD[ParquetCPR] = {
-    
+  protected def extract(store:String):RDD[ParquetPSA] = {
+   
     /* 
-     * Read in the parquet file created above. Parquet files are self-describing 
+     * Read in the parquet file created above.  Parquet files are self-describing 
      * so the schema is preserved. The result of loading a Parquet file is also a 
      * SchemaRDD. 
      */
@@ -79,56 +59,58 @@ class CPRLoader(ctx:RequestContext,params:Map[String,String]) extends BaseLoader
           
       }).toMap
 
-      val site = data("site").asInstanceOf[String]
-      val user = data("user").asInstanceOf[String]
-      
+      val cluster = data("cluster").asInstanceOf[Int]
       val item = data("item").asInstanceOf[Int]
-      val score = data("score").asInstanceOf[Double]
 
-      ParquetCPR(site,user,item,score)
+      val label = data("label").asInstanceOf[String]
+      val value = data("value").asInstanceOf[Double]
       
+      ParquetPSA(cluster,item,label,value)    
+
     })
-    
+
   }
   
-  private def transform(params:Map[String,String],dataset:RDD[ParquetCPR]):List[XContentBuilder] = {
-            
-    dataset.map(x => {
-      
+  protected def transform(params:Map[String,String],personas:RDD[ParquetPSA]):List[XContentBuilder] = {
+  
+    personas.map(x => {
+           
       val builder = XContentFactory.jsonBuilder()
       builder.startObject()
-      
+       
       /********** METADATA **********/
-      
+        
       /* uid */
-      builder.field(Names.UID_FIELD,params(Names.REQ_UID))
-      
+      builder.field("uid",params("uid"))
+       
       /* timestamp */
-      builder.field(Names.TIMESTAMP_FIELD,params("timestamp").toLong)
-	  
-	  /* site */
-      builder.field(Names.SITE_FIELD,x.site)
+      builder.field("timestamp",params("timestamp").toLong)
       
-      /********** USER DATA **********/
-	  
-	  /* user */
-      builder.field(Names.USER_FIELD,x.user)
-
-	  /* item */
-	  builder.field("item",x.item)
-
-	  /* score */
-	  builder.field("score",x.score)
+      /* site */
+      builder.field("site",params("site"))
+      
+      /********** PERSONA DATA **********/
+        
+      /* cluster */
+      builder.field("cluster",x.cluster)
+        
+      /* item */
+      builder.field("item",x.item)
+        
+      /* label */
+      builder.field("label",x.label)
+        
+      /* value */
+      builder.field("value",x.value)
       
       /* customer_type */
       builder.field("customer_type",params("customer").toInt)
-	  
-	  builder.endObject()
-	  
-	  builder.endObject()
+        
+      builder.endObject()
       builder
-      
+    
     }).collect.toList
+    
   }
- 
+
 }

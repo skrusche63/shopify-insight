@@ -178,7 +178,13 @@ class RFMPredictor(ctx:RequestContext,params:Map[String,String]) extends BasePre
       builder.startObject()
       
       /********** METADATA **********/
-	  
+      
+      /* uid */
+      builder.field(Names.UID_FIELD,params(Names.REQ_UID))
+      
+      /* timestamp */
+      builder.field(Names.TIMESTAMP_FIELD,params("timestamp").toLong)
+ 	  
 	  /* site */
       builder.field(Names.SITE_FIELD,params(Names.REQ_SITE))
       

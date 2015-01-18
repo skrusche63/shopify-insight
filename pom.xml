@@ -119,10 +119,15 @@
       <version>1.1.2</version>
     </dependency>
     
+    <!--  
+    Various parts of jackson need the same minor version in order to work together.
+    When working with Spark that includes Jackson in their dependencies, we are forced
+    to with the versions Spark provides.
+     -->
     <dependency>
 	  <groupId>com.fasterxml.jackson.module</groupId>
 	  <artifactId>jackson-module-scala_2.10</artifactId>
-	  <version>2.4.3</version>
+	  <version>2.3.1</version>
     </dependency>    
 
     <!-- spray 1.2.0 -->

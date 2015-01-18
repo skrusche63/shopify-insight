@@ -25,7 +25,7 @@ import de.kp.spark.core.Names
 import scala.collection.JavaConversions._
 import scala.collection.mutable.HashMap
 
-class EsCPRBuilder {
+class EsPSABuilder {
 
   import de.kp.spark.core.Names._
   
@@ -35,7 +35,7 @@ class EsCPRBuilder {
           .startObject()
             .startObject(mapping)
               .startObject("properties")
-                
+      
                 /********** METADATA **********/
 
                 /* uid */
@@ -49,19 +49,18 @@ class EsCPRBuilder {
                   .field("type", "long")
                   .field("index", "not_analyzed")
                 .endObject()
-                    
+
                 /* site */
                 .startObject(SITE_FIELD)
                   .field("type", "string")
                   .field("index", "not_analyzed")
                 .endObject()
-               
-                /********** USER DATA **********/
+      
+                /********** PERSONA DATA **********/
 
-                /* user */
-                .startObject(USER_FIELD)
-                  .field("type", "string")
-                  .field("index", "not_analyzed")
+                /* cluster */
+                .startObject("cluster")
+                  .field("type", "integer")
                 .endObject()
                
                 /* item */
@@ -69,8 +68,13 @@ class EsCPRBuilder {
                   .field("type", "integer")
                 .endObject()
 
-                /* score */
-                .startObject("score")
+                /* label */
+                .startObject("label")
+                  .field("type", "string")
+                .endObject()
+
+                /* value */
+                .startObject("value")
                   .field("type", "double")
                 .endObject()
 
@@ -78,7 +82,7 @@ class EsCPRBuilder {
                 .startObject("customer_type")
                   .field("type", "integer")
                 .endObject()
-
+                
               .endObject() // properties
             .endObject()   // mapping
           .endObject()

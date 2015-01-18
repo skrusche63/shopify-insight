@@ -110,6 +110,9 @@ class PPFLoader(ctx:RequestContext,params:Map[String,String]) extends BaseLoader
       /* timestamp */
       builder.field(Names.TIMESTAMP_FIELD,params("timestamp").toLong)
       
+      /* site */
+      builder.field(Names.SITE_FIELD,params("site"))
+      
       /********** SEGMENT DATA **********/
 
 	  /* customer_supp */
@@ -123,6 +126,9 @@ class PPFLoader(ctx:RequestContext,params:Map[String,String]) extends BaseLoader
 
 	  /* p_segment */
 	  builder.field("p_segment",x.pval)
+      
+      /* customer_type */
+      builder.field("customer_type",params("customer").toInt)
 	  
 	  builder.endObject()
 	  

@@ -31,7 +31,9 @@ class EsPRMBuilder {
             .startObject(mapping)
               
               .startObject("properties")
-
+               
+              /********** METADATA **********/
+              
                /* uid */
                .startObject(UID_FIELD)
                  .field("type", "string")
@@ -42,6 +44,14 @@ class EsPRMBuilder {
                 .startObject(TIMESTAMP_FIELD)
                   .field("type", "long")
                 .endObject()
+                    
+                /* site */
+                .startObject(SITE_FIELD)
+                  .field("type", "string")
+                  .field("index", "not_analyzed")
+                .endObject()
+               
+              /********** RULE DATA **********/
 
                 /* antecedent */
                 .startObject(ANTECEDENT_FIELD)
@@ -66,6 +76,11 @@ class EsPRMBuilder {
                 /* confidence */
                 .startObject(CONFIDENCE_FIELD)
                   .field("type", "double")
+                .endObject()
+
+                /* customer_type */
+                .startObject("customer_type")
+                  .field("type", "integer")
                 .endObject()
              
               .endObject()

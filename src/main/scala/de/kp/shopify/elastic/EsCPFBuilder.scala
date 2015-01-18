@@ -89,6 +89,11 @@ class EsCPFBuilder {
                   .field("type", "double")
                 .endObject()
 
+                /* customer_type */
+                .startObject("customer_type")
+                  .field("type", "integer")
+                .endObject()
+
               .endObject() // properties
             .endObject()   // mapping
           .endObject()

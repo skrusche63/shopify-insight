@@ -51,7 +51,7 @@ class CPPLoader(ctx:RequestContext,params:Map[String,String]) extends BaseLoader
         
     val sources = transform(params,parquetFile)
 
-    if (ctx.putSources("customers","personas",sources) == false)
+    if (ctx.putSources("customers","profiles",sources) == false)
       throw new Exception("Loading process has been stopped due to an internal error.")
     
   }

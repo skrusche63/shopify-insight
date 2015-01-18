@@ -33,6 +33,17 @@ class EsRFM_FBuilder {
               .startObject("properties")
                 
                 /********** METADATA **********/
+              
+               /* uid */
+               .startObject(UID_FIELD)
+                 .field("type", "string")
+                 .field("index", "not_analyzed")
+               .endObject()
+
+                /* timestamp */
+                .startObject(TIMESTAMP_FIELD)
+                  .field("type", "long")
+                .endObject()
                     
                 /* site */
                 .startObject(SITE_FIELD)

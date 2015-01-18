@@ -139,6 +139,9 @@ class POMLoader(ctx:RequestContext,params:Map[String,String]) extends BaseLoader
       /* timestamp */
       builder.field(Names.TIMESTAMP_FIELD,params("timestamp").toLong)
       
+      /* site */
+      builder.field(Names.SITE_FIELD,params("site"))
+      
       /********** METRIC DATA **********/
 	    	    
       /* total_orders */

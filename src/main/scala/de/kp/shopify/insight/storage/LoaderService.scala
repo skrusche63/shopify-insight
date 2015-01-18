@@ -92,9 +92,9 @@ class LoaderService(val appName:String) extends SparkService {
     if (job.hasValue == false)
       throw new Exception("Parameter 'job' is missing.")
   
-    val jobs = List("CLS","CPF","CPP","CPR","LOC","POM","PPF","PRM","RFM")
+    val jobs = List("CDA","CHA","CLS","CPA","CPF","CPP","CPR","CSA","LOC","POM","PPF","PRM","RFM")
     if (jobs.contains(job.value.get) == false)
-      throw new Exception("Job parameter must be one of [CLS, CPF, CPP, CPR, LOC, POM, PPF, PRM, RFM].")
+      throw new Exception("Job parameter must be one of [CDA, CHA, CLS, CPF, CPA, CPP, CPR, CSA, LOC, POM, PPF, PRM, RFM].")
      
     /* Collect parameters */
     val params = HashMap.empty[String,String]
@@ -218,16 +218,28 @@ class LoaderService(val appName:String) extends SparkService {
     if (ctx.createIndex(params,"customers","loyalties","CLS") == false)
       throw new Exception("Index creation for 'customers/loyalties' has been stopped due to an internal error.")
 
-    if (ctx.createIndex(params,"customers","personas","CPP") == false)
-      throw new Exception("Index creation for 'customers/personas' has been stopped due to an internal error.")
+    if (ctx.createIndex(params,"customers","profiles","CPP") == false)
+      throw new Exception("Index creation for 'customers/profiles' has been stopped due to an internal error.")
+
+    if (ctx.createIndex(params,"customers","recommendations","CPR") == false)
+      throw new Exception("Index creation for 'customers/recommendations' has been stopped due to an internal error.")
             
     if (ctx.createIndex(params,"customers","segments","RFM") == false)
       throw new Exception("Index creation for 'customers/segments' has been stopped due to an internal error.")
-
-    // TODO
+ 
+    /********** PERSONAS ******/
             
-    if (ctx.createIndex(params,"users","recommendations","recommendation") == false)
-      throw new Exception("Index creation for 'users/recommendations' has been stopped due to an internal error.")
+    if (ctx.createIndex(params,"personas","days","CDA") == false)
+      throw new Exception("Index creation for 'personas/days' has been stopped due to an internal error.")
+            
+    if (ctx.createIndex(params,"personas","hours","CHA") == false)
+      throw new Exception("Index creation for 'personas/hours' has been stopped due to an internal error.")
+            
+    if (ctx.createIndex(params,"personas","timespans","CSA") == false)
+      throw new Exception("Index creation for 'personas/timespans' has been stopped due to an internal error.")
+            
+    if (ctx.createIndex(params,"personas","products","CPA") == false)
+      throw new Exception("Index creation for 'personas/products' has been stopped due to an internal error.")
   
     ctx.listener ! String.format("""[INFO][UID: %s] Elasticsearch indexes created.""",uid)
      

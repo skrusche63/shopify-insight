@@ -408,36 +408,6 @@ class RestApi(host:String,port:Int,system:ActorSystem,@transient sc:SparkContext
   }
   
   private def doRecommendation[T](ctx:RequestContext) = {
-
-    implicit val timeout:Timeout = DurationInt(requestCtx.getTimeout).second      
- 
-    val actor = system.actorOf(Props(new query.RecommendationQuestor(requestCtx)))
-    val params = getRequest(ctx)
-    
-    val request = RecommendationQuery(params)
-    val response = ask(actor,request)     
-
-    response.onSuccess {
-        
-      case result => {
-
-        if (result.isInstanceOf[InsightRecommendations]) {
-          ctx.complete(result.asInstanceOf[InsightRecommendations])
-            
-        } else if (result.isInstanceOf[SimpleResponse]) {
-          ctx.complete(result.asInstanceOf[SimpleResponse])
-            
-        } else {
-          /* do nothing */
-        }
-          
-      }
-      
-    }
-
-    response.onFailure {
-      case throwable => ctx.complete(throwable.getMessage)
-    }      
   
   }
 

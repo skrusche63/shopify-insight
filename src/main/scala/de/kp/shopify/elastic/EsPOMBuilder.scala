@@ -45,6 +45,12 @@ class EsPOMBuilder {
                   .field("type", "long")
                   .field("index", "not_analyzed")
                 .endObject()
+                    
+                /* site */
+                .startObject(SITE_FIELD)
+                  .field("type", "string")
+                  .field("index", "not_analyzed")
+                .endObject()
               
                 /********** METRIC DATA **********/
 

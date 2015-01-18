@@ -96,7 +96,6 @@ class PRMLoader(ctx:RequestContext,params:Map[String,String]) extends BaseLoader
   
   private def transform(params:Map[String,String],rules:RDD[ParquetPRM]):List[XContentBuilder] = {
             
-    val uid = params(Names.REQ_UID)
     rules.map(rule => {
       
       val builder = XContentFactory.jsonBuilder()
@@ -107,6 +106,9 @@ class PRMLoader(ctx:RequestContext,params:Map[String,String]) extends BaseLoader
       
       /* timestamp */
       builder.field(Names.TIMESTAMP_FIELD,params("timestamp").toLong)
+      
+      /* site */
+      builder.field(Names.SITE_FIELD,params("site"))
 	  
 	  /* antecedent */
 	  builder.startArray("antecedent")
@@ -126,6 +128,9 @@ class PRMLoader(ctx:RequestContext,params:Map[String,String]) extends BaseLoader
 	  
 	  /* confidence */
 	  builder.field("confidence",rule.confidence)
+	  
+	  /* customer_type */
+	  builder.field("customer_type",params("customer").toInt)
 	  
 	  builder.endObject()
       builder

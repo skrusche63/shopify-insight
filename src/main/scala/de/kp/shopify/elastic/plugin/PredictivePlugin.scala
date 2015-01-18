@@ -40,7 +40,13 @@ class PredictivePlugin(val settings:Settings) extends AbstractPlugin {
     "Plugin that brings predictive analytics to Elasticsearch";
   }
 
-  def onModule(module:RestModule) {
+ /**
+  * REST API
+  */
+ def onModule(module:RestModule) {
+
+    module.addRestAction(classOf[RecommendAction])
+    
   }
 
   /**

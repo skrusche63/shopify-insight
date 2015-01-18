@@ -94,13 +94,21 @@ object LoaderApp extends LoaderService("Loader") {
         val job = params("job")        
         val loader = job match {
           
+          case "CDA" => context.actorOf(Props(new CDALoader(ctx,params))) 
+          
+          case "CHA" => context.actorOf(Props(new CHALoader(ctx,params))) 
+          
           case "CLS" => context.actorOf(Props(new CLSLoader(ctx,params))) 
+          
+          case "CPA" => context.actorOf(Props(new CPALoader(ctx,params))) 
           
           case "CPF" => context.actorOf(Props(new CPFLoader(ctx,params))) 
           
           case "CPP" => context.actorOf(Props(new CPPLoader(ctx,params))) 
           
           case "CPR" => context.actorOf(Props(new CPRLoader(ctx,params))) 
+          
+          case "CSA" => context.actorOf(Props(new CSALoader(ctx,params))) 
           
           case "LOC" => context.actorOf(Props(new LOCLoader(ctx,params))) 
           

@@ -49,6 +49,12 @@ class EsPPFBuilder {
                   .field("type", "long")
                   .field("index", "not_analyzed")
                 .endObject()
+                    
+                /* site */
+                .startObject(SITE_FIELD)
+                  .field("type", "string")
+                  .field("index", "not_analyzed")
+                .endObject()
       
                 /********** SEGMENT DATA **********/
 
@@ -69,6 +75,11 @@ class EsPPFBuilder {
 
                 /* p_segment */
                 .startObject("p_segment")
+                  .field("type", "integer")
+                .endObject()
+
+                /* customer_type */
+                .startObject("customer_type")
                   .field("type", "integer")
                 .endObject()
                 

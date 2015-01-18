@@ -135,10 +135,25 @@ class ElasticClient {
        *                     SUB PROCESS 'LOAD'
        *                     
        *********************************************************************/
+      
+      else if (topic == "CDA") {
 
-      else if (topic == "CLS") {
+        val builder = new EsPSABuilder().createBuilder(mapping)
+        create(index,mapping,builder)
+
+      } else if (topic == "CHA") {
+
+        val builder = new EsPSABuilder().createBuilder(mapping)
+        create(index,mapping,builder)
+
+      } else if (topic == "CLS") {
 
         val builder = new EsCLSBuilder().createBuilder(mapping)
+        create(index,mapping,builder)
+
+      } else if (topic == "CPA") {
+
+        val builder = new EsPSABuilder().createBuilder(mapping)
         create(index,mapping,builder)
        
       } else if (topic == "CPF") {
@@ -154,6 +169,11 @@ class ElasticClient {
       } else if (topic == "CPR") {
 
         val builder = new EsCPRBuilder().createBuilder(mapping)
+        create(index,mapping,builder)
+
+      } else if (topic == "CSA") {
+
+        val builder = new EsPSABuilder().createBuilder(mapping)
         create(index,mapping,builder)
       
       } else if (topic == "LOC") {

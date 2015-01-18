@@ -112,7 +112,7 @@ class CPFLoader(ctx:RequestContext,params:Map[String,String]) extends BaseLoader
       builder.field("uid",params("uid"))
        
       /* timestamp */
-      builder.field("timestamp",params("timestamp"))
+      builder.field("timestamp",params("timestamp").toLong)
       
       /* site */
       builder.field("site",x.site)
@@ -136,6 +136,9 @@ class CPFLoader(ctx:RequestContext,params:Map[String,String]) extends BaseLoader
         
       /* score */
       builder.field("score",x.score)
+      
+      /* customer_type */
+      builder.field("customer_type",params("customer").toInt)
         
       builder.endObject()
       builder
