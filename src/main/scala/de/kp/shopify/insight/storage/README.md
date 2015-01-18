@@ -1,4 +1,8 @@
 
+## Load Subsystem
+
+
+
 ### Customer Loyalty Profile (CLS)
 
 ##### How it works
@@ -87,4 +91,21 @@ targeting campaigns.
 ---
 
 ### Product Relation Model (PRM)
+
+Product placement
+
+Cross-selling
+
+Promotion
+
+Extended support commerce search functionality by integrating related products and / or product recommendations 
+into the search result
+
+---
+
+### Customer Product Recommendations (CPR)
+
+---
+
+### Customer Purchase Profile (CPP)
 

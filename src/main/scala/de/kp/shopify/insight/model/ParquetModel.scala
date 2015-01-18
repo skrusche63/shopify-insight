@@ -367,6 +367,37 @@ case class ParquetPSA(
 case class ParquetCPP(
   site:String,
   user:String,
+  /*
+   * recency, frequency and monetary describe the original
+   * values extracted from the orders under consideration
+   */
+  recency:Int,
+  frequency:Int,
+  monetary:Double,
+  /*
+   * rval, fval and mval specifies the original values with
+   * respect to a quantiles (5) distribution, where the vals
+   * are between 1..5, and 5 indicates the highest value for
+   * the respective business company
+   */
+  rval:Int,  
+  fval:Int,  
+  mval:Int,
+  /*
+   * lval specifies the customer's loyalty segment
+   */
+  lval:Int,
+  
+  /*
+   * rfm_type divides the customer RFM space into 8 different
+   * customer categories, 1..8, where 1 indicates the most
+   * valuable customer for the respective business company.
+   * 
+   * The rfm_type is derived from the average values for R, F
+   * and M and assigned the state, H or L, if the respective
+   * value is above or below the average value
+   */
+  rfm_type:Int,  
   /* Description of the day cluster */
   d_type:Int,
   d_distance:Double,

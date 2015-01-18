@@ -63,6 +63,46 @@ class EsCPPBuilder {
                   .field("type", "string")
                   .field("index", "not_analyzed")
                 .endObject()
+
+                /* recency */
+                .startObject("recency")
+                   .field("type", "integer")
+                .endObject()
+
+                /* frequency */
+                .startObject("frequency")
+                   .field("type", "integer")
+                .endObject()
+
+                /* amount */
+                .startObject("amount")
+                  .field("type", "double")
+                .endObject()
+
+                /* r_segment */
+                .startObject("r_segment")
+                  .field("type", "integer")
+                .endObject()
+
+                /* f_segment */
+                .startObject("f_segment")
+                  .field("type", "integer")
+                .endObject()
+
+                /* m_segment */
+                .startObject("m_segment")
+                  .field("type", "integer")
+                .endObject()
+
+                /* l_segment */
+                .startObject("l_segment")
+                  .field("type", "integer")
+                .endObject()
+
+                /* customer_type */
+                .startObject("customer_type")
+                  .field("type", "integer")
+                .endObject()
                
                 /* d_type */
                 .startObject("d_type")

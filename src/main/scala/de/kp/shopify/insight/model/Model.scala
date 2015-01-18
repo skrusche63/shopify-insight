@@ -341,6 +341,10 @@ case class Order(
    */
   amount:Double,
   /*
+   * The total discounts of a certain purchase or transaction
+   */
+  discounts:Double,
+  /*
    * The items in an order
    */ 
   items:List[OrderItem]

@@ -82,6 +82,19 @@ class CPPLoader(ctx:RequestContext,params:Map[String,String]) extends BaseLoader
 
       val site = data("site").asInstanceOf[String]
       val user = data("user").asInstanceOf[String]
+
+      val recency = data("recency").asInstanceOf[Int]
+
+      val frequency = data("frequency").asInstanceOf[Int]      
+      val monetary = data("monetary").asInstanceOf[Double]
+
+      val rval = data("rval").asInstanceOf[Int]
+      val fval = data("fval").asInstanceOf[Int]
+      
+      val mval = data("mval").asInstanceOf[Int]
+      val lval = data("lval").asInstanceOf[Int]
+
+      val rfm_type = data("rfm_type").asInstanceOf[Int]
       
       val d_type = data("d_type").asInstanceOf[Int]
       val d_distance = data("d_distance").asInstanceOf[Double]
@@ -98,6 +111,14 @@ class CPPLoader(ctx:RequestContext,params:Map[String,String]) extends BaseLoader
       ParquetCPP(
           site,
           user,
+          recency,
+          frequency,
+          monetary,
+          rval,
+          fval,
+          mval,
+          lval,
+          rfm_type,
           d_type,
           d_distance,
           h_type,
@@ -130,10 +151,34 @@ class CPPLoader(ctx:RequestContext,params:Map[String,String]) extends BaseLoader
 	  /* site */
       builder.field(Names.SITE_FIELD,x.site)
       
-      /********** PERSONA DATA **********/
+      /********** PROFILE DATA **********/
 	  
 	  /* user */
       builder.field(Names.USER_FIELD,x.user)
+
+	  /* recency */
+	  builder.field("recency",x.recency)
+
+	  /* frequency */
+	  builder.field("frequency",x.frequency)
+
+	  /* amount */
+	  builder.field("amount",x.monetary)
+
+	  /* r_segment */
+	  builder.field("r_segment",x.rval)
+
+	  /* f_segment */
+	  builder.field("f_segment",x.fval)
+
+	  /* m_segment */
+	  builder.field("m_segment",x.mval)
+
+	  /* l_segment */
+	  builder.field("l_segment",x.lval)
+
+	  /* customer_type */
+	  builder.field("customer_type",x.rfm_type)
 
 	  /* d_type */
 	  builder.field("d_type",x.d_type)

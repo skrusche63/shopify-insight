@@ -125,12 +125,36 @@ class CPPProfiler(ctx:RequestContext,params:Map[String,String]) extends BaseActo
     val storeCPA = String.format("""%s/%s/%s/4""",ctx.getBase,nameCPA,uid)         
     
     val tableCPA = readCPD(storeCPA)    
+    /*
+     * STEP #5: Retrieve the result from the RFM preparer that describes
+     * the customer type segmentation
+     */    
+    val nameRFM = "RFM"    
+    val storeRFM = String.format("""%s/%s/%s/1""",ctx.getBase,nameRFM,uid)         
     
-    val tableCPP = tableCTP.join(tableCPA)
-                 .map{case ((site,user),((d_type,d_dist,h_type,h_dist,r_type,r_dist),(p_persona,p_distance))) =>
+    val tableRFM = readRFM(storeRFM)    
+    /*
+     * STEP #6: Retrieve the result from the CLS preparer that describes
+     * the customer type segmentation
+     */    
+    val nameCLS = name.replace("CTP","CLS")    
+    val storeCLS = String.format("""%s/%s/%s/1""",ctx.getBase,nameCLS,uid)         
+    
+    val tableCLS = readCLS(storeCLS)    
+    
+    val tableCPP = tableCTP.join(tableCPA).join(tableRFM).join(tableCLS)
+                 .map{case ((site,user),((((d_type,d_dist,h_type,h_dist,r_type,r_dist),(p_persona,p_distance)),(recency,frequency,monetary,rval,fval,mval,rfm_type)),(lval))) =>
                    ParquetCPP(
                       site,
                       user,
+                      recency,
+                      frequency,
+                      monetary,
+                      rval,
+                      fval,
+                      mval,
+                      lval,
+                      rfm_type,
                       d_type,
                       d_dist,
                       h_type,
@@ -143,8 +167,42 @@ class CPPProfiler(ctx:RequestContext,params:Map[String,String]) extends BaseActo
     
     val storeCPP = String.format("""%s/%s/%s/1""",ctx.getBase,name,uid)  
     tableCPP.saveAsParquetFile(storeCPP)
+  }
+  
+  private def readCLS(store:String):RDD[((String,String),(Int))] = {
+    
+    val parquetFile = sqlc.parquetFile(store)
+    val metadata = parquetFile.schema.fields.zipWithIndex
+    
+    parquetFile.map(row => {
+
+      val values = row.iterator.zipWithIndex.map(x => (x._2,x._1)).toMap
+      val data = metadata.map(entry => {
+      
+        val (field,col) = entry
+      
+        val colname = field.name
+        val colvalu = values(col)
+      
+        (colname,colvalu)
+          
+      }).toMap
+
+      val site = data("site").asInstanceOf[String]
+      val user = data("user").asInstanceOf[String]
+      
+      val amount = data("amount").asInstanceOf[Double]
+      val timespan = data("timespan").asInstanceOf[Int]
+
+      val loyalty = data("loyalty").asInstanceOf[Integer]
+      val rfm_type = data("rfm_type").asInstanceOf[Int]
+
+      ((site,user),(loyalty))
+      
+    })
     
   }
+
   /**
    * A helper method tor read the customer persona distance (CPD)
    * Parquet file from the file system; note, that this file has
@@ -152,11 +210,6 @@ class CPPProfiler(ctx:RequestContext,params:Map[String,String]) extends BaseActo
    */
   private def readCPD(store:String):RDD[((String,String),(Int,Double))] = {
    
-    /* 
-     * Read in the parquet file created above. Parquet files are self-describing 
-     * so the schema is preserved. The result of loading a Parquet file is also a 
-     * SchemaRDD. 
-     */
     val parquetFile = sqlc.parquetFile(store)
     val metadata = parquetFile.schema.fields.zipWithIndex
     
@@ -184,5 +237,44 @@ class CPPProfiler(ctx:RequestContext,params:Map[String,String]) extends BaseActo
       
     })
     
+  }
+  
+  private def readRFM(store:String):RDD[((String,String),(Int,Int,Double,Int,Int,Int,Int))] = {
+    
+    val parquetFile = sqlc.parquetFile(store)
+    val metadata = parquetFile.schema.fields.zipWithIndex
+    
+    parquetFile.map(row => {
+
+      val values = row.iterator.zipWithIndex.map(x => (x._2,x._1)).toMap
+      val data = metadata.map(entry => {
+      
+        val (field,col) = entry
+      
+        val colname = field.name
+        val colvalu = values(col)
+      
+        (colname,colvalu)
+          
+      }).toMap
+
+      val site = data("site").asInstanceOf[String]
+      val user = data("user").asInstanceOf[String]
+      
+      val today = data("today").asInstanceOf[Long]
+      val recency = data("recency").asInstanceOf[Int]
+
+      val frequency = data("frequency").asInstanceOf[Int]      
+      val monetary = data("monetary").asInstanceOf[Double]
+
+      val rval = data("rval").asInstanceOf[Int]
+      val fval = data("fval").asInstanceOf[Int]
+      
+      val mval = data("mval").asInstanceOf[Int]
+      val rfm_type = data("rfm_type").asInstanceOf[Int]
+
+      ((site,user),(recency,frequency,monetary,rval,fval,mval,rfm_type))
+      
+    })
   }
 }
