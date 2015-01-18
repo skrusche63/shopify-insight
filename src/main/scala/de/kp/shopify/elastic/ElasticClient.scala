@@ -18,30 +18,27 @@ package de.kp.shopify.elastic
 * If not, see <http://www.gnu.org/licenses/>.
 */
 
-import de.kp.spark.core.Names
-import de.kp.spark.core.model._
-
-import de.kp.spark.core.io._
-
-import de.kp.spark.core.spec.FieldBuilder
-import de.kp.spark.core.redis.RedisCache
-
-import de.kp.shopify.insight.Configuration
+//import de.kp.spark.core.Names
 
 import org.elasticsearch.node.NodeBuilder._
 
-import org.elasticsearch.common.xcontent.XContentBuilder
+import org.elasticsearch.action.ActionListener
+import org.elasticsearch.action.bulk.BulkResponse
+
 import org.elasticsearch.action.search.SearchResponse
 
+import org.elasticsearch.action.index.IndexRequest.OpType
+import org.elasticsearch.action.index.IndexResponse
+
 import org.elasticsearch.common.logging.Loggers
+import org.elasticsearch.common.xcontent.XContentBuilder
+
 import org.elasticsearch.index.query.QueryBuilder
 
 import java.util.concurrent.locks.ReentrantLock
 
-class ElasticClient {
+class ElasticClient extends Serializable {
 
-  private val (host,port) = Configuration.redis
-  protected val cache = new RedisCache(host,port.toInt)
   /*
    * Create an Elasticsearch node by interacting with
    * the Elasticsearch server on the local machine
@@ -51,6 +48,23 @@ class ElasticClient {
   
   private val logger = Loggers.getLogger(getClass())
   private val indexCreationLock = new ReentrantLock()  
+
+  init()
+  
+  /*
+   * This method prepares the 'admin' index with two different mappings, 
+   * one to log messages, and, another one to register the different
+   * data tasks by this platform 
+   */
+  private def init() {
+
+    if (createIndex("admin","logs","log") == false)
+      throw new Exception("Index creation for 'admin/logs' has been stopped due to an internal error.")
+    
+    if (createIndex("admin","tasks","task") == false)
+      throw new Exception("Index creation for 'admin/tasks' has been stopped due to an internal error.")
+    
+  }
   
   private def create(index:String,mapping:String,builder:XContentBuilder) {
         
@@ -103,7 +117,7 @@ class ElasticClient {
     if (node != null) node.close()
   }
     
-  def createIndex(params:Map[String,String],index:String,mapping:String,topic:String):Boolean = {
+  def createIndex(index:String,mapping:String,topic:String):Boolean = {
     
     try {
       
@@ -215,7 +229,20 @@ class ElasticClient {
         create(index,mapping,builder)
        
       } 
+       
+      /**********************************************************************
+       * 
+       *                     LOG MANAGEMENT
+       *                     
+       *********************************************************************/
       
+      else if (topic == "log") {
+
+        val builder = new ESLogBuilder().createBuilder(mapping)
+        create(index,mapping,builder)
+           
+      }
+     
       /**********************************************************************
        * 
        *                     TASK MANAGEMENT
@@ -238,28 +265,141 @@ class ElasticClient {
     
   }
   
+  private def open(index:String,mapping:String):Boolean = {
+        
+    val readyToWrite = try {
+      
+      val indices = client.admin().indices
+      /*
+       * Check whether referenced index exists; if index does not
+       * exist, through exception
+       */
+      val existsRes = indices.prepareExists(index).execute().actionGet()            
+      if (existsRes.isExists() == false) {
+        new Exception("Index '" + index + "' does not exist.")            
+      }
+
+      /*
+       * Check whether the referenced mapping exists; if mapping
+       * does not exist, through exception
+       */
+      val prepareRes = indices.prepareGetMappings(index).setTypes(mapping).execute().actionGet()
+      if (prepareRes.mappings().isEmpty) {
+        new Exception("Mapping '" + index + "/" + mapping + "' does not exist.")
+      }
+      
+      true
+
+    } catch {
+      case e:Exception => {
+        
+        logger.error(e.getMessage())
+        false
+        
+      }
+       
+    } finally {
+    }
+    
+    readyToWrite
+    
+  }
+  
+  private def writeJSON(index:String,mapping:String,source:XContentBuilder):Boolean = {
+    
+    /*
+     * The OpType INDEX (other than CREATE) ensures that the document is
+     * 'updated' which means an existing document is replaced and reindexed
+     */
+    client.prepareIndex(index, mapping).setSource(source).setRefresh(true).setOpType(OpType.INDEX)
+      .execute(new ActionListener[IndexResponse]() {
+        override def onResponse(response:IndexResponse) {
+          /*
+           * Registration of provided source successfully performed; no further
+           * action, just logging this event
+           */
+          val msg = String.format("""Successful registration for: %s""", source.toString)
+          logger.info(msg)
+        
+        }      
+
+        override def onFailure(t:Throwable) {
+	      /*
+	       * In case of failure, we expect one or both of the following causes:
+	       * the index and / or the respective mapping may not exists
+	       */
+          val msg = String.format("""Failed to register %s""", source.toString)
+          logger.info(msg,t)
+	      
+          close()
+          throw new Exception(msg)
+	    
+        }
+        
+      })
+      
+    true
+  
+  }
+  
+  def writeBulkJSON(index:String,mapping:String,sources:List[XContentBuilder]):Boolean = {
+    
+    /*
+     * Prepare bulk request and fill with sources
+     */
+    val bulkRequest = client.prepareBulk()
+    for (source <- sources) {
+      bulkRequest.add(client.prepareIndex(index, mapping).setSource(source).setRefresh(true).setOpType(OpType.INDEX))
+    }
+    
+    bulkRequest.execute(new ActionListener[BulkResponse](){
+      override def onResponse(response:BulkResponse) {
+
+        if (response.hasFailures()) {
+          
+          val msg = String.format("""Failed to register data for %s/%s""",index,mapping)
+          logger.error(msg, response.buildFailureMessage())
+                
+        } else {
+          
+          val msg = "Successful registration of bulk sources."
+          logger.info(msg)
+          
+        }        
+      
+      }
+       
+      override def onFailure(t:Throwable) {
+	    /*
+	     * In case of failure, we expect one or both of the following causes:
+	     * the index and / or the respective mapping may not exists
+	     */
+        val msg = "Failed to register bulk of sources."
+        logger.info(msg,t)
+	      
+        close()
+        throw new Exception(msg)
+	    
+      }
+      
+    })
+    
+    true
+  
+  }
+  
   def putSource(index:String,mapping:String,source:XContentBuilder):Boolean = {
      
     try {
-    
-      val writer = new ElasticWriter()
         
-      val readyToWrite = writer.open(index,mapping)
-      if (readyToWrite == false) {
-      
-        writer.close()
+      if (open(index,mapping) == false) {
       
         val msg = String.format("""Opening index '%s' and mapping '%s' for write failed.""",index,mapping)
         throw new Exception(msg)
       
       } else {
       
-        /*
-         * Writing the sources to the respective index throws an
-         * exception in case of an error; note, that the writer is
-         * automatically closed 
-         */
-        writer.writeJSON(index, mapping, source)      
+        writeJSON(index, mapping, source)      
         true
       
       }
@@ -273,25 +413,15 @@ class ElasticClient {
   def putSources(index:String,mapping:String,sources:List[XContentBuilder]):Boolean = {
      
     try {
-    
-      val writer = new ElasticWriter()
         
-      val readyToWrite = writer.open(index,mapping)
-      if (readyToWrite == false) {
-      
-        writer.close()
+      if (open(index,mapping) == false) {
       
         val msg = String.format("""Opening index '%s' and mapping '%s' for write failed.""",index,mapping)
         throw new Exception(msg)
       
       } else {
       
-        /*
-         * Writing the sources to the respective index throws an
-         * exception in case of an error; note, that the writer is
-         * automatically closed 
-         */
-        writer.writeBulkJSON(index, mapping, sources)      
+        writeBulkJSON(index, mapping, sources)      
         true
       
       }

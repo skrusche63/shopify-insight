@@ -159,10 +159,6 @@ class LoaderService(val appName:String) extends SparkService {
     /*
      * Create search indexes (if not already present)
      * 
-     * The 'task' index (mapping) specified an administrative database
-     * where all steps of a certain synchronization or data analytics
-     * task are registered
-     * 
      * The 'forecast' index (mapping) specifies a sales forecast database
      * derived from the Markovian rules built by the Intent Recognition
      * engine
@@ -190,55 +186,52 @@ class LoaderService(val appName:String) extends SparkService {
      * database due to the applied RFM segmentation, and also the product
      * segmentation base due to the applied PPF segmentation
      */
-    
-    if (ctx.createIndex(params,"database","tasks","task") == false)
-      throw new Exception("Index creation for 'database/tasks' has been stopped due to an internal error.")
  
     /********** ORDER **********/
     
-    if (ctx.createIndex(params,"orders","metrics","POM") == false)
+    if (ctx.createIndex("orders","metrics","POM") == false)
       throw new Exception("Index creation for 'orders/metrics' has been stopped due to an internal error.")
  
     /********** PRODUCT ********/
             
-    if (ctx.createIndex(params,"products","rules","PRM") == false)
+    if (ctx.createIndex("products","rules","PRM") == false)
       throw new Exception("Index creation for 'products/rules' has been stopped due to an internal error.")
 
-    if (ctx.createIndex(params,"products","segments","PPF") == false)
+    if (ctx.createIndex("products","segments","PPF") == false)
       throw new Exception("Index creation for 'products/segments' has been stopped due to an internal error.")
  
     /********** CUSTOMERS ******/
     
-    if (ctx.createIndex(params,"customers","forecasts","CPF") == false)
+    if (ctx.createIndex("customers","forecasts","CPF") == false)
       throw new Exception("Index creation for 'customers/forecasts' has been stopped due to an internal error.")
 
-    if (ctx.createIndex(params,"customers","locations","LOC") == false)
+    if (ctx.createIndex("customers","locations","LOC") == false)
       throw new Exception("Index creation for 'customers/locations' has been stopped due to an internal error.")
             
-    if (ctx.createIndex(params,"customers","loyalties","CLS") == false)
+    if (ctx.createIndex("customers","loyalties","CLS") == false)
       throw new Exception("Index creation for 'customers/loyalties' has been stopped due to an internal error.")
 
-    if (ctx.createIndex(params,"customers","profiles","CPP") == false)
+    if (ctx.createIndex("customers","profiles","CPP") == false)
       throw new Exception("Index creation for 'customers/profiles' has been stopped due to an internal error.")
 
-    if (ctx.createIndex(params,"customers","recommendations","CPR") == false)
+    if (ctx.createIndex("customers","recommendations","CPR") == false)
       throw new Exception("Index creation for 'customers/recommendations' has been stopped due to an internal error.")
             
-    if (ctx.createIndex(params,"customers","segments","RFM") == false)
+    if (ctx.createIndex("customers","segments","RFM") == false)
       throw new Exception("Index creation for 'customers/segments' has been stopped due to an internal error.")
  
     /********** PERSONAS ******/
             
-    if (ctx.createIndex(params,"personas","days","CDA") == false)
+    if (ctx.createIndex("personas","days","CDA") == false)
       throw new Exception("Index creation for 'personas/days' has been stopped due to an internal error.")
             
-    if (ctx.createIndex(params,"personas","hours","CHA") == false)
+    if (ctx.createIndex("personas","hours","CHA") == false)
       throw new Exception("Index creation for 'personas/hours' has been stopped due to an internal error.")
             
-    if (ctx.createIndex(params,"personas","timespans","CSA") == false)
+    if (ctx.createIndex("personas","timespans","CSA") == false)
       throw new Exception("Index creation for 'personas/timespans' has been stopped due to an internal error.")
             
-    if (ctx.createIndex(params,"personas","products","CPA") == false)
+    if (ctx.createIndex("personas","products","CPA") == false)
       throw new Exception("Index creation for 'personas/products' has been stopped due to an internal error.")
   
     ctx.listener ! String.format("""[INFO][UID: %s] Elasticsearch indexes created.""",uid)

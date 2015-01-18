@@ -112,8 +112,8 @@ class RequestContext(
    * client and makes access to the multiple search indexes available from the
    * request context
    */  
-  def createIndex(params:Map[String,String],index:String,mapping:String,topic:String):Boolean 
-    = elasticClient.createIndex(params,index,mapping,topic)
+  def createIndex(index:String,mapping:String,topic:String):Boolean 
+    = elasticClient.createIndex(index,mapping,topic)
 
   def count(index:String,mapping:String,query:QueryBuilder):Int 
     = elasticClient.count(index,mapping,query)

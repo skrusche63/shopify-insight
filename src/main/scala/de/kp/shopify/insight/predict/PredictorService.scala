@@ -149,21 +149,13 @@ class PredictorService(val appName:String) extends SparkService {
 
   private def createESIndex(params:Map[String,String]) {
     
-    val uid = params(Names.REQ_UID)
     /*
      * Create search index (if not already present)
      * 
-     * The 'tasks' index (mapping) specified an administrative database
-     * where all steps of a certain synchronization or data analytics
-     * task are registered
-     * 
      * The 'rfm' index (mapping) specifies an RFM forecast database
      */
-    
-    if (ctx.createIndex(params,"database","tasks","task") == false)
-      throw new Exception("Index creation for 'database/tasks' has been stopped due to an internal error.")
 
-    if (ctx.createIndex(params,"forecasts","rfm","RFM_F") == false)
+    if (ctx.createIndex("forecasts","rfm","RFM_F") == false)
       throw new Exception("Index creation for 'forecasts/rfm' has been stopped due to an internal error.")
     
   }

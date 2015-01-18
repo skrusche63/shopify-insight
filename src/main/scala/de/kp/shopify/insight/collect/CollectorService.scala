@@ -162,10 +162,6 @@ class CollectorService(val appName:String) extends SparkService {
     /*
      * Create search indexes (if not already present)
      * 
-     * The 'tasks' index (mapping) specified an administrative database
-     * where all steps of a certain synchronization or data analytics
-     * task are registered
-     * 
      * The 'customer' index (mapping) specifies a customer database that
      * holds synchronized customer data relevant for the insight server
      * 
@@ -176,16 +172,13 @@ class CollectorService(val appName:String) extends SparkService {
      * holds synchronized order data relevant for the insight server
      */
     
-    if (ctx.createIndex(params,"database","tasks","task") == false)
-      throw new Exception("Index creation for 'database/tasks' has been stopped due to an internal error.")
-    
-    if (ctx.createIndex(params,"database","customers","CSM") == false)
+    if (ctx.createIndex("database","customers","CSM") == false)
       throw new Exception("Index creation for 'database/customers' has been stopped due to an internal error.")
  
-    if (ctx.createIndex(params,"database","products","PRD") == false)
+    if (ctx.createIndex("database","products","PRD") == false)
       throw new Exception("Index creation for 'database/products' has been stopped due to an internal error.")
  
-    if (ctx.createIndex(params,"database","orders","ORD") == false)
+    if (ctx.createIndex("database","orders","ORD") == false)
       throw new Exception("Index creation for 'database/orders' has been stopped due to an internal error.")
     
   }

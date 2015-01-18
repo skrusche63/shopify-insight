@@ -131,10 +131,8 @@ class PreparerService(val appName:String) extends SparkService {
   
   protected def initialize(params:Map[String,String]):RDD[InsightOrder] = {
     /*
-     * STEP #1: Create Elasticsearch task database and register 
-     * the respective task in the database
+     * STEP #1: Register the respective task in the database
      */
-    createESIndex(params)
     registerESTask(params)
     /*
      * STEP #2: Retrieve orders from the database/orders index;
@@ -188,24 +186,6 @@ class PreparerService(val appName:String) extends SparkService {
 	 */
 	ctx.putSource("database","tasks",builder)
 
-  }
-
-  private def createESIndex(params:Map[String,String]) {
-    
-    val uid = params(Names.REQ_UID)
-    /*
-     * Create search index (if not already present)
-     * 
-     * The 'tasks' index (mapping) specified an administrative database
-     * where all steps of a certain synchronization or data analytics
-     * task are registered
-     */
-    
-    if (ctx.createIndex(params,"database","tasks","task") == false)
-      throw new Exception("Index creation for 'database/tasks' has been stopped due to an internal error.")
-   
-    ctx.listener ! String.format("""[INFO][UID: %s] Elasticsearch database/tasks index created.""",uid)
-    
   }
   
   private def query(params:Map[String,String]):String = {

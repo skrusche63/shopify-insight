@@ -110,13 +110,7 @@ class LearnerService(val appName:String) extends SparkService {
   }
   
   protected def initialize(params:Map[String,String]) {
-    /*
-     * Create Elasticsearch database and register 
-     * the respective task in the task database
-     */
-    createESIndex(params)
     registerESTask(params)
-    
   }
 
   private def registerESTask(params:Map[String,String]) = {
@@ -145,22 +139,6 @@ class LearnerService(val appName:String) extends SparkService {
 	 */
 	ctx.putSource("database","tasks",builder)
 
-  }
-
-  private def createESIndex(params:Map[String,String]) {
-    
-    val uid = params(Names.REQ_UID)
-    /*
-     * Create search index (if not already present)
-     * 
-     * The 'tasks' index (mapping) specified an administrative database
-     * where all steps of a certain synchronization or data analytics
-     * task are registered
-     */
-    
-    if (ctx.createIndex(params,"database","tasks","task") == false)
-      throw new Exception("Index creation for 'database/tasks' has been stopped due to an internal error.")
-    
   }
   
 }
