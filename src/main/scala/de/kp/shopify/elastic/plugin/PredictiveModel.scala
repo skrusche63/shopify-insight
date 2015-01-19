@@ -51,7 +51,124 @@ case class EsCPR(
 )
 
 @JsonIgnoreProperties(ignoreUnknown = true)
-case class EsCPRList(entries:List[EsCPR])
+case class EsFRQ(
+
+  @JsonProperty("item")
+  item:Int,
+
+  @JsonProperty("supp")
+  supp:Int
+    
+)
+
+@JsonIgnoreProperties(ignoreUnknown = true)
+case class EsPOM(
+                
+  /********** METADATA **********/
+
+  @JsonProperty("uid")
+  uid:String,
+
+  @JsonProperty("timestamp")
+  timestamp:Long,
+
+  @JsonProperty("site")
+  site:String,
+
+  /********** METRIC DATA **********/
+
+  @JsonProperty("total_orders")
+  total_orders:Int,
+
+  @JsonProperty("total_amount")
+  total_amount:Double,
+
+  @JsonProperty("total_avg_amount")
+  total_avg_amount:Double,
+
+  @JsonProperty("total_max_amount")
+  total_max_amount:Double,
+
+  @JsonProperty("total_min_amount")
+  total_min_amount:Double,
+
+  @JsonProperty("total_stdev_amount")
+  total_stdev_amount:Double,
+
+  @JsonProperty("total_variance_amount")
+  total_variance_amount:Double,
+
+  @JsonProperty("total_avg_timespan")
+  total_avg_timespan:Double,
+
+  @JsonProperty("total_max_timespan")
+  total_max_timespan:Double,
+
+  @JsonProperty("total_min_timespan")
+  total_min_timespan:Double,
+
+  @JsonProperty("total_stdev_timespan")
+  total_stdev_timespan:Double,
+
+  @JsonProperty("total_variance_timespan")
+  total_variance_timespan:Double,
+  
+  @JsonProperty("total_day_supp")
+  total_day_supp:List[EsFRQ],
+  
+  @JsonProperty("total_time_supp")
+  total_time_supp:List[EsFRQ],
+  
+  @JsonProperty("total_item_supp")
+  total_item_supp:List[EsFRQ]
+  
+)
+
+@JsonIgnoreProperties(ignoreUnknown = true)
+case class EsPRF(
+
+  @JsonProperty("item")
+  item:Int,
+
+  @JsonProperty("score")
+  score:Double
+    
+)
+
+@JsonIgnoreProperties(ignoreUnknown = true)
+case class EsPPF(
+                
+  /********** METADATA **********/
+
+  @JsonProperty("uid")
+  uid:String,
+
+  @JsonProperty("timestamp")
+  timestamp:Long,
+
+  @JsonProperty("site")
+  site:String,
+
+  /********** SEGMENT DATA **********/
+
+  @JsonProperty("item")
+  item:Int,
+
+  @JsonProperty("customer_supp")
+  customer_supp:Int,
+
+  @JsonProperty("purchase_supp")
+  purchase_supp:Int,
+
+  @JsonProperty("c_segment")
+  c_segment:Int,
+
+  @JsonProperty("p_segment")
+  p_segment:Int,
+
+  @JsonProperty("customer_type")
+  customer_type:Int
+)
 
 @JsonIgnoreProperties(ignoreUnknown = true)
 case class EsPRM(
@@ -101,15 +218,15 @@ case class EsBPR(
 
   @JsonProperty("site")
   site:String,
+
+  @JsonProperty("user")
+  user:String,
                 
   /********** PRODUCT DATA **********/
   
   @JsonProperty("items")
-  items:Seq[Int],
+  items:Seq[EsPRF],
   
-  @JsonProperty("score")
-  score:Double,
-
   @JsonProperty("customer_type")
   customer_type:Int
   

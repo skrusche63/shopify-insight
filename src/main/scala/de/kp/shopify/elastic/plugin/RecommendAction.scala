@@ -104,6 +104,26 @@ class RecommendAction @Inject()(settings:Settings,client:Client,controller:RestC
 
         }
         
+        case "top_products" => {
+          /*
+           * This method determines those products with the highest purchase frequency;
+           * we distinguish between requests that provide a certain customer type, and
+           * those that do not refer to a certain customer segment 
+           */
+          val site = params("site").asInstanceOf[String]
+          val created_at = params("created_at").asInstanceOf[Long]
+          
+          val response = if (params.contains("customer")) {
+            
+            val customer = params("customer").asInstanceOf[Int]
+            questor.top_products(site, customer, created_at)
+          
+          } else questor.top_products(site,created_at)
+          
+          sendResponse(channel,request,response)
+         
+        }
+        
         case _ => throw new Exception("The method '" + params("method") + "' is not supported.")
         
       }

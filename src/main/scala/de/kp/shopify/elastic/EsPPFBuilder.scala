@@ -58,6 +58,11 @@ class EsPPFBuilder {
       
                 /********** SEGMENT DATA **********/
 
+                /* item */
+                .startObject("item")
+                  .field("type", "integer")
+                .endObject()
+
                 /* customer_supp */
                 .startObject("customer_supp")
                   .field("type", "integer")

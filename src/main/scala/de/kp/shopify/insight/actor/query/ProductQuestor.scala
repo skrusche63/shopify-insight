@@ -57,7 +57,7 @@ class ProductQuestor(requestCtx:RequestContext) extends BaseActor(requestCtx) {
              * Retrieve the product rules of a certain time span,
              * identified by the unique task identifier (uid)
              */
-            val rules = ESQuestor.query_Rules(requestCtx, uid)
+//            val rules = ESQuestor.query_Rules(requestCtx, uid)
         
 //            /*
 //             * Return sorted list consequent products with the highest overlap with 
@@ -131,7 +131,7 @@ class ProductQuestor(requestCtx:RequestContext) extends BaseActor(requestCtx) {
              * Retrieve the product rules of a certain time span,
              * identified by the unique task identifier (uid)
              */
-            val rules = ESQuestor.query_Rules(requestCtx, uid)
+//            val rules = ESQuestor.query_Rules(requestCtx, uid)
         
 //            /*
 //             * Return sorted list antecedent products with the highest overlap with 
@@ -204,7 +204,7 @@ class ProductQuestor(requestCtx:RequestContext) extends BaseActor(requestCtx) {
              * Retrieve the product rules of a certain time span,
              * identified by the unique task identifier (uid)
              */
-            val rules = ESQuestor.query_Rules(requestCtx, uid)
+//            val rules = ESQuestor.query_Rules(requestCtx, uid)
         
 //            /*
 //             * Return sorted list antecedent products with the highest overlap with 
@@ -267,34 +267,7 @@ class ProductQuestor(requestCtx:RequestContext) extends BaseActor(requestCtx) {
             context.stop(self)
             
           }
-          
-          case "product_top_sell" => {
-            
-            /*
-             * This method retrieves the top selling products from the orders/aggregates
-             * index and extracts those products with the highest support
-             */
-            val average = ESQuestor.query_Aggregate(requestCtx, uid)
-            val total_item_supp = average.total_item_supp
-            
-            val total = if (req_params.contains(Names.REQ_TOTAL)) req_params(Names.REQ_TOTAL).toInt else 10
-            val sorted = total_item_supp.sortBy(x => -x.supp)
-
-            val top_item_supp = if (total < sorted.size) sorted.take(total) else sorted            
-//            val result = InsightTopItems(
-//                average.uid,
-//                average.timestamp,
-//                average.created_at_min,
-//                average.created_at_max,
-//                top_item_supp.size,
-//                top_item_supp
-//            )
-//            
-//            origin ! result
-            context.stop(self)
-            
-          }
-          
+           
           case _ => throw new Exception("The request method '" + method + "' is not supported.")
           
         }

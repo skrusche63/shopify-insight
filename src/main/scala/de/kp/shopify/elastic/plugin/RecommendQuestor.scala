@@ -21,20 +21,26 @@ package de.kp.shopify.elastic.plugin
 import org.elasticsearch.client.Client
 
 import org.elasticsearch.index.query._
+
 import scala.collection.mutable.Buffer
+import scala.collection.JavaConversions._
 
 class RecommendQuestor(client:Client) extends PredictiveQuestor(client) {
 
   private val CSM_INDEX = "customers"
-  private val RECOM_MAPPING = "recommendations"
+  private val CPR_MAPPING = "recommendations"
 
-  private val PRM_INDEX = "products"
-  private val REL_MAPPING = "relations"
+  private val PRD_INDEX = "products"
   
+  private val PPF_MAPPING = "segments"
+  private val RRM_MAPPING = "relations"
+ 
+  private val ORD_INDEX = "orders"
+  private val POM_MAPPING = "metrics"
+ 
   def recommended_products(site:String,user:String,created_at:Long):String = {
     /*
-     * STEP #1: Build filtered query with 'site' and
-     * 'user' parameter as filtered terms
+     * STEP #1: Build filtered query
      */
     val filters = Buffer.empty[FilterBuilder]
 
@@ -51,27 +57,40 @@ class RecommendQuestor(client:Client) extends PredictiveQuestor(client) {
     /*
      * STEP #2: Determine all
      */
-    val total = count(CSM_INDEX,RECOM_MAPPING,qbuilder)    
-    val response = find(CSM_INDEX, RECOM_MAPPING, qbuilder,total)
+    val total = count(CSM_INDEX,CPR_MAPPING,qbuilder)    
+    val response = find(CSM_INDEX, CPR_MAPPING, qbuilder,total)
     
     val hits = response.getHits()
     val total_hits = hits.totalHits()
     
-    val result = if (total_hits == 0) {
-      EsCPRList(List.empty[EsCPR])
+    if (total_hits == 0) {
+      """{}"""
       
     } else {    
-      EsCPRList(hits.hits().map(x => JSON_MAPPER.readValue(x.getSourceAsString,classOf[EsCPR])).toList)   
+      /*
+       * The dataset, retrieved from the respective index, represents all products 
+       * that have been recommended to the specific customer
+       */
+      val dataset = hits.hits().map(x => JSON_MAPPER.readValue(x.getSourceAsString,classOf[EsCPR]))
+      val latest = dataset.map(x => x.timestamp).toSeq.sorted.last
+      
+      val filtered = dataset.filter(x => x.timestamp == latest)
+      /*
+       * Determine uid & customer_type from head of dataset
+       */
+      val (uid,customer_type) = (filtered.head.uid,filtered.head.customer_type)
+      val items = filtered.map(x => EsPRF(x.item,x.score)).toList
+      
+      val result = EsBPR(uid,latest,site,user,items,customer_type)
+      JSON_MAPPER.writerWithType(classOf[EsBPR]).writeValueAsString(result)
       
     }
-    
-    JSON_MAPPER.writerWithType(classOf[EsCPRList]).writeValueAsString(result)
      
   }
 
   def related_products(site:String,customer:Int,products:List[Int],created_at:Long):String = {
     /*
-     * STEP #1: Build filtered query with 'site' parameter as filtered terms
+     * STEP #1: Build filtered query
      */
     val filters = Buffer.empty[FilterBuilder]
 
@@ -90,14 +109,14 @@ class RecommendQuestor(client:Client) extends PredictiveQuestor(client) {
      * STEP #2: Determine all product relation rules that match
      * the provided parameters
      */
-    val total = count(CSM_INDEX,RECOM_MAPPING,qbuilder)    
-    val response = find(CSM_INDEX, RECOM_MAPPING, qbuilder,total)
+    val total = count(PRD_INDEX,RRM_MAPPING,qbuilder)    
+    val response = find(PRD_INDEX, RRM_MAPPING, qbuilder,total)
     
     val hits = response.getHits()
     val total_hits = hits.totalHits()
     
-    val result = if (total_hits == 0) {
-      EsBPRList(List.empty[EsBPR])
+    if (total_hits == 0) {
+      """{}"""
       
     } else {    
       /*
@@ -111,8 +130,13 @@ class RecommendQuestor(client:Client) extends PredictiveQuestor(client) {
        * c) the support ratio
        * 
        */
-      val rules = hits.hits().map(x => JSON_MAPPER.readValue(x.getSourceAsString,classOf[EsPRM]))
-      EsBPRList(rules.map(rule => {
+      val dataset = hits.hits().map(x => JSON_MAPPER.readValue(x.getSourceAsString,classOf[EsPRM]))
+      val latest = dataset.map(x => x.timestamp).toSeq.sorted.last
+      
+      val filtered = dataset.filter(x => x.timestamp == latest)      
+      val uid = filtered.head.uid
+
+      val items = filtered.flatMap(rule => {
         
         val ratio = rule.support.toDouble / rule.total
         
@@ -120,15 +144,122 @@ class RecommendQuestor(client:Client) extends PredictiveQuestor(client) {
         val weight = products.intersect(antecedent).size.toDouble / antecedent.size
         
         val score = weight * rule.confidence * ratio
-        
-        EsBPR(rule.uid,rule.timestamp,rule.site,rule.consequent,score,rule.customer_type)
+        rule.consequent.map(x => EsPRF(x,score))
       
-      }).toList)
+      })
+
+      val result = EsBPR(uid,latest,site,"",items,customer)
+      JSON_MAPPER.writerWithType(classOf[EsBPR]).writeValueAsString(result)
       
     }
     
-    JSON_MAPPER.writerWithType(classOf[EsBPRList]).writeValueAsString(result)
+  }
+  
+  def top_products(site:String,created_at:Long):String = {
+    /*
+     * STEP #1: Build filtered query
+     */
+    val filters = Buffer.empty[FilterBuilder]
+
+    filters += FilterBuilders.termFilter("site", site)
+    filters += FilterBuilders.rangeFilter("timestamp").gt(created_at)  
+
+    filters.toList
+            
+    val fbuilder = FilterBuilders.boolFilter()
+    fbuilder.must(filters:_*)
+
+    val qbuilder = QueryBuilders.filteredQuery(QueryBuilders.matchAllQuery(),fbuilder)
+    /*
+     * STEP #2: Determine all purchase metrics dataset that match
+     * the provided parameters
+     */
+    val total = count(ORD_INDEX,POM_MAPPING,qbuilder)    
+    val response = find(ORD_INDEX, POM_MAPPING, qbuilder,total)
     
+    val hits = response.getHits()
+    val total_hits = hits.totalHits()
+    
+    if (total_hits == 0) {
+      """{}"""
+      
+    } else {    
+      /*
+       * The dataset, retrived from the respective index, represents all products
+       * that have been purchased in a certain time window
+       */    
+      val dataset = hits.hits().map(x => JSON_MAPPER.readValue(x.getSourceAsString,classOf[EsPOM]))
+      val latest = dataset.map(x => x.timestamp).toSeq.sorted.last
+      
+      val filtered = dataset.filter(x => x.timestamp == latest)(0)     
+      val uid = filtered.uid
+      
+      val item_supp = filtered.total_item_supp
+      val total = item_supp.size
+      
+      val items = item_supp.map(x => EsPRF(x.item, x.supp.toDouble / total))
+      val result = EsBPR(uid,latest,site,"",items,0)
+    
+      JSON_MAPPER.writerWithType(classOf[EsBPR]).writeValueAsString(result)
+    
+    }
+ 
+  }
+
+  def top_products(site:String,customer:Int,created_at:Long):String = {
+    /*
+     * STEP #1: Build filtered query
+     */
+    val filters = Buffer.empty[FilterBuilder]
+
+    filters += FilterBuilders.termFilter("site", site)
+    filters += FilterBuilders.termFilter("customer_type", customer)
+
+    filters += FilterBuilders.rangeFilter("timestamp").gt(created_at)  
+
+    filters.toList
+            
+    val fbuilder = FilterBuilders.boolFilter()
+    fbuilder.must(filters:_*)
+
+    val qbuilder = QueryBuilders.filteredQuery(QueryBuilders.matchAllQuery(),fbuilder)
+    /*
+     * STEP #2: Determine all purchase product frequency dataset that 
+     * match the provided parameters
+     */
+    val total = count(PRD_INDEX,PPF_MAPPING,qbuilder)    
+    val response = find(PRD_INDEX,PPF_MAPPING, qbuilder,total)
+    
+    val hits = response.getHits()
+    val total_hits = hits.totalHits()
+    
+    if (total_hits == 0) {
+      """{}"""
+      
+    } else {    
+      /*
+       * The dataset, retrived from the respective index, represents all products
+       * that have been purchased by all customers of a certain customer type
+       */
+      val dataset = hits.hits().map(x => JSON_MAPPER.readValue(x.getSourceAsString,classOf[EsPPF]))
+      val latest = dataset.map(x => x.timestamp).toSeq.sorted.last
+     
+      val filtered = dataset.filter(x => x.timestamp == latest)
+      val uid = filtered.head.uid
+      
+      val items = filtered.map(x => {
+        
+        val item = x.item        
+        val score = (x.c_segment * x.p_segment).toDouble / 25
+        
+        EsPRF(item,score)
+        
+      })
+      
+      val result = EsBPR(uid,latest,site,"",items,customer)
+      JSON_MAPPER.writerWithType(classOf[EsBPR]).writeValueAsString(result)
+    
+    }
   }
   
 }

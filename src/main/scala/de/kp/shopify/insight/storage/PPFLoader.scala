@@ -84,8 +84,6 @@ class PPFLoader(ctx:RequestContext,params:Map[String,String]) extends BaseLoader
       
       val cval = data("cval").asInstanceOf[Int]
       val pval = data("pval").asInstanceOf[Int]
-
-      val confidence = data("confidence").asInstanceOf[Double]
       
       ParquetPPF(item,customer,purchase,cval,pval)
       
@@ -112,6 +110,9 @@ class PPFLoader(ctx:RequestContext,params:Map[String,String]) extends BaseLoader
       builder.field(Names.SITE_FIELD,params("site"))
       
       /********** SEGMENT DATA **********/
+
+      /* item */
+	  builder.field("item",x.item)
 
 	  /* customer_supp */
 	  builder.field("customer_supp",x.customer)

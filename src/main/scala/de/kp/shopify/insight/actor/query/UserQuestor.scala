@@ -47,14 +47,14 @@ class UserQuestor(requestCtx:RequestContext) extends BaseActor(requestCtx) {
           
           case "user_loyalty" => {
             
-            val filters = buildUserFilters(req_params)
-            
-            val fbuilder = FilterBuilders.boolFilter()
-            fbuilder.must(filters:_*)
-            
-            val loyalties = ESQuestor.query_FilteredLoyalties(requestCtx,fbuilder)
-            origin ! InsightLoyalties(loyalties)
-        
+//            val filters = buildUserFilters(req_params)
+//            
+//            val fbuilder = FilterBuilders.boolFilter()
+//            fbuilder.must(filters:_*)
+//            
+//            val loyalties = ESQuestor.query_FilteredLoyalties(requestCtx,fbuilder)
+//            origin ! InsightLoyalties(loyalties)
+//        
             context.stop(self)
             
           }
@@ -101,64 +101,7 @@ class UserQuestor(requestCtx:RequestContext) extends BaseActor(requestCtx) {
             context.stop(self)
 
           }
-          
-          case "user_recommendation" => {
- 
-            val total = if (req_params.contains(Names.REQ_TOTAL)) req_params(Names.REQ_TOTAL).toInt else 10
-            val filters = buildUserFilters(req_params)
-            
-            val fbuilder = FilterBuilders.boolFilter()
-            fbuilder.must(filters:_*)
- 
-            val response = ESQuestor.query_FilteredRecommendations(requestCtx, fbuilder)
-            if (response.size != 1) throw new Exception("Illegal number of user recommendations detected.")
-            
-            val record = response(0)
-            val candidates = record.recommendations.map(x => (x.consequent,x.score,x.consequent.size))
-            
-            val total_count = candidates.map(_._3).sum            
-//            val consequent = if (total < total_count) {
-//           
-//              val items = Buffer.empty[ItemPref]
-//              candidates.sortBy(x => -x._2).foreach(x => {
-//                
-//                val rest = total - items.size
-//                if (rest > x._3) x._1.foreach(v => items += ItemPref(v,x._2))
-//                else {
-//                  x._1.take(rest).foreach(v => items += ItemPref(v,x._2))
-//                }                
-//              })
-//              
-//              items.toList
-//              
-//            } else {
-//              /*
-//               * We have to take all candidates into account, 
-//               * as the request requires more or equal that 
-//               * are available
-//               */
-//              candidates.sortBy(x => -x._2).flatMap(x => x._1.map(v => ItemPref(v,x._2)))
-//            }
-//            
-//            /*
-//             * Retrieve metadata from record
-//             */
-//            val (timestamp,created_at_min,created_at_max) = (record.timestamp,record.created_at_min,record.created_at_max)
-//
-//            val result = InsightFilteredItems(
-//                uid,
-//                timestamp,
-//                created_at_min,
-//                created_at_max,
-//                consequent.size,
-//                consequent.toList
-//             )
-//            
-//            origin ! result
-            context.stop(self)
-            
-          }
-          
+         
           case _ => throw new Exception("The request method '" + method + "' is not supported.")
           
         }
