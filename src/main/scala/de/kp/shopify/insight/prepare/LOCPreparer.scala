@@ -20,13 +20,15 @@ package de.kp.shopify.insight.prepare
 
 import org.apache.spark.SparkContext._
 import org.apache.spark.rdd.RDD
+
 import de.kp.spark.core.Names
+
 import de.kp.shopify.insight._
 import de.kp.shopify.insight.model._
+
 import de.kp.shopify.insight.actor.BaseActor
 import de.kp.shopify.insight.geoip.LocationFinder
-import akka.actor.actorRef2Scala
-import scala.reflect.runtime.universe
+
 /**
  * The LOCPreparer evaluates the IP addresses and timestamps of 
  * customer purchase transactions for a certain period of time
@@ -50,9 +52,12 @@ class LOCPreparer(ctx:RequestContext,orders:RDD[InsightOrder]) extends BasePrepa
       val (site,user) = x._1
       /* Determine timestamp of order and associated IP address */
       val data = x._2.map(v => (v.ip_address,v.timestamp)).toSeq.sortBy(v => v._2)
-      data.map(v => {
-            
-        val (ip_address,timestamp) = v
+      data.map{case (ip_address,timestamp) => {
+        
+        /*
+         * Determine geospatial data from IP address
+         */
+        
         val loc = LocationFinder.locate(ip_address)
            
         ParquetLOC(
@@ -80,7 +85,7 @@ class LOCPreparer(ctx:RequestContext,orders:RDD[InsightOrder]) extends BasePrepa
               loc.lon
         )
       
-      })
+      }}
           
     })
     /* 

@@ -39,7 +39,7 @@ class CPFEnricher(ctx:RequestContext,params:Map[String,String]) extends BaseEnri
   private val DAY = 24 * 60 * 60 * 1000 // day in milliseconds
         
   import sqlc.createSchemaRDD
-  override def enrich(params:Map[String,String]) {
+  override def enrich {
       
     val uid = params(Names.REQ_UID)
     val name = params(Names.REQ_NAME)

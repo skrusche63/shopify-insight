@@ -27,10 +27,10 @@ import de.kp.spark.core.model._
 import de.kp.shopify.insight.RequestContext
 import de.kp.shopify.insight.model._
 
-class SAEEnricher (ctx:RequestContext,params:Map[String,String]) extends BaseEnricher(ctx,params) {
+class SAEEnricher(ctx:RequestContext,params:Map[String,String]) extends BaseEnricher(ctx,params) {
   
   import sqlc.createSchemaRDD
-  override def enrich(params:Map[String,String]) {
+  override def enrich {
       
     val uid = params(Names.REQ_UID)
     val name = params(Names.REQ_NAME)

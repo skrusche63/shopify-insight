@@ -46,7 +46,7 @@ abstract class BaseEnricher(ctx:RequestContext,params:Map[String,String]) extend
       
       try {
        
-        enrich(req_params)
+        enrich
         
         val end = new java.util.Date().getTime.toString
         ctx.putLog("info",String.format("""[UID: %s] %s enrichment finished at %s.""",uid,end))
@@ -70,6 +70,6 @@ abstract class BaseEnricher(ctx:RequestContext,params:Map[String,String]) extend
 
   }
   
-  protected def enrich(params:Map[String,String]) {}
+  protected def enrich {}
   
 }

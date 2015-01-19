@@ -43,12 +43,25 @@ object EnricherApp extends EnricherService("Enricher") {
       
       val job = params("job")
       val customer = params("customer")
-      /*
-       * The job descriptor is extended with the customer (type) 
-       * provided to form the name designator for this task
-       * 
-       */
-      val req_params = params ++ Map(Names.REQ_NAME -> String.format("""%s-%s""",job,customer))        
+      
+      val req_params = (
+        if (List("LOC").contains("job")) {
+          /*
+           * The job descriptor is directly used as the name designator
+           */
+          params ++ Map(Names.REQ_NAME -> job) 
+        
+        } else {
+          /*
+           * The job descriptor is extended with the customer (type) 
+           * provided to form the name designator for this task
+           * 
+           */
+          params ++ Map(Names.REQ_NAME -> String.format("""%s-%s""",job,customer))
+        }
+        
+      )
+      
       initialize(req_params)
       
       val actor = system.actorOf(Props(new Handler(ctx,req_params)))   

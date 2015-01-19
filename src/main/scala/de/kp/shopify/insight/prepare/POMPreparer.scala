@@ -102,7 +102,7 @@ class POMPreparer(ctx:RequestContext,orders:RDD[InsightOrder]) extends BasePrepa
        * Build Parquet file 
        */
       val table = ctx.sparkContext.parallelize(List(
-    		  ParquetPOM(  
+    	ParquetPOM(  
             total,
   
             /********** AMOUNT DIMENSION **********/
