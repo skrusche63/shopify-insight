@@ -31,8 +31,6 @@ import de.kp.spark.core.Names
 import de.kp.spark.core.SparkService
 
 import de.kp.shopify.insight.{Configuration,RequestContext}
-import de.kp.shopify.insight.actor.MessageListener
-
 import de.kp.shopify.insight.model._
 
 import org.elasticsearch.common.xcontent.XContentFactory
