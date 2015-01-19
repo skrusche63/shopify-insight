@@ -46,6 +46,7 @@ class PredictivePlugin(val settings:Settings) extends AbstractPlugin {
  def onModule(module:RestModule) {
 
     module.addRestAction(classOf[RecommendAction])
+    module.addRestAction(classOf[TimeSeriesAction])
     
   }
 

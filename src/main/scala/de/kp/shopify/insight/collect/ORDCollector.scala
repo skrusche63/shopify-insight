@@ -49,9 +49,10 @@ class ORDCollector(ctx:RequestContext,params:Map[String,String]) extends BaseAct
 
         /*
          * STEP #1: Write orders of a certain period of time 
-         * to the database/orders index and 
+         * to the orders/base index and 
          */
-        writeOrders(params,orders)
+        val sources = orders.map(x=> buildOrder(params,x))       
+        ctx.putSources("orders", "base", sources)
         
         val end = new java.util.Date().getTime
         ctx.putLog("info",String.format("""[UID: %s] ORD collection finished at %.""",uid,end.toString))
@@ -77,13 +78,6 @@ class ORDCollector(ctx:RequestContext,params:Map[String,String]) extends BaseAct
     }
     case _ =>  
       
-  }
- 
-  private def writeOrders(params:Map[String,String],orders:List[Order]) {
-
-    val sources = orders.map(x=> buildOrder(params,x))       
-    ctx.putSources("database", "orders", sources)
-    
   }
   
   private def buildOrder(params:Map[String,String],order:Order):XContentBuilder = {

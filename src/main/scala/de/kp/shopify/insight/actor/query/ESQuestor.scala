@@ -1,4 +1,4 @@
-package de.kp.shopify.elastic
+package de.kp.shopify.insight.actor.query
 /* Copyright (c) 2014 Dr. Krusche & Partner PartG
 * 
 * This file is part of the Shopify-Insight project
@@ -19,16 +19,12 @@ package de.kp.shopify.elastic
 */
 
 import de.kp.spark.core.Names
-
 import de.kp.shopify.insight.model._
 import de.kp.shopify.insight.RequestContext
-
 import org.elasticsearch.index.query._
-import org.elasticsearch.search.{SearchHit,SearchHits}
-
-import org.elasticsearch.common.xcontent.{XContentBuilder,XContentFactory}
-
+import org.elasticsearch.search.SearchHit
 import scala.collection.JavaConversions._
+import scala.Array.canBuildFrom
 /**
  * The ESQuestor holds a set of pre-defined Elasticsearch queries
  * and leverages these to retrieve data from predefined indexes

@@ -2,17 +2,12 @@ package de.kp.shopify.insight.actor.query
 
 import org.joda.time.DateTime
 import org.joda.time.format.DateTimeFormat
-
 import de.kp.spark.core.Names
-
 import de.kp.shopify.insight._
 import de.kp.shopify.insight.actor.BaseActor
-
 import de.kp.shopify.elastic._
 import de.kp.shopify.insight.model._
-
 import scala.collection.mutable.ArrayBuffer
-
 import org.elasticsearch.index.query._
 import scala.collection.mutable.Buffer
 
@@ -41,20 +36,6 @@ class UserQuestor(requestCtx:RequestContext) extends BaseActor(requestCtx) {
             val forecasts = ESQuestor.query_FilteredForecasts(requestCtx,fbuilder)
             origin ! InsightForecasts(forecasts)
         
-            context.stop(self)
-            
-          }
-          
-          case "user_loyalty" => {
-            
-//            val filters = buildUserFilters(req_params)
-//            
-//            val fbuilder = FilterBuilders.boolFilter()
-//            fbuilder.must(filters:_*)
-//            
-//            val loyalties = ESQuestor.query_FilteredLoyalties(requestCtx,fbuilder)
-//            origin ! InsightLoyalties(loyalties)
-//        
             context.stop(self)
             
           }

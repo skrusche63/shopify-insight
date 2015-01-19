@@ -27,7 +27,7 @@ import org.elasticsearch.common.settings.Settings
 class RecommendAction @Inject()(settings:Settings,client:Client,controller:RestController) extends RestHandler(settings,client) {
 
   logger.info("Add RecommendAction module") 
-  controller.registerHandler(RestRequest.Method.POST,"/_analytics/{method}", this)
+  controller.registerHandler(RestRequest.Method.POST,"/_recommendations/{method}", this)
   
   override protected def handleRequest(request:RestRequest,channel:RestChannel,client:Client) {
 

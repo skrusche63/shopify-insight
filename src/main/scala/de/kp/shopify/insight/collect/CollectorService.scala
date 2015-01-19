@@ -165,14 +165,14 @@ class CollectorService(val appName:String) extends SparkService {
      * holds synchronized order data relevant for the insight server
      */
     
-    if (ctx.createIndex("database","customers","CSM") == false)
-      throw new Exception("Index creation for 'database/customers' has been stopped due to an internal error.")
+    if (ctx.createIndex("customers","base","CSM") == false)
+      throw new Exception("Index creation for 'customers/base' has been stopped due to an internal error.")
  
-    if (ctx.createIndex("database","products","PRD") == false)
-      throw new Exception("Index creation for 'database/products' has been stopped due to an internal error.")
+    if (ctx.createIndex("products","base","PRD") == false)
+      throw new Exception("Index creation for 'products/base' has been stopped due to an internal error.")
  
-    if (ctx.createIndex("database","orders","ORD") == false)
-      throw new Exception("Index creation for 'database/orders' has been stopped due to an internal error.")
+    if (ctx.createIndex("orders","base","ORD") == false)
+      throw new Exception("Index creation for 'orders/base' has been stopped due to an internal error.")
     
   }
   

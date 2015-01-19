@@ -52,7 +52,7 @@ class PRDCollector(ctx:RequestContext,params:Map[String,String]) extends BaseAct
         val ids = products.map(_.id)
         val sources = products.map(toSource(_))
         
-        ctx.putSources("database", "products", ids, sources)
+        ctx.putSources("products", "base", ids, sources)
         
         val end = new java.util.Date().getTime
         ctx.putLog("info",String.format("""[UID: %s] PRD collection finished at %s.""",uid,end.toString))

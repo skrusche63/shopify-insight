@@ -49,7 +49,7 @@ class CSMCollector(ctx:RequestContext,params:Map[String,String]) extends BaseAct
         val ids = customers.map(_.id)
         val sources = customers.map(x=> toSource(params,x))
         
-        ctx.putSources("database", "customers", ids, sources)
+        ctx.putSources("customers", "base", ids, sources)
  
         val end = new java.util.Date().getTime
         ctx.putLog("info",String.format("""[UID: %s] CSM collection finished at %s.""",uid,end.toString))

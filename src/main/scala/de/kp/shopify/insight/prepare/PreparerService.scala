@@ -129,13 +129,13 @@ class PreparerService(val appName:String) extends SparkService {
      */
     registerESTask(params)
     /*
-     * STEP #2: Retrieve orders from the database/orders index;
+     * STEP #2: Retrieve orders from the orders/base index;
      * the respective query is either provided as an external
      * parameter or computed from the period of time provided
      * with this request
      */
     val esConfig = ctx.getESConfig
-    esConfig.set(Names.ES_RESOURCE,("database/orders"))
+    esConfig.set(Names.ES_RESOURCE,("orders/base"))
 
     if (params.contains(Names.REQ_QUERY))
       esConfig.set(Names.ES_QUERY,params(Names.REQ_QUERY))

@@ -140,7 +140,7 @@ class ShopifyMapper(ctx:RequestContext) {
        * The product database is accessed to retrieve additional
        * category and vendor data to enrich the OrderItem record
        */
-      val product_str = ctx.getAsString("database", "products", item.toString)
+      val product_str = ctx.getAsString("products", "base", item.toString)
       val product = ctx.JSON_MAPPER.readValue(product_str, classOf[InsightProduct])
 
       val category = product.category
