@@ -27,9 +27,9 @@ import de.kp.shopify.insight.RequestContext
 import de.kp.shopify.insight.model._
 
 import scala.concurrent.duration.DurationInt
-import scala.collection.mutable.Buffer
+import scala.collection.mutable.HashMap
 
-object CollectorApp extends CollectorService {
+object CollectorJob extends CollectorService {
   
   def main(args:Array[String]) {
 
@@ -62,16 +62,8 @@ object CollectorApp extends CollectorService {
     }
 
   }
-  /**
-   * The Handler class defines a data processing pipeline, that indexes 
-   * customer and product data in parallel, and initiates order indexing
-   * after product indexing was finished. This is due to the fact, that 
-   * order data are enriched by product information, and thus, have a 
-   * dependency.
-   */
+
   class Handler(ctx:RequestContext,params:Map[String,String]) extends Actor {
-    
-    private val BUF = Buffer.empty[String]
     
     override def receive = {
     
@@ -80,21 +72,20 @@ object CollectorApp extends CollectorService {
         val start = new java.util.Date().getTime     
         println("Collector started at " + start)
  
-        /*
-         * Start CSMCollector
-         */
-        val csm_params = params ++ Map(Names.REQ_NAME -> "CSM")
-        
-        val csm_collector = context.actorOf(Props(new CSMCollector(ctx,csm_params))) 
-        csm_collector ! StartCollect
-        
-        /*
-         * Start PRDCollector
-         */
-        val prd_params = params ++ Map(Names.REQ_NAME -> "PRD")
-        
-        val prd_collector = context.actorOf(Props(new PRDCollector(ctx,prd_params))) 
-        prd_collector ! StartCollect
+        val job = params("job")        
+        val collector = job match {
+          
+          case "CSM" => context.actorOf(Props(new CSMCollector(ctx,params))) 
+          
+          case "ORD" => context.actorOf(Props(new ORDCollector(ctx,params))) 
+          
+          case "PRD" => context.actorOf(Props(new PRDCollector(ctx,params))) 
+          
+          case _ => throw new Exception("Wrong job descriptor.")
+          
+        }
+
+        collector ! StartCollect
        
       }
     
@@ -109,30 +100,11 @@ object CollectorApp extends CollectorService {
     
       case msg:PrepareFinished => {
     
-        val model = msg.data(Names.REQ_MODEL)
-        BUF += model
-        
-        if (BUF.size == 3) {
-        
-          val end = new java.util.Date().getTime           
-          println("Collector finished at " + end)
+        val end = new java.util.Date().getTime           
+        println("Collector finished at " + end)
     
-          context.stop(self)
-        
-        }
-      
-        if (model == "PRD") {
-        
-          /*
-           * Start ORDCollector
-           */
-          val ord_params = params ++ Map(Names.REQ_NAME -> "ORD")
-        
-          val ord_collector = context.actorOf(Props(new CSMCollector(ctx,ord_params))) 
-          ord_collector ! StartCollect
-          
-        }
-        
+        context.stop(self)
+    
       }
     
     }

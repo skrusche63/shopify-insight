@@ -34,7 +34,7 @@ import de.kp.shopify.insight.model._
 import org.elasticsearch.common.xcontent.XContentFactory
 import scala.collection.mutable.{Buffer,HashMap}
 
-class CollectorService(val appName:String) extends SparkService {
+class CollectorService extends SparkService {
   
   protected val sc = createCtxLocal("CollectContext",Configuration.spark)      
   protected val system = ActorSystem("CollectSystem")
@@ -59,7 +59,7 @@ class CollectorService(val appName:String) extends SparkService {
     import ArgotConverters._
      
     val parser = new ArgotParser(
-      programName = appName,
+      programName = "Collector",
       compactUsage = true,
       preUsage = Some("Version %s. Copyright (c) 2015, %s.".format("1.0","Dr. Krusche & Partner PartG"))
     )
@@ -90,9 +90,9 @@ class CollectorService(val appName:String) extends SparkService {
     if (created_at_max.hasValue == false)
       throw new Exception("Parameter 'max_date' is missing.")
   
-    val jobs = List("CSM","ORD","PRD")
+    val jobs = List("ALL","CSM","ORD","PRD")
     if (jobs.contains(job.value.get) == false)
-      throw new Exception("Job parameter must be one of [CSM, ORD, PRD].")
+      throw new Exception("Job parameter must be one of [ALL, CSM, ORD, PRD].")
  
     /* Collect parameters */
     val params = HashMap.empty[String,String]
@@ -124,7 +124,7 @@ class CollectorService(val appName:String) extends SparkService {
   private def registerESTask(params:Map[String,String]) = {
     
     val key = "COLLECT:" + params(Names.REQ_NAME) + ":" + params(Names.REQ_UID)
-    val task = "Data collection with " + appName + "."
+    val task = "Data collection tasks."
     /*
      * Note, that we do not specify additional
      * payload data here
