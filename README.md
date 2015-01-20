@@ -40,6 +40,90 @@ directly visualized or time-based comparisons can be made with prior results.
 
 ### Features
 
+#### Geospatial Analysis
+
+Geospatial analysis looks into the IP addresses provided with every purchase order and transforms this value 
+into geospatial data, covering the country, region, city and also the WGS84 coordinates associated with the 
+purchase order.
+
+The geospatial data are determined in combination with the timestamp of the respective purchase and thus 
+provide a mechanism to compute the dynamic geospatial profile for every single customer.
+
+This profile can be used to determine the most frequent geo location, or, the distance moved between two subsequent
+transactions. In combination with the purchase time one can build movement profiles, determine whether purchases 
+have been made within or outside working hours and more.
+
+
+#### Loyalty Analysis
+
+Every retailer knows that their customer base covers those that stick around while others tend to quit shopping at their store. 
+In order to target loyal customers or start win-back campaigns for those that fade away, it is important to measure the customers' 
+loyalty.  
+
+A strong indicator for customer loyalty is the respective (re)purchasing behavior. 
+
+Shopifyinsight provides a personalized modeling approach and analyzes the customers' repeat shopping behavior, makes sense of 
+their purchase habits, and, identifies when a customer deviates or not from his or her normal behavior. 
+
+Loyalty analysis results are joined with the prior RFM segmentation results, and e.g. show whether high value customers deviate 
+from their normal behavior, and tend to fade off.
+
+
+#### Persona Analysis
+
+Shopify builds personas from the purchase time behavior, and also from the products, customers buy over their lifetime. 
+Personas specify customers with similar purchase behavior.
+
+Personas based on the purchase time behavior divides the customer base into groups of customers that prefer similar 
+days of the week and hours of the day when purchasing. Product based personas segments the customer base into groups 
+of customers that buy similar items. 
+
+Personas are also built from the *time to repeat purchase* and helps to segment customers due to their repeat purchase 
+patterns.  
+
+
+#### Product Recommendations
+
+Shopifyinsight analyzes the purchase behavior of every single customer and computes product preference profiles describing
+the affinity a certain customer has with a specific product.
+
+Shopifyinsight uses these individual preference profiles and trains a predictive model. This model is capable to predict the 
+customer product preferences, even to those products that have not been purchased yet.  
+
+Shopifyinsight leverages this predictive model to compute product recommendations for every single customer based on the products 
+with the highest preferences.
+
+
+#### Product Analysis
+
+Product (affinity) analysis determines those products that are frequently bought together to detect latent product
+relations. This helps to improve product placement, to plan cross-selling or promotions.
+
+Product analysis also leverages a quantile-based algorithm to segment products with respect to their customer purchase 
+frequency. This part of product analysis discovers products that are top sellers, and also determines those that are flops, 
+distinguished by high-value and less-value customer segments. 
+
+
+#### Purchase Forecast
+
+Shopifyinsight analyzes the customers' purchase behavior and describes it as a time ordered sequence of purchase states. 
+From these states, an advanced stochastic purchase model is built, to specify which purchase states are most likely followed 
+by which other states.
+
+Based on this purchase model, the most probable states are predicted, that follow the last purchase state of every single 
+customer, a number of steps ahead. From this result, the next most probable purchase times, associated with the most likely 
+amount of money spent, are derived. 
+
+
+#### Purchase Metrics
+
+A purchase metrics provides a first look (or overview) into the purchase data of a certain time window. The metrics comprises 
+statistical information of the monetary, time and product purchase dimension.
+
+The purchase metrics is a very fast mechanism to extract actionable data, and, loaded into an Elasticsearch cluster, contributes 
+to a time series of statistical data, each data point stemming from an individual metrics.
+
+
 #### RFM Analysis
 
 The concept of RFM has proven very effective when applied to marketing databases and describes a method 
@@ -62,3 +146,20 @@ RFM provides a simple yet powerful framework for quantifying customer purchase b
 segment the customer base. Example: A customer has made a high number of purchases with high monetary value but not for 
 a long time. At this situation something might have gone wrong, and marketers can contact with this customer to get feedback, 
 or start a reactivation program.
+
+Shopifyinsight utilizes the approved RFM concept to segment customers by their business value, and combines this 
+approach with modern data mining and predictive analytics.
+
+
+#### RFM Forecast
+
+The results of RFM analysis provide a *snapshot* of the business performance in a certain period of time and at a specific 
+timestamp (when the analysis has been made).
+
+Shopifyinsight applies machine learning algorithms to these time-stamped RFM data and computes forecasts for the recency, 
+frequency and monetary parameters for the next days, weeks, months or years.
+
+
+
+
+
