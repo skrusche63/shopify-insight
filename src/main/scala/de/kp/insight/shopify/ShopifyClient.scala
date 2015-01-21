@@ -22,7 +22,6 @@ import java.io.IOException
 
 import javax.ws.rs.HttpMethod
 import javax.ws.rs.client.{Client,ClientBuilder,Entity,WebTarget}
-
 import javax.ws.rs.core.MediaType
 
 import com.fasterxml.jackson.databind.{Module, ObjectMapper}
