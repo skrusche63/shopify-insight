@@ -1,48 +1,55 @@
 
 ## Elasticsearch Predictive Plugin
 
-The final results of the multiple data processing phases are indexed in appropriate Elasticsearch 
-indexes, and extend the base indexes that hold synchronized store data for the customer & product 
-base, and the registered purchase orders.
+The final results of the multiple phases of the customer science process are stored in an Elasticsearch 
+cluster, extending the available customer, product & order data. The benefit of this approach is, that all
+insights from the customers' purchase behavior are searchable and can be directly transformed into valuable 
+actions.
 
-Due to this approach, all insights discovered from the customers' purchase behavior are searchable 
-and can be directly transformed into valuable actions by suitable search-driven applications.
+And, as all insights derived from the customer science process are time-stamped data, it is easy to visualize 
+these data with [Kibana](http://www.elasticsearch.org/overview/kibana/), and, e.g. compare insights that have 
+different timestamps.
 
-And, as all data derived from applying analytics and predictive analysis, are equipped with a timestamp, 
-it is easy to build and visualize time series from these data, or compare insights that have different 
-timestamps.
+Shopifyinsight also provides a plugin for Elasticsearch (Predictive Plugin) to transform this search engine into
+a recommender system. The following recommendation types are supported:
 
-In addition to this functionality that is empowered by Elasticsearch, this platform also provides a plugin 
-for Elasticsearch (Predictive Plugin) to support product recommendations, and the retrieval of time series 
-data.
 
-### Product Recommendations
+### Recommended for you
 
-The predictive plugin supports the following recommendations:
+This type of recommendation provides a pre-computed set of products that are characterized by the highest 
+affinity to a certain customer with respect to all other products available.
 
----
+The recommendations are derived by applying collaborative filtering to all preference profiles for customers 
+that are assigned to the same customer segment or type. This approach avoids mining up profiles for high-value 
+customers with those that e.g. have only purchased once.
 
-#### Recommended for you
+This ensures that these product recommendations are as personalized as possible for a specific customer.
 
-Recommended products are computed from the customer's preference profile by taking most similar users
-and their preferences into account.  
 
----
+### More like this
 
-#### More like this
+This recommendation type does not take an individual customer into account, but has a strong focus on a certain 
+product, and delivers those (other) products that are most similar to the selected one.
 
-This recommendation provides products that are similar to a certain product.
+The most similar products are derived from the collaborative filtering results by computing the cosine similarity
+of all products in the latent feature vector space. The data used by collaborative filtering refer to a certain 
+customer segment or type, and, this implies that the most similar products also computed for a specific segment.
 
----
+This aspect refers to a more general data strategy that is applied by the customer science process. 
 
-#### Bought also bought
+
+### Bought also bought
+
+This type of recommendation is also independent of the individual customer and has a strong focus on products 
+that are related to a certain set of other products. The product relations this recommendation type is based on,
+are discovered from products that are frequently bought together by customer of a certain customer segment 
+
 
 This kind of recommendation provides products that are related to a certain product or a set of 
 products. 
 
----
 
-#### Top selling products
+### Top selling products
 
 Topic selling products do not refer to a certain customer, and are retrieved from product purchase frequencies.
 
@@ -56,10 +63,4 @@ in this context, the recommendation request must specify a certain customer type
 
 This information can be retrieved from multiple mappings within the *customer* index. An appropriate one, that 
 is recommended here, is the *segments* mapping, i.e ```customers/segments```. 
-
----
-
-### Time Series Data
-
-
 
