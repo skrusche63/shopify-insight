@@ -22,12 +22,16 @@ import org.apache.spark.SparkContext._
 import org.elasticsearch.common.xcontent.{XContentBuilder,XContentFactory}
 
 import de.kp.spark.core.Names
-import de.kp.insight._
 
+import de.kp.insight._
 import de.kp.insight.model._
+
+import de.kp.insight.shopify.ShopifyContext
 
 class ORDCollector(ctx:RequestContext,params:Map[String,String]) extends BaseActor(ctx) {
 
+  private val shopifyContext = new ShopifyContext(ctx)
+  
   override def receive = {
 
     case message:StartCollect => {
@@ -42,7 +46,7 @@ class ORDCollector(ctx:RequestContext,params:Map[String,String]) extends BaseAct
         ctx.putLog("info",String.format("""[UID: %s] ORD collection started.""",uid))
             
         val start = new java.util.Date().getTime            
-        val orders = ctx.getOrders(params)
+        val orders = shopifyContext.getOrders(params)
        
         ctx.putLog("info",String.format("""[UID: %s] Order base loaded from store.""",uid))
 
