@@ -4,7 +4,8 @@
 The *profile* subsystem builds a customer purchase profile from multiple aspects
 of the customer purchase behavior:
 
-#### Customer Type
+
+### Customer Type
 
 The customer purchase profile comprise the customer type derived from RFM segmentation, the 
 respective attributes, recency, frequency and monetary, and also the specification of the 
@@ -13,13 +14,15 @@ associated (individual) segments.
 E.g. monetary segmentation divides the customer base due to their total amounts spent into 
 segments from 1 to 5, where 5 specifies a customer with the highest business value.
 
-#### Customer Loyalty
+
+### Customer Loyalty
 
 The customer purchase profile describes the loyalty segment the customer is assigned to due to 
 his or her last purchase behavior. Loyalty segmentation divides the customer base into segments 
 from 1 to 4, where 1 describes churners and 4 the most loyal customers.
 
-#### Customer Personas
+
+### Customer Personas
 
 Every customer is unique, but customer purchase behavior shows that customers can be divided into
 groups that have similar purchase pattern.
