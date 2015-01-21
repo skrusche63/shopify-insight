@@ -85,9 +85,9 @@ class LoaderService(val appName:String) extends SparkService {
     if (job.hasValue == false)
       throw new Exception("Parameter 'job' is missing.")
   
-    val jobs = List("CDA","CHA","CLS","CPA","CPF","CPP","CPR","CSA","LOC","POM","PPF","PRM","RFM")
+    val jobs = List("CDA","CHA","CLS","CPA","CPF","CPP","CPR","CSA","LOC","POM","PPF","PPS","PRM","RFM")
     if (jobs.contains(job.value.get) == false)
-      throw new Exception("Job parameter must be one of [CDA, CHA, CLS, CPF, CPA, CPP, CPR, CSA, LOC, POM, PPF, PRM, RFM].")
+      throw new Exception("Job parameter must be one of [CDA, CHA, CLS, CPF, CPA, CPP, CPR, CSA, LOC, POM, PPF, PPS, PRM, RFM].")
      
     /* Collect parameters */
     val params = HashMap.empty[String,String]
@@ -148,36 +148,8 @@ class LoaderService(val appName:String) extends SparkService {
 
   private def createESIndexes(params:Map[String,String]) {
     
-    val uid = params(Names.REQ_UID)
     /*
      * Create search indexes (if not already present)
-     * 
-     * The 'forecast' index (mapping) specifies a sales forecast database
-     * derived from the Markovian rules built by the Intent Recognition
-     * engine
-     * 
-     * The 'location' index (mapping) specifies a user movement database
-     * derived from IP addresses and timestamps provided by user orders
-     * 
-     * The 'loyalty' index (mapping) specifies a user loyalty database
-     * that describes customers with their assigned loyalty segment
-     * 
-     * The 'metric' index (mapping) specifies a statistics database 
-     * that holds synchronized aggregated order data relevant for the 
-     * insight server
-     * 
-     * The 'persona' index (mapping) specifies the customer persona database 
-     * due to the learned clusters from CDA, CHA, CPA and CSA
-     * 
-     * The 'recommendation' index (mapping) specifies a product recommendation
-     * database derived from the Association rules and the last items purchased
-     * 
-     * The 'rule' index (mapping) specifies a product association rule 
-     * database computed by the Association Analysis engine
-     * 
-     * The 'segment' index (mapping) specifies the customer segmentation 
-     * database due to the applied RFM segmentation, and also the product
-     * segmentation base due to the applied PPF segmentation
      */
  
     /********** ORDER **********/
@@ -192,6 +164,9 @@ class LoaderService(val appName:String) extends SparkService {
 
     if (ctx.createIndex("products","segments","PPF") == false)
       throw new Exception("Index creation for 'products/segments' has been stopped due to an internal error.")
+
+    if (ctx.createIndex("products","similars","PPS") == false)
+      throw new Exception("Index creation for 'products/similars' has been stopped due to an internal error.")
  
     /********** CUSTOMERS ******/
     
