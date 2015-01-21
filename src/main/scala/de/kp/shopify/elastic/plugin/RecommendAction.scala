@@ -103,6 +103,33 @@ class RecommendAction @Inject()(settings:Settings,client:Client,controller:RestC
           sendResponse(channel,request,response)
 
         }
+
+        case "similar_products" => {
+          /*
+           * This method determines those products that are most similar to a certain
+           * product provided with this request. The request supports the recommendation
+           * feature 'more like this' and leverages the product similarity model (PPS)
+           * determined prior to this request
+           */
+          if (params.contains("customer") == false) {
+            throw new Exception("Parameter 'customer' is missing.")
+          }
+
+          if (params.contains("product") == false) {
+            throw new Exception("Parameter 'product' is missing.")
+          }
+
+          val site = params("site").asInstanceOf[String]
+          val product = params("product").asInstanceOf[Int]
+          
+          val customer = params("customer").asInstanceOf[Int]
+          val created_at = params("created_at").asInstanceOf[Long]
+          
+          val response = questor.similar_products(site, customer, product, created_at)
+          
+          sendResponse(channel,request,response)
+          
+        }
         
         case "top_products" => {
           /*

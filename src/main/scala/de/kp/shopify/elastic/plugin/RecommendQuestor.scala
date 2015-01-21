@@ -154,6 +154,56 @@ class RecommendQuestor(client:Client) extends PredictiveQuestor(client) {
     }
     
   }
+  def similar_products(site:String,customer:Int,product:Int,created_at:Long):String = {
+    /*
+     * STEP #1: Build filtered query
+     */
+    val filters = Buffer.empty[FilterBuilder]
+
+    filters += FilterBuilders.termFilter("site", site)
+    filters += FilterBuilders.termFilter("customer_type", customer)
+
+    filters += FilterBuilders.termFilter("item", product)    
+    filters += FilterBuilders.rangeFilter("timestamp").gt(created_at)  
+    filters.toList
+            
+    val fbuilder = FilterBuilders.boolFilter()
+    fbuilder.must(filters:_*)
+
+    val qbuilder = QueryBuilders.filteredQuery(QueryBuilders.matchAllQuery(),fbuilder)
+    /*
+     * STEP #2: Determine all
+     */
+    val total = count(CSM_INDEX,CPR_MAPPING,qbuilder)    
+    val response = find(CSM_INDEX, CPR_MAPPING, qbuilder,total)
+    
+    val hits = response.getHits()
+    val total_hits = hits.totalHits()
+    
+    if (total_hits == 0) {
+      """{}"""
+      
+    } else {    
+      /*
+       * The dataset, retrieved from the respective index, represents all products 
+       * that are similar to a certain product
+       */
+      val dataset = hits.hits().map(x => JSON_MAPPER.readValue(x.getSourceAsString,classOf[EsPPS]))
+      val latest = dataset.map(x => x.timestamp).toSeq.sorted.last
+      
+      val filtered = dataset.filter(x => x.timestamp == latest)
+      /*
+       * Determine uid & customer_type from head of dataset
+       */
+      val (uid,customer_type) = (filtered.head.uid,filtered.head.customer_type)
+      val items = filtered.map(x => EsPRF(x.other,x.score)).toList
+      
+      val result = EsBPR(uid,latest,site,"",items,customer_type)
+      JSON_MAPPER.writerWithType(classOf[EsBPR]).writeValueAsString(result)
+      
+    }
+     
+  }
   
   def top_products(site:String,created_at:Long):String = {
     /*

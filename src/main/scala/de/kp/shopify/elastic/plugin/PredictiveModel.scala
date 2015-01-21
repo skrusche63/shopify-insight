@@ -125,6 +125,35 @@ case class EsPOM(
 )
 
 @JsonIgnoreProperties(ignoreUnknown = true)
+case class EsPPS(
+                
+  /********** METADATA **********/
+
+  @JsonProperty("uid")
+  uid:String,
+
+  @JsonProperty("timestamp")
+  timestamp:Long,
+
+  @JsonProperty("site")
+  site:String,
+
+  /********** ITEM DATA **********/
+
+  @JsonProperty("item")
+  item:Int,
+
+  @JsonProperty("other")
+  other:Int,
+
+  @JsonProperty("score")
+  score:Double,
+
+  @JsonProperty("customer_type")
+  customer_type:Int
+)
+
+@JsonIgnoreProperties(ignoreUnknown = true)
 case class EsPRF(
 
   @JsonProperty("item")

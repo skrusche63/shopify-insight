@@ -24,13 +24,21 @@ The predictive plugin supports the following recommendations:
 
 #### Recommended for you
 
+Recommended products are computed from the customer's preference profile by taking most similar users
+and their preferences into account.  
+
 ---
 
 #### More like this
 
+This recommendation provides products that are similar to a certain product.
+
 ---
 
-#### Customers also bought
+#### Bought also bought
+
+This kind of recommendation provides products that are related to a certain product or a set of 
+products. 
 
 ---
 
