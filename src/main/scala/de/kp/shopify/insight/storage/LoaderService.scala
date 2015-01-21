@@ -159,8 +159,8 @@ class LoaderService(val appName:String) extends SparkService {
  
     /********** PRODUCT ********/
             
-    if (ctx.createIndex("products","rules","PRM") == false)
-      throw new Exception("Index creation for 'products/rules' has been stopped due to an internal error.")
+    if (ctx.createIndex("products","relations","PRM") == false)
+      throw new Exception("Index creation for 'products/relations' has been stopped due to an internal error.")
 
     if (ctx.createIndex("products","segments","PPF") == false)
       throw new Exception("Index creation for 'products/segments' has been stopped due to an internal error.")

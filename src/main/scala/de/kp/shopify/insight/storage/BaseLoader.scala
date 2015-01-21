@@ -19,11 +19,10 @@ package de.kp.shopify.insight.storage
 */
 
 import de.kp.spark.core.Names
-
 import de.kp.shopify.insight.RequestContext
-
 import de.kp.shopify.insight.actor._
 import de.kp.shopify.insight.model._
+import de.kp.shopify.insight.BaseActor
 
 abstract class BaseLoader(ctx:RequestContext,params:Map[String,String]) extends BaseActor(ctx) {
 

@@ -1,111 +1,70 @@
 
 ## Load Subsystem
 
+The *load* subsystem is responsible for indexing the multiple results of the customer science 
+process in an Elasticsearch cluster and turns insights directly into actionable data.
 
-
-### Customer Loyalty Profile (CLS)
-
-##### How it works
-
-The *prepare* subsystem evaluates the purchase history of every individual user and determines
-how far the latest purchase transaction differs from the previous history with respect to the
-amount spent and the recency of the event.
-
-These data are used to map every customer into one of 4 predefined loyalty segments, from *churner* 
-and *vulnerable* up to *neutral* and *loyal*. Then, the customer's loyalty segment is combined with
-the overall customer type (see RFM segmentation). 
-
-The preparer stores the loyalty data as a Parquet file on the file system and enables other 
-applications to leverage the data.
-
-The *loader* subsystem extracts the Parquet file, transforms the content into JSON documents and
-indexes these documents in an Elasticsearch index.
-
-The result is a time series of loyalty data for every single customer.
-
-##### Usage
-
-The loader results can directly be used to visualize loyalty trajectories, or, customers can be 
-aggregated by the customer type and loyalty state to support e.g. customer targeting.
+The different phases of the customer science process provide their results as files leveraging 
+the [Apache Parquet](http://parquet.incubator.apache.org/) format. This approach completely 
+decouples the data processing layer from the respective serving layer and makes it easy to use 
+distributed storage systems other than Elasticsearch.
 
 ---
 
-### Customer Location Profile (LOC)
+The *load* subsystem provides data for the following Elasticsearch indexes:
 
-##### How it works
+### Customers
 
-The *prepare* subsystem evaluates the IP addresses provided with each purchase a customer made.
+The **customer** index comprises a mapping for the customer base data (gathered by the *collect* 
+subsystem), and additional insight-driven  mappings to store
 
-From this address, geospatial data such as country, region, city and the LATLON coordinates are
-determined. The **GeoLite** database is used for this data preparation step.
+* Customer segments,
 
-The preparer stores the geospatial data as a Parquet file on the file system and enables other 
-applications to leverage the data.
+* Geospatial profiles,
 
-The *loader* subsystem extracts the Parquet file, transforms the content into JSON documents and
-indexes these documents in an Elasticsearch index, using the geospatial support of Elasticsearch.
+* Loyalty profiles,
 
-The result is a time series of geospatial data for every single customer.
+* Product recommendations,
 
-##### Usage
+* Purchase forecasts,
 
-The loader results can directly be used to visualize the geospatial purchase behavior of every individual
-customer on a geospatial map, or, customers can be aggregated by their countries, regions or cities.
+and, highly aggregated customer profiles that serve as a starting point for customer specific
+information retrieval.
 
----
+--- 
 
-### Customer Purchase Forecast (CPF)
+### Orders
 
-##### How it works
+The **orders** index comprises a mapping for the order data (gathered by the *collect* 
+subsystem), and an additional insight-driven  mapping to store
 
-The *enrich* subsystem evaluates the customer purchase process model for every single customer 
-and determines the most likely next purchase amounts and times, n steps ahead. It also specifies
-the most probable next recency & monetary states segments the customer can be assigned to. 
-
-The enricher stores the purchase forecast data as a Parquet file on the file system and enables other 
-applications to leverage the data.
-
-The *loader* subsystem extracts the Parquet file, transforms the content into JSON documents and
-indexes these documents in an Elasticsearch index.
-
-The result is a time series of purchase forecast data for every single customer.
-
-##### Usage
-
-The loader results can directly be used to visualize the purchase forecast data of every individual
-customer, or, customers can be aggregated e.g. by their next most probable purchase times to feed 
-targeting campaigns.
+* Purchase metrics
 
 ---
 
-### Customer Segment Profile (RFM)
+### Personas
+
+The **personas** index comprises insight-driven mappings to store personas derived from the 
+customer time-based and product-based purchase behavior:
+
+* Product personas
+
+* Purchase day personas
+
+* Purchase hour personas
+
+* Time to repeat purchase personas
 
 ---
 
-### Purchase Overview Metric (POM)
+### Products
 
----
+The **products** index comprises a mapping for the product base data (gathered by the *collect* 
+subsystem), and additional insight-driven mappings to store
 
-### Purchase Frequency Profile (PPF)
+* Product relations
 
----
+* Product segments
 
-### Product Relation Model (PRM)
-
-Product placement
-
-Cross-selling
-
-Promotion
-
-Extended support commerce search functionality by integrating related products and / or product recommendations 
-into the search result
-
----
-
-### Customer Product Recommendations (CPR)
-
----
-
-### Customer Purchase Profile (CPP)
+* Similar products
 
