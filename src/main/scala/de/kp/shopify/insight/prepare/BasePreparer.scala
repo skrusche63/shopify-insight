@@ -26,7 +26,7 @@ import com.twitter.algebird.Operators._
 import de.kp.spark.core.Names
 
 import de.kp.shopify.insight.RequestContext
-import de.kp.shopify.insight.actor.BaseActor
+import de.kp.shopify.insight.BaseActor
 
 import de.kp.shopify.insight.model._
 

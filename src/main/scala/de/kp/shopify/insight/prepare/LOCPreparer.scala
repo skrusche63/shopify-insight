@@ -26,7 +26,7 @@ import de.kp.spark.core.Names
 import de.kp.shopify.insight._
 import de.kp.shopify.insight.model._
 
-import de.kp.shopify.insight.actor.BaseActor
+import de.kp.shopify.insight.BaseActor
 import de.kp.shopify.insight.geoip.LocationFinder
 
 /**
