@@ -19,7 +19,7 @@ package de.kp.insight.geoip
 */
 
 import de.kp.insight._
-import de.kp.shopify.insight.model._
+import de.kp.insight.model._
 
 import com.maxmind.geoip.{LookupService,regionName}
 

@@ -21,7 +21,7 @@ package de.kp.insight.preference
 import org.apache.spark.SparkContext._
 import org.apache.spark.rdd.RDD
 
-import de.kp.shopify.insight.model._
+import de.kp.insight.parquet._
 
 object TFIDF extends Serializable {
   /**

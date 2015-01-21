@@ -26,7 +26,7 @@ import de.kp.spark.core.actor._
 import de.kp.spark.core.model._
 
 import de.kp.insight.RequestContext
-import de.kp.shopify.insight.model._
+import de.kp.insight.model._
 
 import de.kp.insight.BaseActor
 

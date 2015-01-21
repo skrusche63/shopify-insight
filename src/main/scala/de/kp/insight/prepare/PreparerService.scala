@@ -31,7 +31,7 @@ import de.kp.spark.core.Names
 import de.kp.spark.core.SparkService
 
 import de.kp.insight._
-import de.kp.shopify.insight.model._
+import de.kp.insight.model._
 
 import de.kp.insight.util.ElasticRDD
 

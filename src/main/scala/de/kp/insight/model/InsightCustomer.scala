@@ -1,4 +1,4 @@
-package de.kp.shopify.insight.model
+package de.kp.insight.model
 /* Copyright (c) 2014 Dr. Krusche & Partner PartG
  * 
  * This file is part of the Shopify-Insight project
@@ -22,12 +22,36 @@ import org.codehaus.jackson.annotate.JsonProperty
 import com.fasterxml.jackson.annotation.{JsonIgnoreProperties, JsonIgnore}
 
 @JsonIgnoreProperties(ignoreUnknown = true)
-case class ShopifyClientDetails(
+case class InsightCustomer(
 
-  @JsonProperty("browser_ip")
-  browser_ip:String,
+  @JsonProperty("site")
+  site:String,
 
-  @JsonProperty("user_agent")
-  user_agent:String
+  @JsonProperty("id")
+  id:String,
+
+  @JsonProperty("first_name")
+  first_name:String,
+
+  @JsonProperty("last_name")
+  last_name:String,
+
+  @JsonProperty("signup_date")
+  signup_date:String,
+
+  @JsonProperty("last_sync")
+  last_sync:Long,
+
+  @JsonProperty("email")
+  email:String,
+
+  @JsonProperty("email_verified")
+  email_verified:Boolean,
+
+  @JsonProperty("accepts_marketing")
+  accepts_marketing:Boolean,
+
+  @JsonProperty("operational_state")
+  operational_state:String
 
 )

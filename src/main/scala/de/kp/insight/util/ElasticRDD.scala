@@ -27,7 +27,7 @@ import org.apache.hadoop.conf.{Configuration => HadoopConfig}
 import org.elasticsearch.hadoop.mr.EsInputFormat
 
 import scala.collection.JavaConversions._
-import de.kp.shopify.insight.model._
+import de.kp.insight.model._
 
 class ElasticRDD(@transient sc:SparkContext) {
   /**

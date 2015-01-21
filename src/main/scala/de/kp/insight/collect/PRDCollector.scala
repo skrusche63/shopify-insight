@@ -23,7 +23,7 @@ import org.elasticsearch.common.xcontent.{XContentBuilder,XContentFactory}
 import de.kp.spark.core.Names
 
 import de.kp.insight._
-import de.kp.shopify.insight.model._
+import de.kp.insight.model._
 
 class PRDCollector(ctx:RequestContext,params:Map[String,String]) extends BaseActor(ctx) {
 

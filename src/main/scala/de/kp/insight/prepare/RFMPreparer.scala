@@ -20,12 +20,17 @@ package de.kp.insight.prepare
 
 import org.apache.spark.SparkContext._
 import org.apache.spark.rdd.RDD
+
 import org.joda.time.DateTime
+
 import com.twitter.algebird._
 import com.twitter.algebird.Operators._
+
 import de.kp.spark.core.Names
-import de.kp.shopify.insight._
-import de.kp.shopify.insight.model._
+
+import de.kp.insight.model._
+import de.kp.insight.parquet._
+
 import de.kp.insight.RequestContext
 
 /**

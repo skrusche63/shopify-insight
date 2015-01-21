@@ -27,7 +27,7 @@ import de.kp.spark.core.model._
 import de.kp.insight.elastic._
 
 import de.kp.insight.shopify._
-import de.kp.shopify.insight.model._
+import de.kp.insight.model._
 
 import scala.collection.mutable.{Buffer,HashMap}
 

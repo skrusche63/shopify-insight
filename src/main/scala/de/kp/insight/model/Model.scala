@@ -1,4 +1,4 @@
-package de.kp.shopify.insight.model
+package de.kp.insight.model
 /* Copyright (c) 2014 Dr. Krusche & Partner PartG
  * 
  * This file is part of the Shopify-Insight project
@@ -19,11 +19,10 @@ package de.kp.shopify.insight.model
  */
 
 import org.json4s._
-
 import org.json4s.native.Serialization
 import org.json4s.native.Serialization.{read,write}
-
 import de.kp.spark.core.model._
+import de.kp.insight.shopify.ShopifyProduct
 
 case class ActorInfo(
   name:String,timestamp:Long
@@ -36,14 +35,6 @@ case class ActorStatus(
 case class ActorsStatus(items:List[ActorStatus])
 
 case class StopActor()
-
-/**
- * StartPipeline specifies a request message sent to a data analytics pipeline 
- * (see DataPipeline actor) to start a new data mining and model building process
- */
-case class StartPipeline(data:Map[String,String])
-
-case class SimpleResponse(uid:String,created_at_min:String,created_at_max:String,message:String)
 
 /****************************************************************************
  * 
@@ -350,59 +341,6 @@ case class Order(
   items:List[OrderItem]
 )
 case class Orders(items:List[Order])
-
-/****************************************************************************
- * 
- *                      PROCESS 'QUERY'
- * 
- ***************************************************************************/
-
-/**
- * An AggregateQuery retrieves aggregated data for all orders or purchase
- * transactions within a certain period of time
- */
-case class AggregateQuery(data:Map[String,String])
-
-case class ForecastQuery(data:Map[String,String])
-
-case class LoyaltyQuery(data:Map[String,String])
-
-case class ProductQuery(data:Map[String,String])
-
-case class RecommendationQuery(data:Map[String,String])
-
-/**
- * A TaskQuery retrieves metadata for all registered preparation and synchronization
- * tasks processed by the insight server
- */
-case class TaskQuery(data:Map[String,String])
-
-case class UserQuery(data:Map[String,String])
-
-/**
- * A suggestion is a list of weighted (by support & confidence) 
- * product suggestions, that helps to build custom collections
- */
-case class Suggestion(products:List[ShopifyProduct],support:Int,confidence:Double)
-case class Suggestions(items:List[Suggestion])
-
-case class Products(products:List[ShopifyProduct])
-
-/**
- * A forecast (event) claims a certain purchase amount within a specific
- * period of days, and the assigned score describes the likelihood that
- * this event happens
- */
-case class Forecast(site:String,user:String,amount:Double,days:Int,score:Double)
-
-case class Forecasts(items:List[Forecast])
-
-case class Recommendation(
-  /* A recommendation is described on a per user basis */
-  site:String,user:String,products:List[ShopifyProduct]
-)
-
-case class Recommendations(items:List[Recommendation])
 
 object ResponseStatus extends BaseStatus
 

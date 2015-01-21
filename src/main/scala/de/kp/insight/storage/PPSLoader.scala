@@ -27,7 +27,7 @@ import de.kp.spark.core.Names
 import de.kp.spark.core.model._
 
 import de.kp.insight.RequestContext
-import de.kp.shopify.insight.model._
+import de.kp.insight.parquet._
 
 import org.elasticsearch.common.xcontent.{XContentBuilder,XContentFactory}
 /**

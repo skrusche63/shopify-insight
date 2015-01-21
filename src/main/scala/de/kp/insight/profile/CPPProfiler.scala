@@ -24,7 +24,9 @@ import de.kp.spark.core.Names
 import de.kp.spark.core.model._
 
 import de.kp.insight._
-import de.kp.shopify.insight.model._
+import de.kp.insight.parquet._
+
+import de.kp.insight.model._
 
 /**
  * CPPProfiler builds the customer persona profile

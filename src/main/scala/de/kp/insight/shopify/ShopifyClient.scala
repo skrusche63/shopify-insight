@@ -28,7 +28,7 @@ import com.fasterxml.jackson.databind.{Module, ObjectMapper}
 import com.fasterxml.jackson.module.scala.DefaultScalaModule
 
 import de.kp.insight.StoreConfig
-import de.kp.shopify.insight.model._
+import de.kp.insight.model._
 
 import org.slf4j.{Logger,LoggerFactory}
 

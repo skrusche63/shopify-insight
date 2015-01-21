@@ -22,7 +22,7 @@ import de.kp.spark.core.Names
 import de.kp.spark.core.model._
 
 import de.kp.insight.RequestContext
-import de.kp.shopify.insight.model._
+import de.kp.insight.model._
 
 class AAEHandler(ctx:RequestContext) {
   

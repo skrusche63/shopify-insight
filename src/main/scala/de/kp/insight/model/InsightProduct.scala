@@ -1,4 +1,4 @@
-package de.kp.shopify.insight.model
+package de.kp.insight.model
 /* Copyright (c) 2014 Dr. Krusche & Partner PartG
  * 
  * This file is part of the Shopify-Insight project
@@ -22,66 +22,41 @@ import org.codehaus.jackson.annotate.JsonProperty
 import com.fasterxml.jackson.annotation.{JsonIgnoreProperties, JsonIgnore}
 
 @JsonIgnoreProperties(ignoreUnknown = true)
-case class ShopifyLineItem (
+case class InsightImage(
 
   @JsonProperty("id")
-  id:Long,
+  id:String,
 
-  @JsonProperty("fulfillment_service")
-  fulfillmentServce:String,
+  @JsonProperty("position")
+  position:Int,
 
-  @JsonProperty("fulfillment_status")
-  fulfillmentStatus:String,
+  @JsonProperty("source")
+  source:String
 
-  @JsonProperty("gift_card")
-  giftCard:String,
+)
 
-  @JsonProperty("grams")
-  grams:String,
+@JsonIgnoreProperties(ignoreUnknown = true)
+case class InsightProduct(
 
-  @JsonProperty("price")
-  price:String,
+  @JsonProperty("site")
+  site:String,
 
-  @JsonProperty("product_id")
-  product_id:Long,
-
-  @JsonProperty("quantity")
-  quantity:Int,
-
-  @JsonProperty("requires_shipping")
-  requiresShipping:String,
-
-  @JsonProperty("sku")
-  sku:String,
-
-  @JsonProperty("taxable")
-  taxable:String,
-
-  @JsonProperty("title")
-  title:String,
-
-  @JsonProperty("variant_id")
-  variant_id:Long,
-
-  @JsonProperty("variant_title")
-  variantTitle:String,
-
-  @JsonProperty("vendor")
-  vendor:String,
+  @JsonProperty("id")
+  id:String,
 
   @JsonProperty("name")
   name:String,
 
-  @JsonProperty("variant_inventory_management")
-  variantInventoryManagement:String,
+  @JsonProperty("category")
+  category:String,
 
-  @JsonProperty("product_exists")
-  productExists:String,
+  @JsonProperty("tags")
+  tags:String,
 
-  @JsonProperty("fulfillable_quantity")
-  fulfillableQuantity:String,
+  @JsonProperty("images")
+  images:List[InsightImage],
 
-  @JsonProperty("tax_lines")
-  taxLines:List[ShopifyTaxLine]
+  @JsonProperty("vendor")
+  vendor:String
 
 )
