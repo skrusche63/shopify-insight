@@ -27,7 +27,7 @@ import de.kp.spark.core.model._
 import de.kp.shopify.insight.RequestContext
 import de.kp.shopify.insight.model._
 
-import de.kp.shopify.insight.actor.BaseActor
+import de.kp.shopify.insight.BaseActor
 
 class IRELearner(ctx:RequestContext,params:Map[String,String]) extends BaseActor(ctx) {
   

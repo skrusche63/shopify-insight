@@ -20,18 +20,14 @@ package de.kp.shopify.insight.learn
 
 import org.apache.spark.SparkContext._
 import org.apache.spark.rdd.RDD
-
 import org.apache.spark.mllib.recommendation.{ALS,MatrixFactorizationModel,Rating}
-
 import de.kp.spark.core.Names
 import de.kp.spark.core.model._
-
 import de.kp.shopify.util.{MFModel,MFUtil}
-
 import de.kp.shopify.insight.RequestContext
-
 import de.kp.shopify.insight.actor._
 import de.kp.shopify.insight.model._
+import de.kp.shopify.insight.BaseActor
 
 
 class RDict(val elems:Seq[String]) extends Serializable {
