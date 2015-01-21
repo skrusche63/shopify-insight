@@ -40,6 +40,16 @@ directly visualized or time-based comparisons can be made with prior results.
 
 ### Features
 
+[x] Cohort Analysis
+
+Cohort analysis determines how different groups (cohorts) of customers behave over time. This provides a clear
+insight into customer retention trends and an understanding into business health. 
+
+Shopifyinsight delivers and stores all customer insights as time-stamped data in an Elasticsearch cluster. This 
+approach converts cohort analysis into simply defining business specific search templates that can be directly 
+visualized by leveraging [Kibana](http://www.elasticsearch.org/overview/kibana/).
+
+
 #### Geospatial Analysis
 
 Geospatial analysis looks into the IP addresses provided with every purchase order and transforms this value 
