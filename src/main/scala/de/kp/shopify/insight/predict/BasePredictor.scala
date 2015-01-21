@@ -20,14 +20,12 @@ package de.kp.shopify.insight.predict
 
 import org.apache.spark.SparkContext._
 import org.apache.spark.rdd.RDD
-
 import de.kp.spark.core.Names
 import de.kp.spark.core.model._
-
 import de.kp.shopify.insight.RequestContext
-
 import de.kp.shopify.insight.actor._
 import de.kp.shopify.insight.model._
+import de.kp.shopify.insight.BaseActor
 
 abstract class BasePredictor(ctx:RequestContext,params:Map[String,String]) extends BaseActor(ctx) {
   
