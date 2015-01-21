@@ -83,9 +83,9 @@ class EnricherService(val appName:String) extends SparkService {
     if (job.hasValue == false)
       throw new Exception("Parameter 'job' is missing.")
   
-    val jobs = List("CDA","CHA","CPA","CPF","CPR","CSA")
+    val jobs = List("CDA","CHA","CPA","CPF","CPR","CSA","PPS")
     if (jobs.contains(job.value.get) == false)
-      throw new Exception("Job parameter must be one of [CDA, CHA, CPA, CPF, CPR, CSA].")
+      throw new Exception("Job parameter must be one of [CDA, CHA, CPA, CPF, CPR, CSA, PPS].")
  
     /* Collect parameters */
     val params = HashMap.empty[String,String]

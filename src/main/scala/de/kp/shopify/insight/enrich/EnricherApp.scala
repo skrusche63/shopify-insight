@@ -107,6 +107,8 @@ object EnricherApp extends EnricherService("Enricher") {
           case "CPF" => context.actorOf(Props(new CPFEnricher(ctx,params))) 
           
           case "CSA" => context.actorOf(Props(new SAEEnricher(ctx,params))) 
+           
+          case "PPS" => context.actorOf(Props(new PPSEnricher(ctx,params))) 
           
           case _ => throw new Exception("Wrong job descriptor.")
           
