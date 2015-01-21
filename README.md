@@ -40,7 +40,7 @@ directly visualized or time-based comparisons can be made with prior results.
 
 ### Features
 
-[x] Cohort Analysis
+##### Cohort Analysis
 
 Cohort analysis determines how different groups (cohorts) of customers behave over time. This provides a clear
 insight into customer retention trends and an understanding into business health. 
@@ -50,7 +50,7 @@ approach converts cohort analysis into simply defining business specific search 
 visualized by leveraging [Kibana](http://www.elasticsearch.org/overview/kibana/).
 
 
-#### Geospatial Analysis
+##### Geospatial Analysis
 
 Geospatial analysis looks into the IP addresses provided with every purchase order and transforms this value 
 into geospatial data, covering the country, region, city and also the WGS84 coordinates associated with the 
@@ -64,7 +64,7 @@ transactions. In combination with the purchase time one can build movement profi
 have been made within or outside working hours and more.
 
 
-#### Loyalty Analysis
+##### Loyalty Analysis
 
 Every retailer knows that their customer base covers those that stick around while others tend to quit shopping at their store. 
 In order to target loyal customers or start win-back campaigns for those that fade away, it is important to measure the customers' 
@@ -79,7 +79,7 @@ Loyalty analysis results are joined with the prior RFM segmentation results, and
 from their normal behavior, and tend to fade off.
 
 
-#### Persona Analysis
+##### Persona Analysis
 
 Shopify builds personas from the purchase time behavior, and also from the products, customers buy over their lifetime. 
 Personas specify customers with similar purchase behavior.
@@ -92,7 +92,7 @@ Personas are also built from the *time to repeat purchase* and helps to segment 
 patterns.  
 
 
-#### Product Recommendations
+##### Product Recommendations
 
 Shopifyinsight analyzes the purchase behavior of every single customer and computes product preference profiles describing
 the affinity a certain customer has with a specific product.
@@ -104,7 +104,7 @@ Shopifyinsight leverages this predictive model to compute product recommendation
 with the highest preferences.
 
 
-#### Product Analysis
+##### Product Analysis
 
 Product (affinity) analysis determines those products that are frequently bought together to detect latent product
 relations. This helps to improve product placement, to plan cross-selling or promotions.
@@ -114,7 +114,7 @@ frequency. This part of product analysis discovers products that are top sellers
 distinguished by high-value and less-value customer segments. 
 
 
-#### Purchase Forecast
+##### Purchase Forecast
 
 Shopifyinsight analyzes the customers' purchase behavior and describes it as a time ordered sequence of purchase states. 
 From these states, an advanced stochastic purchase model is built, to specify which purchase states are most likely followed 
@@ -125,7 +125,7 @@ customer, a number of steps ahead. From this result, the next most probable purc
 amount of money spent, are derived. 
 
 
-#### Purchase Metrics
+##### Purchase Metrics
 
 A purchase metrics provides a first look (or overview) into the purchase data of a certain time window. The metrics comprises 
 statistical information of the monetary, time and product purchase dimension.
@@ -134,7 +134,7 @@ The purchase metrics is a very fast mechanism to extract actionable data, and, l
 to a time series of statistical data, each data point stemming from an individual metrics.
 
 
-#### RFM Analysis
+##### RFM Analysis
 
 The concept of RFM has proven very effective when applied to marketing databases and describes a method 
 used for analyzing the customer value.
@@ -161,7 +161,7 @@ Shopifyinsight utilizes the approved RFM concept to segment customers by their b
 approach with modern data mining and predictive analytics.
 
 
-#### RFM Forecast
+##### RFM Forecast
 
 The results of RFM analysis provide a *snapshot* of the business performance in a certain period of time and at a specific 
 timestamp (when the analysis has been made).
