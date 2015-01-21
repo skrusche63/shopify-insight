@@ -205,6 +205,11 @@ class ElasticClient extends Serializable {
 
         val builder = new EsPPFBuilder().createBuilder(mapping)
         create(index,mapping,builder)
+      
+      } else if (topic == "PPS") {
+
+        val builder = new EsPPSBuilder().createBuilder(mapping)
+        create(index,mapping,builder)
        
       } else if (topic == "PRM") {
 
