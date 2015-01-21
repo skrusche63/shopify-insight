@@ -21,7 +21,7 @@ package de.kp.insight.learn
 import de.kp.spark.core.Names
 import de.kp.spark.core.model._
 
-import de.kp.shopify.insight.RequestContext
+import de.kp.insight.RequestContext
 import de.kp.shopify.insight.model._
 
 class SAEHandler(ctx:RequestContext) {

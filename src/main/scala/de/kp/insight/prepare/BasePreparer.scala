@@ -25,7 +25,7 @@ import com.twitter.algebird.Operators._
 
 import de.kp.spark.core.Names
 
-import de.kp.shopify.insight._
+import de.kp.insight._
 import de.kp.shopify.insight.model._
 
 abstract class BasePreparer(ctx:RequestContext) extends BaseActor(ctx) {

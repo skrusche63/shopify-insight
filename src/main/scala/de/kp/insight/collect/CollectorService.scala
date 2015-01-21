@@ -28,10 +28,9 @@ import org.clapper.argot._
 import de.kp.spark.core.Names
 import de.kp.spark.core.SparkService
 
-import de.kp.shopify.insight.{Configuration,RequestContext}
-import de.kp.shopify.insight.model._
-
+import de.kp.insight._
 import org.elasticsearch.common.xcontent.XContentFactory
+
 import scala.collection.mutable.{Buffer,HashMap}
 
 class CollectorService extends SparkService {

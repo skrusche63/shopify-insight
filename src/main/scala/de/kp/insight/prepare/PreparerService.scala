@@ -30,15 +30,16 @@ import org.clapper.argot._
 import de.kp.spark.core.Names
 import de.kp.spark.core.SparkService
 
-import de.kp.shopify.insight.{Configuration,RequestContext}
-
+import de.kp.insight._
 import de.kp.shopify.insight.model._
+
 import de.kp.insight.util.ElasticRDD
 
 import org.elasticsearch.index.query._
 import org.elasticsearch.common.xcontent.XContentFactory
 
 import scala.collection.mutable.{Buffer,HashMap}
+import de.kp.insight.Configuration
 
 class PreparerService(val appName:String) extends SparkService {
   

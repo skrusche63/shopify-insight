@@ -26,9 +26,9 @@ import org.apache.spark.mllib.recommendation.{ALS,MatrixFactorizationModel,Ratin
 import de.kp.spark.core.Names
 import de.kp.spark.core.model._
 
-import de.kp.shopify.util.{MFModel,MFUtil}
+import de.kp.insight.util.{MFModel,MFUtil}
+import de.kp.insight._
 
-import de.kp.shopify.insight._
 import de.kp.shopify.insight.model._
 
 class RDict(val elems:Seq[String]) extends Serializable {

@@ -20,15 +20,12 @@ package de.kp.insight.prepare
 
 import org.apache.spark.SparkContext._
 import org.apache.spark.rdd.RDD
-
 import org.joda.time.DateTime
-
 import de.kp.spark.core.Names
-
 import de.kp.shopify.insight._
 import de.kp.shopify.insight.model._
-
 import de.kp.insight.preference.TFIDF
+import de.kp.insight.RequestContext
 
 /**
  * The CDAPreparer computes the customer day of the week affinity;

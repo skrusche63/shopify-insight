@@ -20,13 +20,11 @@ package de.kp.insight.prepare
 
 import org.apache.spark.SparkContext._
 import org.apache.spark.rdd.RDD
-
 import de.kp.spark.core.Names
-
 import de.kp.shopify.insight._
 import de.kp.shopify.insight.model._
-
 import de.kp.insight.preference.TFIDF
+import de.kp.insight.RequestContext
 
 /**
  * Customer segmentation is the first building block of any marketing strategy. The basic

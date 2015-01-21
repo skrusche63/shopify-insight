@@ -23,7 +23,7 @@ import akka.actor._
 
 import de.kp.spark.core.Names
 
-import de.kp.shopify.insight.RequestContext
+import de.kp.insight.RequestContext
 import de.kp.shopify.insight.model._
 
 import scala.concurrent.duration.DurationInt

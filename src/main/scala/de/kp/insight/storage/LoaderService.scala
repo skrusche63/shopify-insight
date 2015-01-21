@@ -30,11 +30,11 @@ import org.clapper.argot._
 import de.kp.spark.core.Names
 import de.kp.spark.core.SparkService
 
-import de.kp.shopify.insight.{Configuration,RequestContext}
-import de.kp.shopify.insight.model._
-
+import de.kp.insight._
 import org.elasticsearch.common.xcontent.XContentFactory
+
 import scala.collection.mutable.{Buffer,HashMap}
+import de.kp.insight.Configuration
 
 class LoaderService(val appName:String) extends SparkService {
   

@@ -18,7 +18,7 @@ package de.kp.insight.geoip
 * If not, see <http://www.gnu.org/licenses/>.
 */
 
-import de.kp.shopify.insight.Configuration
+import de.kp.insight._
 import de.kp.shopify.insight.model._
 
 import com.maxmind.geoip.{LookupService,regionName}

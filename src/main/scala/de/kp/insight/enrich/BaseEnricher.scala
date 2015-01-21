@@ -23,7 +23,7 @@ import org.apache.spark.rdd.RDD
 import de.kp.spark.core.Names
 import de.kp.spark.core.model._
 
-import de.kp.shopify.insight._
+import de.kp.insight._
 import de.kp.shopify.insight.model._
 
 abstract class BaseEnricher(ctx:RequestContext,params:Map[String,String]) extends BaseActor(ctx) {

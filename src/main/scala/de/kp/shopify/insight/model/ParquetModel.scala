@@ -357,6 +357,16 @@ case class ParquetPSA(
   label:String,
   value:Double
 )
+/**
+ * PaquetPPS is a data structure that specifies a Parquet file
+ * that describes products that are similar to a certain product
+ */
+case class ParquetPPS(
+  site:String,
+  item:Int,
+  other:Int,
+  score:Double
+)
 
 /**********************************************************************
  *      

@@ -19,12 +19,11 @@ package de.kp.insight.collect
  */
 
 import org.apache.spark.SparkContext._
-
 import org.elasticsearch.common.xcontent.{XContentBuilder,XContentFactory}
 
 import de.kp.spark.core.Names
+import de.kp.insight._
 
-import de.kp.shopify.insight._
 import de.kp.shopify.insight.model._
 
 class ORDCollector(ctx:RequestContext,params:Map[String,String]) extends BaseActor(ctx) {
