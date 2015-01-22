@@ -195,7 +195,12 @@ class ElasticClient extends Serializable {
 
         val builder = new EsPSABuilder().createBuilder(mapping)
         create(index,mapping,builder)
-      
+       
+      } else if (topic == "DPS") {
+
+        val builder = new EsDPSBuilder().createBuilder(mapping)
+        create(index,mapping,builder)
+     
       } else if (topic == "LOC") {
 
         val builder = new EsLOCBuilder().createBuilder(mapping)

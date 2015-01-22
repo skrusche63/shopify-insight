@@ -87,13 +87,13 @@ class LoaderService(val appName:String) extends SparkService {
   
     val jobs = List(
         /* customer centric */
-        "CCS","CDA","CHA","CLS","CPA","CPF","CPP","CPR","CSA","LOC",
+        "CCS","CDA","CHA","CLS","CPA","CPF","CPP","CPR","CSA","DPS","LOC",
         /* product centric */
         "PCR","POM","PPF","PPS","PRM","RFM"
     )
     
     if (jobs.contains(job.value.get) == false)
-      throw new Exception("Job parameter must be one of [CCS, CDA, CHA, CLS, CPF, CPA, CPP, CPR, CSA, LOC, PCR, POM, PPF, PPS, PRM, RFM].")
+      throw new Exception("Job parameter must be one of [CCS, CDA, CHA, CLS, CPF, CPA, CPP, CPR, CSA, DPS, LOC, PCR, POM, PPF, PPS, PRM, RFM].")
      
     /* Collect parameters */
     val params = HashMap.empty[String,String]

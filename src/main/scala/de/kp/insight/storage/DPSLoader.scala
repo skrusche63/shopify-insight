@@ -31,10 +31,10 @@ import de.kp.insight.parquet._
 
 import org.elasticsearch.common.xcontent.{XContentBuilder,XContentFactory}
 /**
- * CCSLoader class directly loads the results of the CCSEnricher
- * into the customers/similars index.
+ * DPSLoader class directly loads the results of the DPSPreparer
+ * into the customers/costs index.
  */
-class CCSLoader(ctx:RequestContext,params:Map[String,String]) extends BaseLoader(ctx,params) {
+class DPSLoader(ctx:RequestContext,params:Map[String,String]) extends BaseLoader(ctx,params) {
 
   override def load(params:Map[String,String]) {
 
@@ -46,12 +46,12 @@ class CCSLoader(ctx:RequestContext,params:Map[String,String]) extends BaseLoader
         
     val sources = transform(params,parquetFile)
 
-    if (ctx.putSources("customers","similars",sources) == false)
+    if (ctx.putSources("customers","costs",sources) == false)
       throw new Exception("Loading process has been stopped due to an internal error.")
     
   }
 
-  private def extract(store:String):RDD[ParquetCCS] = {
+  private def extract(store:String):RDD[ParquetDPS] = {
     
     /* 
      * Read in the parquet file created above. Parquet files are self-describing 
@@ -78,16 +78,22 @@ class CCSLoader(ctx:RequestContext,params:Map[String,String]) extends BaseLoader
       val site = data("site").asInstanceOf[String]
       val user = data("user").asInstanceOf[String]
       
-      val other = data("other").asInstanceOf[String]
-      val score = data("score").asInstanceOf[Double]
+      val mean_amount = data("mean_amount").asInstanceOf[Double]
+      val mval = data("mval").asInstanceOf[Int]
+      
+      val discount_ratio = data("discount_ratio").asInstanceOf[Double]
+      val dval = data("dval").asInstanceOf[Int]
+      
+      val shipping_ratio = data("shipping_ratio").asInstanceOf[Double]
+      val sval = data("sval").asInstanceOf[Int]
 
-      ParquetCCS(site,user,other,score)
+      ParquetDPS(site,user,mean_amount,mval,discount_ratio,dval,shipping_ratio,sval)
       
     })
     
   }
   
-  private def transform(params:Map[String,String],dataset:RDD[ParquetCCS]):List[XContentBuilder] = {
+  private def transform(params:Map[String,String],dataset:RDD[ParquetDPS]):List[XContentBuilder] = {
             
     dataset.map(x => {
       
@@ -109,13 +115,25 @@ class CCSLoader(ctx:RequestContext,params:Map[String,String]) extends BaseLoader
 	  
 	  /* user */
       builder.field("item",x.user)
-
-	  /* other */
-	  builder.field("other",x.other)
-
-	  /* score */
-	  builder.field("score",x.score)
-      
+            
+      /* mean_amount */
+      builder.field("mean_amount", x.mean_amount)
+                
+      /* mval */
+      builder.field("mval", x.mval)
+           
+      /* discount_ratio */
+      builder.field("discount_ratio",x.discount_ratio)
+                
+      /* dval */
+      builder.field("dval", x.dval)
+           
+      /* shipping_ratio */
+      builder.field("shipping_ratio",x.shipping_ratio)
+                
+      /* sval */
+      builder.field("sval", x.sval)
+       
       /* customer_type */
       builder.field("customer_type",params("customer").toInt)
 	  

@@ -112,6 +112,8 @@ object LoaderApp extends LoaderService("Loader") {
           
           case "CSA" => context.actorOf(Props(new CSALoader(ctx,params))) 
           
+          case "DPS" => context.actorOf(Props(new DPSLoader(ctx,params))) 
+          
           case "LOC" => context.actorOf(Props(new LOCLoader(ctx,params))) 
           
           case "PCR" => context.actorOf(Props(new PCRLoader(ctx,params))) 
