@@ -326,6 +326,16 @@ case class ParquetCLS(
  *********************************************************************/
 
 /**
+ * PaquetCCS is a data structure that specifies a Parquet file
+ * that describes users that are similar to a certain user
+ */
+case class ParquetCCS(
+  site:String,
+  user:String,
+  other:String,
+  score:Double
+)
+/**
  * PaquetCPD is a data structure that specifies a Parquet file
  * that describes the distance of a certain customer to a specific
  * persona
@@ -338,7 +348,8 @@ case class ParquetCPD(
 )
 /**
  * PaquetCPR is a data structure that specifies a Parquet file
- * that describes the product recommendations of a certain customer
+ * that describes user-item recommendations; this format is used
+ * for user -> item as well as for item -> user assignments 
  */
 case class ParquetCPR(
   site:String,

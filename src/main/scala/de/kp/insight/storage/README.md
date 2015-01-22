@@ -28,6 +28,8 @@ subsystem), and additional insight-driven  mappings to store
 
 * Purchase forecasts,
 
+* Similar customers,
+
 and, highly aggregated customer profiles that serve as a starting point for customer specific
 information retrieval.
 
@@ -38,7 +40,7 @@ information retrieval.
 The **orders** index comprises a mapping for the order data (gathered by the *collect* 
 subsystem), and an additional insight-driven  mapping to store
 
-* Purchase metrics
+* Purchase metrics.
 
 ---
 
@@ -47,13 +49,13 @@ subsystem), and an additional insight-driven  mapping to store
 The **personas** index comprises insight-driven mappings to store personas derived from the 
 customer time-based and product-based purchase behavior:
 
-* Product personas
+* Product personas,
 
-* Purchase day personas
+* Purchase day personas,
 
-* Purchase hour personas
+* Purchase hour personas,
 
-* Time to repeat purchase personas
+* Time to repeat purchase personas.
 
 ---
 
@@ -62,9 +64,11 @@ customer time-based and product-based purchase behavior:
 The **products** index comprises a mapping for the product base data (gathered by the *collect* 
 subsystem), and additional insight-driven mappings to store
 
-* Product relations
+* Customer recommendations,
 
-* Product segments
+* Product relations,
 
-* Similar products
+* Product segments,
+
+* Similar products.
 

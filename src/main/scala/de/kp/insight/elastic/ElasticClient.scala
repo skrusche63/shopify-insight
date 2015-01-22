@@ -150,8 +150,13 @@ class ElasticClient extends Serializable {
        *                     SUB PROCESS 'LOAD'
        *                     
        *********************************************************************/
+
+      else if (topic == "CCS") {
+
+        val builder = new EsCCSBuilder().createBuilder(mapping)
+        create(index,mapping,builder)
       
-      else if (topic == "CDA") {
+      } else if (topic == "CDA") {
 
         val builder = new EsPSABuilder().createBuilder(mapping)
         create(index,mapping,builder)
@@ -194,6 +199,11 @@ class ElasticClient extends Serializable {
       } else if (topic == "LOC") {
 
         val builder = new EsLOCBuilder().createBuilder(mapping)
+        create(index,mapping,builder)
+       
+      } else if (topic == "PCR") {
+        /* Note, we use the CRP builder here */
+        val builder = new EsCPRBuilder().createBuilder(mapping)
         create(index,mapping,builder)
       
       } else if (topic == "POM") {

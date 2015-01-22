@@ -112,6 +112,19 @@ object Configuration extends CoreConf {
     
   }
   
+  def woocommerce():(String,String,String) = {
+  
+    val cfg = config.getConfig("woocommerce")
+    
+    val secret = cfg.getString("secret")
+    val key    = cfg.getString("key")
+
+    val url = cfg.getString("url")
+    
+    (secret,key,url)
+    
+  }
+  
   override def spark():Map[String,String] = {
   
     val cfg = config.getConfig("spark")

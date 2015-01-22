@@ -97,6 +97,10 @@ object EnricherApp extends EnricherService("Enricher") {
  
         val job = params("job")        
         val builder = job match {
+          
+          /********** CUSTOMER CENTRIC **********/
+
+          case "CCS" => context.actorOf(Props(new CCSEnricher(ctx,params))) 
 
           case "CDA" => context.actorOf(Props(new SAEEnricher(ctx,params))) 
           
@@ -107,6 +111,10 @@ object EnricherApp extends EnricherService("Enricher") {
           case "CPF" => context.actorOf(Props(new CPFEnricher(ctx,params))) 
           
           case "CSA" => context.actorOf(Props(new SAEEnricher(ctx,params))) 
+          
+          /********** PRODUCT CENTRIC **********/
+          
+          case "PCR" => context.actorOf(Props(new PCREnricher(ctx,params))) 
            
           case "PPS" => context.actorOf(Props(new PPSEnricher(ctx,params))) 
           

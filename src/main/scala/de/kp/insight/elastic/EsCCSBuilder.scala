@@ -25,7 +25,7 @@ import de.kp.spark.core.Names
 import scala.collection.JavaConversions._
 import scala.collection.mutable.HashMap
 
-class EsCPRBuilder {
+class EsCCSBuilder {
 
   import de.kp.spark.core.Names._
   
@@ -59,13 +59,13 @@ class EsCPRBuilder {
                 /********** USER DATA **********/
 
                 /* user */
-                .startObject(USER_FIELD)
+                .startObject("user")
                   .field("type", "string")
                 .endObject()
                
-                /* item */
-                .startObject("item")
-                  .field("type", "integer")
+                /* other */
+                .startObject("other")
+                  .field("type", "string")
                 .endObject()
 
                 /* score */

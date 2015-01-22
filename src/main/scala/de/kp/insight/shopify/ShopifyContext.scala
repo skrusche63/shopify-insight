@@ -46,7 +46,7 @@ class ShopifyContext(ctx:RequestContext) {
    * A public method to retrieve Shopify customers from the REST interface;
    * this method is used to synchronize the customer base
    */
-  def getCustomers(req_params:Map[String,String]):List[Customer] = {
+  def getCustomers(params:Map[String,String]):List[Customer] = {
     
     val customers = Buffer.empty[Customer]
     
@@ -54,13 +54,13 @@ class ShopifyContext(ctx:RequestContext) {
     /*
      * Load Shopify customers from the REST interface
      */
-    val uid = req_params(Names.REQ_UID)
+    val uid = params(Names.REQ_UID)
     /*
      * STEP #1: Retrieve customers count from a certain shopify store;
      * for further processing, we set the limit of responses to the
      * maximum number (250) allowed by the Shopify interface
      */
-    val count = shopifyClient.getCustomersCount(req_params)
+    val count = shopifyClient.getCustomersCount(params)
     ctx.putLog("info",String.format("""[UID: %s] Load total of %s customers from Shopify store.""",uid,count.toString))
 
     val pages = Math.ceil(count / 250.0)
@@ -72,8 +72,8 @@ class ShopifyContext(ctx:RequestContext) {
        * STEP #2: Retrieve customers via a paginated approach, retrieving a maximum
        * of 250 customers per request
        */
-      val data = req_params.filter(kv => excludes.contains(kv._1) == false) ++ Map("limit" -> "250","page" -> page.toString)
-      customers ++= shopifyClient.getCustomers(req_params).map(customer => new ShopifyMapper(ctx).extractCustomer(apikey,customer))
+      val data = params.filter(kv => excludes.contains(kv._1) == false) ++ Map("limit" -> "250","page" -> page.toString)
+      customers ++= shopifyClient.getCustomers(params).map(customer => new ShopifyMapper(ctx).extractCustomer(apikey,customer))
              
       page += 1
               
@@ -89,7 +89,7 @@ class ShopifyContext(ctx:RequestContext) {
    * A public method to retrieve Shopify products from the REST interface;
    * this method is used to synchronize the product base
    */
-  def getProducts(req_params:Map[String,String]):List[Product] = {
+  def getProducts(params:Map[String,String]):List[Product] = {
     
     val products = Buffer.empty[Product]
     
@@ -97,13 +97,13 @@ class ShopifyContext(ctx:RequestContext) {
     /*
      * Load Shopify products from the REST interface
      */
-    val uid = req_params(Names.REQ_UID)
+    val uid = params(Names.REQ_UID)
     /*
      * STEP #1: Retrieve products count from a certain shopify store;
      * for further processing, we set the limit of responses to the
      * maximum number (250) allowed by the Shopify interface
      */
-    val count = shopifyClient.getProductsCount(req_params)
+    val count = shopifyClient.getProductsCount(params)
     ctx.putLog("info",String.format("""[UID: %s] Load total of %s products from Shopify store.""",uid,count.toString))
 
     val pages = Math.ceil(count / 250.0)
@@ -115,8 +115,8 @@ class ShopifyContext(ctx:RequestContext) {
        * STEP #2: Retrieve products via a paginated approach, retrieving a maximum
        * of 250 customers per request
        */
-      val data = req_params.filter(kv => excludes.contains(kv._1) == false) ++ Map("limit" -> "250","page" -> page.toString)
-      products ++= shopifyClient.getProducts(req_params).map(product => new ShopifyMapper(ctx).extractProduct(apikey,product))
+      val data = params.filter(kv => excludes.contains(kv._1) == false) ++ Map("limit" -> "250","page" -> page.toString)
+      products ++= shopifyClient.getProducts(params).map(product => new ShopifyMapper(ctx).extractProduct(apikey,product))
              
       page += 1
               
@@ -132,7 +132,7 @@ class ShopifyContext(ctx:RequestContext) {
    * A public method to retrieve the Shopify orders of the last 30, 60 
    * or 90 days from the REST interface
    */
-  def getOrders(req_params:Map[String,String]):List[Order] = {
+  def getOrders(params:Map[String,String]):List[Order] = {
     
     val orders = Buffer.empty[Order]
     
@@ -141,7 +141,7 @@ class ShopifyContext(ctx:RequestContext) {
      * Load Shopify orders from the last 30, 60 or 90 days from
      * the respective REST interface
      */
-    val order_params = req_params ++ setOrderParams(req_params)
+    val order_params = params ++ setOrderParams(params)
     val uid = order_params(Names.REQ_UID)
     /*
      * STEP #1: Retrieve orders count from a certain shopify store;

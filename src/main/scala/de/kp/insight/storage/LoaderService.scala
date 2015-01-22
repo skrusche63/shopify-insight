@@ -85,9 +85,15 @@ class LoaderService(val appName:String) extends SparkService {
     if (job.hasValue == false)
       throw new Exception("Parameter 'job' is missing.")
   
-    val jobs = List("CDA","CHA","CLS","CPA","CPF","CPP","CPR","CSA","LOC","POM","PPF","PPS","PRM","RFM")
+    val jobs = List(
+        /* customer centric */
+        "CCS","CDA","CHA","CLS","CPA","CPF","CPP","CPR","CSA","LOC",
+        /* product centric */
+        "PCR","POM","PPF","PPS","PRM","RFM"
+    )
+    
     if (jobs.contains(job.value.get) == false)
-      throw new Exception("Job parameter must be one of [CDA, CHA, CLS, CPF, CPA, CPP, CPR, CSA, LOC, POM, PPF, PPS, PRM, RFM].")
+      throw new Exception("Job parameter must be one of [CCS, CDA, CHA, CLS, CPF, CPA, CPP, CPR, CSA, LOC, PCR, POM, PPF, PPS, PRM, RFM].")
      
     /* Collect parameters */
     val params = HashMap.empty[String,String]
@@ -161,6 +167,9 @@ class LoaderService(val appName:String) extends SparkService {
             
     if (ctx.createIndex("products","relations","PRM") == false)
       throw new Exception("Index creation for 'products/relations' has been stopped due to an internal error.")
+            
+    if (ctx.createIndex("products","recommendations","PCR") == false)
+      throw new Exception("Index creation for 'products/recommendations' has been stopped due to an internal error.")
 
     if (ctx.createIndex("products","segments","PPF") == false)
       throw new Exception("Index creation for 'products/segments' has been stopped due to an internal error.")
@@ -187,6 +196,9 @@ class LoaderService(val appName:String) extends SparkService {
             
     if (ctx.createIndex("customers","segments","RFM") == false)
       throw new Exception("Index creation for 'customers/segments' has been stopped due to an internal error.")
+    
+    if (ctx.createIndex("customers","similars","CCS") == false)
+      throw new Exception("Index creation for 'customers/similars' has been stopped due to an internal error.")
  
     /********** PERSONAS ******/
             

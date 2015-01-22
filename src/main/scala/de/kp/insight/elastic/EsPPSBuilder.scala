@@ -60,8 +60,7 @@ class EsPPSBuilder {
 
                 /* item */
                 .startObject("item")
-                  .field("type", "string")
-                  .field("index", "not_analyzed")
+                  .field("type", "integer")
                 .endObject()
                
                 /* other */
