@@ -65,6 +65,8 @@ class ShopifyContext(ctx:RequestContext) {
 
     val pages = Math.ceil(count / 250.0)
     val excludes = List("limit","page")
+    
+    val shopifyMapper = new ShopifyMapper(ctx)
      
     var page = 1
     while (page <= pages) {
@@ -73,7 +75,7 @@ class ShopifyContext(ctx:RequestContext) {
        * of 250 customers per request
        */
       val data = params.filter(kv => excludes.contains(kv._1) == false) ++ Map("limit" -> "250","page" -> page.toString)
-      customers ++= shopifyClient.getCustomers(params).map(customer => new ShopifyMapper(ctx).extractCustomer(apikey,customer))
+      customers ++= shopifyClient.getCustomers(params).map(customer => shopifyMapper.extractCustomer(apikey,customer))
              
       page += 1
               
@@ -108,6 +110,8 @@ class ShopifyContext(ctx:RequestContext) {
 
     val pages = Math.ceil(count / 250.0)
     val excludes = List("limit","page")
+    
+    val shopifyMapper = new ShopifyMapper(ctx)
      
     var page = 1
     while (page <= pages) {
@@ -116,7 +120,7 @@ class ShopifyContext(ctx:RequestContext) {
        * of 250 customers per request
        */
       val data = params.filter(kv => excludes.contains(kv._1) == false) ++ Map("limit" -> "250","page" -> page.toString)
-      products ++= shopifyClient.getProducts(params).map(product => new ShopifyMapper(ctx).extractProduct(apikey,product))
+      products ++= shopifyClient.getProducts(params).map(product => shopifyMapper.extractProduct(apikey,product))
              
       page += 1
               
@@ -154,7 +158,9 @@ class ShopifyContext(ctx:RequestContext) {
 
     val pages = Math.ceil(count / 250.0)
     val excludes = List("limit","page")
-     
+    
+    val shopifyMapper = new ShopifyMapper(ctx)
+    
     var page = 1
     while (page <= pages) {
       /*
@@ -162,7 +168,7 @@ class ShopifyContext(ctx:RequestContext) {
        * of 250 orders per request
        */
       val data = order_params.filter(kv => excludes.contains(kv._1) == false) ++ Map("limit" -> "250","page" -> page.toString)
-      orders ++= shopifyClient.getOrders(order_params).map(order => new ShopifyMapper(ctx).extractOrder(apikey,order))
+      orders ++= shopifyClient.getOrders(order_params).map(order => shopifyMapper.extractOrder(apikey,order))
              
       page += 1
               

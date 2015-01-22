@@ -66,7 +66,7 @@ case class WooCustomer(
 )
 
 @JsonIgnoreProperties(ignoreUnknown = true)
-class WooCustomers (
+case class WooCustomers (
 
   @JsonProperty("customers")
   customers:List[WooCustomer]

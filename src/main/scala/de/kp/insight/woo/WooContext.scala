@@ -20,13 +20,13 @@ package de.kp.insight.woo
 
 import org.joda.time.format.DateTimeFormat
 
+import de.kp.spark.core.Names
 import de.kp.spark.core.model._
 
 import de.kp.insight._
 import de.kp.insight.model._
 
-import scala.collection.mutable.HashMap
-
+import scala.collection.mutable.{Buffer,HashMap}
 
 class WooContext(ctx:RequestContext) {
   
@@ -35,36 +35,59 @@ class WooContext(ctx:RequestContext) {
 
   def getCustomers(params:Map[String,String]):List[Customer] = {
     
+    val start = new java.util.Date().getTime
     /*
-     * TODO
+     * Load WooCommerce customers from the REST interface
      */
-   
-    null
+    val uid = params(Names.REQ_UID)
+    val wooMapper = new WooMapper(ctx)
+    
+    val req_params = params
+    val customers = client.getCustomers(req_params).customers.map(x => wooMapper.extractCustomer(key, x))
+
+    val end = new java.util.Date().getTime
+    ctx.putLog("info",String.format("""[UID: %s] Customers loaded in %s milli seconds.""",uid,(end-start).toString))
+ 
+    customers.toList
     
   }
   
-  /**
-   * This method is responsible for retrieving a set of orders representing
-   * a certain time period; in order to e.g. fill a transaction darabase for
-   * later data mining and predictive analytics, this method may be called
-   * multiple times (e.g. with the help of a scheduler)
-   */
   def getOrders(params:Map[String,String]):List[Order] = {
     
-    val req_params = validateOrderParams(params)
-    val orders = client.getOrders(req_params).orders
-    
+    val start = new java.util.Date().getTime
     /*
-     * TODO
+     * Load WooCommerce orders from the REST interface
      */
-   
-    null
+    val uid = params(Names.REQ_UID)
+    val wooMapper = new WooMapper(ctx)
+    
+    val req_params = validateOrderParams(params)
+    val orders = client.getOrders(req_params).orders.map(x => wooMapper.extractOrder(key, x))
+
+    val end = new java.util.Date().getTime
+    ctx.putLog("info",String.format("""[UID: %s] Orders loaded in %s milli seconds.""",uid,(end-start).toString))
+ 
+    orders.toList
     
   }
   
   def getProducts(params:Map[String,String]):List[Product] = {
-    // TODO
-    null
+    
+    val start = new java.util.Date().getTime
+    /*
+     * Load WooCommerce products from the REST interface
+     */
+    val uid = params(Names.REQ_UID)
+    val wooMapper = new WooMapper(ctx)
+    
+    val req_params = params
+    val products = client.getProducts(req_params).products.map(x => wooMapper.extractProduct(key, x))
+
+    val end = new java.util.Date().getTime
+    ctx.putLog("info",String.format("""[UID: %s] Customers loaded in %s milli seconds.""",uid,(end-start).toString))
+ 
+    products.toList
+    
   }
 
   /**
