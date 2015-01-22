@@ -150,6 +150,9 @@ class ElasticRDD(@transient sc:SparkContext) {
       val user = entries("user").asInstanceOf[String]
     
       val amount = entries("amount").asInstanceOf[Double]
+      val discount = entries("discount").asInstanceOf[Double]
+
+      val shipping = entries("shipping").asInstanceOf[Double]
       val timestamp = entries("timestamp").asInstanceOf[Long]
     
       val group = entries("group").asInstanceOf[String]
@@ -176,6 +179,8 @@ class ElasticRDD(@transient sc:SparkContext) {
           site,
           user,
           amount,
+          discount,
+          shipping,
           timestamp,
           group,
           ip_address,

@@ -332,9 +332,13 @@ case class Order(
    */
   amount:Double,
   /*
-   * The total discounts of a certain purchase or transaction
+   * The total discount of a certain purchase or transaction
    */
-  discounts:Double,
+  discount:Double,
+  /*
+   * The total shipping costs of a certain purchase or transaction
+   */
+  shipping:Double,
   /*
    * The items in an order
    */ 

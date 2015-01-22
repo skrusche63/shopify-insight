@@ -112,12 +112,15 @@ class ShopifyMapper(ctx:RequestContext) {
      * minus the total tax
      */
     val amount = order.total_price.toDouble - order.total_tax.toDouble
-    
     /*
      * The total of discounts associated with this order
      */
     val discounts = order.total_discounts.toDouble
-    
+    /*
+     * Aggregate the shipping_lines information (sum up)
+     * to get a total_shipping attribute
+     */
+    val shipping = order.shipping_lines.map(x => x.price.toDouble).sum
     /*
      * Convert all line items of the respective order
      * into 'OrderItem' for indexing
@@ -160,7 +163,7 @@ class ShopifyMapper(ctx:RequestContext) {
     
     })
 
-    Order(site,user,ip_address,user_agent,timestamp,group,amount,discounts,items)
+    Order(site,user,ip_address,user_agent,timestamp,group,amount,discounts,shipping,items)
   
   }
  

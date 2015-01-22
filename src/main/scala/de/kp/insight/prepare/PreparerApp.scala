@@ -116,6 +116,8 @@ object PreparerApp extends PreparerService("Preparer") {
           
           case "CSA" => context.actorOf(Props(new CSAPreparer(ctx,orders))) 
           
+          case "DPS" => context.actorOf(Props(new DPSPreparer(ctx,orders))) 
+          
           case "LOC" => context.actorOf(Props(new LOCPreparer(ctx,orders))) 
           
           case "POM" => context.actorOf(Props(new POMPreparer(ctx,orders))) 

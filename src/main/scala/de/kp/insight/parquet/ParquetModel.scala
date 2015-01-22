@@ -63,7 +63,23 @@ case class ParquetURM(
  *                       SUB PROCESS 'PREPARE'
  * 
  *********************************************************************/
+/**
+ * ParquetDPS is a data structure that specifies a discount, price 
+ * and shipping sensitivity table
+ */
+case class ParquetDPS(
+  site:String,
+  user:String,
 
+  mean_amount:Double,
+  mval:Int,
+  
+  discount_ratio:Double,
+  dval:Int,
+  
+  shipping_ratio:Double,
+  sval:Int
+)
 /**
  * ParquetRFM is a data structure that specifies a marketing RFM table
  */
@@ -156,7 +172,7 @@ case class ParquetLOC(
  */
 case class ParquetPOM(
   
-  total_orders:Int,
+  total_orders:Long,
   
   /********** AMOUNT DIMENSION **********/
   
@@ -184,8 +200,13 @@ case class ParquetPOM(
   
   /********** PRODUCT DIMENSION **********/
 
-  total_item_supp:Seq[(Int,Int)]
-    
+  total_item_supp:Seq[(Int,Int)],
+  total_items:Long,
+  
+  /********** CUSTOMER DIMENSION **********/
+  
+  total_customers:Long
+  
 )
 
 /**

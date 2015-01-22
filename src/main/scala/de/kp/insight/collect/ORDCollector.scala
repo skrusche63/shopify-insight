@@ -122,6 +122,12 @@ class ORDCollector(ctx:RequestContext,params:Map[String,String]) extends BaseAct
 	/* amount */
 	builder.field("amount",order.amount)
 	
+	/* discount */
+	builder.field("discount",order.discount)
+	
+	/* shipping */
+	builder.field("shipping",order.shipping)
+	
 	/* timestamp */
 	builder.field("timestamp",order.timestamp)
 	

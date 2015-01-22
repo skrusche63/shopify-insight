@@ -72,6 +72,16 @@ class EsORDBuilder {
                .startObject("amount")
                  .field("type", "double")
                .endObject()
+               
+               /* discount */
+               .startObject("discount")
+                 .field("type", "double")
+               .endObject()
+               
+               /* shipping */
+               .startObject("shipping")
+                 .field("type", "double")
+               .endObject()
 
                /* timestamp */
                .startObject("timestamp")

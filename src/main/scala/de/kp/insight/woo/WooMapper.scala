@@ -33,7 +33,34 @@ class WooMapper(ctx:RequestContext) {
    * customer that describes a 'Customer'
    */
   def extractCustomer(site:String,customer:WooCustomer):Customer = {
-    null    
+    /*
+     * The unique user identifier is retrieved from the
+     * customer object and there from the 'id' field
+     */
+    val user = customer.id.toString
+    /*
+     * Retrieve the first & last name of a customer
+     */
+    val firstName = customer.first_name
+    val lastName  = customer.last_name
+    
+    val created_at = customer.created_at
+    /*
+     * Retrieve email data from customer
+     */
+    val emailAddress = customer.email
+    /*
+     * The subsequent parameters, emailVerified, marketing, 
+     * and state is not used by WooCommerce and will be set
+     * to defaul values 
+     */
+    val emailVerified = true
+    val marketing = true
+    
+    val state = "not_used"
+    
+    Customer(site,user,firstName,lastName,created_at,emailAddress,emailVerified,marketing,state)
+        
   }
 
   /**
@@ -42,12 +69,6 @@ class WooMapper(ctx:RequestContext) {
    */
   def extractOrder(site:String,order:WooOrder):Order = {
     
-    /*
-     * The unique identifier of a certain order is used
-     * for grouping all the respective items; the order
-     * identifier is a 'Long' and must be converted into
-     * a 'String' representation
-     */
     val group = order.id.toString
     /*
      * The datetime this order was created:
@@ -74,6 +95,10 @@ class WooMapper(ctx:RequestContext) {
      * The total of discounts associated with this order
      */
     val discounts = order.total_discount.toDouble
+    /*
+     * The total of shipping costs associated with this order
+     */
+    val shipping = order.total_shipping.toDouble
     
     /*
      * Convert all line items of the respective order
@@ -106,7 +131,7 @@ class WooMapper(ctx:RequestContext) {
     
     })
 
-    Order(site,user,ip_address,user_agent,timestamp,group,amount,discounts,items)
+    Order(site,user,ip_address,user_agent,timestamp,group,amount,discounts,shipping,items)
         
   }
   

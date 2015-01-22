@@ -69,7 +69,10 @@ and makes sense of their purchase habits. This lets us identify when a customer 
 his or her normal behavior. 
 
 Loyalty analysis results are joined with the prior RFM segmentation results, and e.g. show whether 
-high value customers deviate from their normal behavior, and tend to fade off.
+high value customers deviate from their normal behavior, and tend to fade off. 
+
+This approach has been chosen as not all customers are equally valuable to a company, and the retention 
+of some can be unprofitable, i.e. it is better to let those customers fade off.
 
 ---
 

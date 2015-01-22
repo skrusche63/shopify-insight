@@ -45,6 +45,9 @@ case class InsightOrder(
   user:String,
   
   amount:Double,
+  discount:Double,
+
+  shipping:Double,
   timestamp:Long,
   
   group:String,

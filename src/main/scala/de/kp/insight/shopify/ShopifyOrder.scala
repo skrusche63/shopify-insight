@@ -45,9 +45,6 @@ case class ShopifyOrder(
   @JsonProperty("number")
   number:Int,
 
-  /*
-   * Price related data
-   */
   @JsonProperty("total_discounts")
   total_discounts:String,
 
@@ -68,7 +65,10 @@ case class ShopifyOrder(
 
   @JsonProperty("line_items")
   lineItems:List[ShopifyLineItem],
-    
+
+  @JsonProperty("shipping_lines")
+  shipping_lines:List[ShopifyShippingItem],
+  
   @JsonProperty("tax_lines")
   taxLines:List[ShopifyTaxLine]
  

@@ -56,7 +56,7 @@ class EsPOMBuilder {
 
                 /* total_orders */
                 .startObject("total_orders")
-                  .field("type", "integer")
+                  .field("type", "long")
                 .endObject()
 
                 /* total_amount */
@@ -157,6 +157,16 @@ class EsPOMBuilder {
                     .endObject
                     
                   .endObject()
+                .endObject()
+
+                /* total_items */
+                .startObject("total_items")
+                  .field("type", "long")
+                .endObject()
+
+                /* total_customers */
+                .startObject("total_customers")
+                  .field("type", "long")
                 .endObject()
                  
               .endObject()

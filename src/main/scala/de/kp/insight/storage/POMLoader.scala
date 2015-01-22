@@ -72,7 +72,7 @@ class POMLoader(ctx:RequestContext,params:Map[String,String]) extends BaseLoader
           
       }).toMap
 
-      val total = data("total").asInstanceOf[Int]
+      val total = data("total").asInstanceOf[Long]
       val total_amount = data("total_amount").asInstanceOf[Double]
       
       val total_avg_amount = data("total_avg_amount").asInstanceOf[Double]
@@ -94,6 +94,9 @@ class POMLoader(ctx:RequestContext,params:Map[String,String]) extends BaseLoader
       val total_time_supp = data("total_time_supp").asInstanceOf[Seq[(Int,Int)]]
       
       val total_item_supp = data("total_item_supp").asInstanceOf[Seq[(Int,Int)]]
+      val total_items = data("total_items").asInstanceOf[Long]
+
+      val total_customers = data("total_customers").asInstanceOf[Long]
 
       ParquetPOM(  
         total,
@@ -113,7 +116,11 @@ class POMLoader(ctx:RequestContext,params:Map[String,String]) extends BaseLoader
         total_day_supp,
         total_time_supp,
 
-        total_item_supp
+        total_item_supp,
+        total_items,
+        
+        total_customers
+        
       )
       
     })
@@ -220,6 +227,12 @@ class POMLoader(ctx:RequestContext,params:Map[String,String]) extends BaseLoader
 	  }
 
       builder.endArray()
+	  
+      /* total_items */
+	  builder.field("total_items",x.total_items)
+	  
+      /* total_customers */
+	  builder.field("total_customers",x.total_customers)
     
       builder.endObject()
       builder

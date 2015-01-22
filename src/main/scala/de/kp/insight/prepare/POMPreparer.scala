@@ -42,7 +42,7 @@ class POMPreparer(ctx:RequestContext,orders:RDD[InsightOrder]) extends BasePrepa
     val uid = params(Names.REQ_UID)
     val name = params(Names.REQ_NAME)
 
-    val total = orders.count.toInt
+    val total = orders.count
 
     /********************* MONETARY DIMENSION ********************/
 
@@ -78,32 +78,38 @@ class POMPreparer(ctx:RequestContext,orders:RDD[InsightOrder]) extends BasePrepa
           
       time.zip(time.tail).map(x => x._2 - x._1).map(v => (if (v / DAY < 1) 1 else v / DAY).toInt)
           
-      })
+    })
     
-      val t_stats = timespans.stats
-      val t_mean  = t_stats.mean
+    val t_stats = timespans.stats
+    val t_mean  = t_stats.mean
 
-      val t_min = t_stats.min
-      val t_max = t_stats.max
+    val t_min = t_stats.min
+    val t_max = t_stats.max
 
-      val t_stdev = t_stats.stdev
-      val t_variance = t_stats.variance
+    val t_stdev = t_stats.stdev
+    val t_variance = t_stats.variance
 
-      /* Day of the week: 1..7 */
-      val day_freq = timestamps.map(x => new DateTime(x).dayOfWeek().get).groupBy(x => x).map(x => (x._1,x._2.size)).collect.toSeq
+    /* Day of the week: 1..7 */
+    val day_freq = timestamps.map(x => new DateTime(x).dayOfWeek().get).groupBy(x => x).map(x => (x._1,x._2.size)).collect.toSeq
 
-      /* Time of day: 0..23 */
-      val hour_freq = timestamps.map(x => new DateTime(x).hourOfDay().get).groupBy(x => x).map(x => (x._1,x._2.size)).collect.toSeq
+    /* Time of day: 0..23 */
+    val hour_freq = timestamps.map(x => new DateTime(x).hourOfDay().get).groupBy(x => x).map(x => (x._1,x._2.size)).collect.toSeq
 
-      /*********************** ITEM DIMENSION **********************/
+    /*********************** ITEM DIMENSION **********************/
 
-      val items = orders.flatMap(x => x.items.map(v => (v.item,v.quantity)))
-      val item_freq = items.groupBy(x => x._1).map(x => (x._1,x._2.map(_._2).sum)).collect.toSeq
+    val items = orders.flatMap(x => x.items.map(v => (v.item,v.quantity)))
+    val item_freq = items.groupBy(x => x._1).map(x => (x._1,x._2.map(_._2).sum)).collect.toSeq
 
-      /*
-       * Build Parquet file 
-       */
-      val table = ctx.sparkContext.parallelize(List(
+    val item_total = items.map(_._1).distinct.count
+
+    /*********************** CUSTOMER DIMENSION ******************/
+    
+    val customer_total = orders.groupBy(x => (x.site,x.user)).count
+      
+    /*
+     * Build Parquet file 
+     */
+    val table = ctx.sparkContext.parallelize(List(
     	ParquetPOM(  
             total,
   
@@ -129,16 +135,21 @@ class POMPreparer(ctx:RequestContext,orders:RDD[InsightOrder]) extends BasePrepa
   
             /********** PRODUCT DIMENSION **********/
 
-            item_freq
+            item_freq,
+            item_total,
+  
+            /********** CUSTOMER DIMENSION **********/
     
+            customer_total
+            
       )))
         
-      /* 
-       * The RDD is implicitly converted to a SchemaRDD by createSchemaRDD, 
-       * allowing it to be stored using Parquet. 
-       */
-      val store = String.format("""%s/%s/%s/1""",ctx.getBase,name,uid)         
-      table.saveAsParquetFile(store)
+    /* 
+     * The RDD is implicitly converted to a SchemaRDD by createSchemaRDD, 
+     * allowing it to be stored using Parquet. 
+     */
+    val store = String.format("""%s/%s/%s/1""",ctx.getBase,name,uid)         
+    table.saveAsParquetFile(store)
 
   }
 }

@@ -1,6 +1,6 @@
 ![Dr.Krusche & Partner PartG](https://raw.github.com/skrusche63/shopify-insight/master/images/dr_kruscheundpartner_640.png)
 
-## Shopifyinsight. 
+![CustomerML](https://raw.github.com/skrusche63/shopify-insight/master/images/customerml_320.png)
 
 Shopifyinsight is a customer science platform that leverages predictive analytics to achieve a deep customer understanding,
 learn their preferences and forecast future behavior. It is based on the [Predictiveworks](http://predictiveworks.eu) and 
