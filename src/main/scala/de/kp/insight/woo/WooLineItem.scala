@@ -36,6 +36,9 @@ case class WooLineItem (
   @JsonProperty("sub_total")
   sub_total:String,
    
+  @JsonProperty("price")
+  price:String,
+   
   @JsonProperty("tax_class")
   tax_class:String,
    

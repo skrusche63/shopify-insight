@@ -17,9 +17,14 @@ package de.kp.insight.woo
  * 
  * If not, see <http://www.gnu.org/licenses/>.
  */
+import de.kp.spark.core.Names
+import de.kp.spark.core.model._
 
-import de.kp.insight._
+import de.kp.insight.RequestContext
 import de.kp.insight.model._
+
+import org.joda.time.format.DateTimeFormat
+import scala.collection.JavaConversions._
 
 class WooMapper(ctx:RequestContext) {
 
@@ -36,8 +41,75 @@ class WooMapper(ctx:RequestContext) {
    * order that describes an 'Order'
    */
   def extractOrder(site:String,order:WooOrder):Order = {
-    null    
+    
+    /*
+     * The unique identifier of a certain order is used
+     * for grouping all the respective items; the order
+     * identifier is a 'Long' and must be converted into
+     * a 'String' representation
+     */
+    val group = order.id.toString
+    /*
+     * The datetime this order was created:
+     * "2014-11-03T13:51:38-05:00"
+     */
+    val created_at = order.created_at
+    val timestamp = toTimestamp(created_at)
+
+    val user = order.customer_id
+    /*
+     * The IP address is assigned to an order to
+     * determine the location dimension associated
+     * with this request
+     */
+    val ip_address = order.customer_ip
+    val user_agent = order.customer_user_agent
+    /*
+     * The amount is retrieved from the total price
+     * minus the total tax
+     */
+    val amount = order.total.toDouble - order.total_tax.toDouble
+    
+    /*
+     * The total of discounts associated with this order
+     */
+    val discounts = order.total_discount.toDouble
+    
+    /*
+     * Convert all line items of the respective order
+     * into 'OrderItem' for indexing
+     */
+    val items = order.line_items.map(lineItem => {
+
+      val item = lineItem.product_id
+      /*
+       * The product database is accessed to retrieve additional
+       * category and vendor data to enrich the OrderItem record
+       */
+      val product_str = ctx.getAsString("products", "base", item.toString)
+      val product = ctx.JSON_MAPPER.readValue(product_str, classOf[InsightProduct])
+
+      val category = product.category
+      val vendor = product.vendor
+      /*
+       * In addition, we collect the following data from the line item
+       */
+      val name = lineItem.name
+      val quantity = lineItem.quantity
+      
+      val currency = order.currency
+      val price = lineItem.price
+      
+      val sku = lineItem.sku
+      
+      new OrderItem(item,name,quantity,category,vendor,currency,price,sku)
+    
+    })
+
+    Order(site,user,ip_address,user_agent,timestamp,group,amount,discounts,items)
+        
   }
+  
   /**
    * A public method to extract those fields from a WooCommerce
    * product that describes a 'Product'
@@ -45,5 +117,16 @@ class WooMapper(ctx:RequestContext) {
   def extractProduct(site:String,product:WooProduct):Product = {
     null    
   }
+ 
+  private def toTimestamp(text:String):Long = {
+      
+    //2014-11-03T13:51:38-05:00
+    val pattern = "yyyy-MM-dd'T'HH:mm:ssZ"
+    val formatter = DateTimeFormat.forPattern(pattern)
+      
+    val datetime = formatter.parseDateTime(text)
+    datetime.toDate.getTime
+    
+  }  
 
 }
