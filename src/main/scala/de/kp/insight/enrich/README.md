@@ -1,7 +1,7 @@
 
 ## Enrich subsystem
 
-The *enrich phase* is the third phase of the customer science process defined by Shopifyinsight, and
+The *enrich phase* is the third phase of the customer science process defined by CustomerML, and
 follows the *learn phase*.
 
 
@@ -20,16 +20,16 @@ time.
 
 ### Recommendations
 
-Shopifyinsight evaluates the customer preference model learned from the customer product preferences 
+CustomerML evaluates the customer preference model learned from the customer product preferences 
 and predicts a number of most preferred products to every single customers. These predictions form a 
 pre-computed basis for product recommendations (*recommended for you*).
 
-Shopifyinsight also evaluates the customer preference model to predict a number of most similar products 
+CustomerML also evaluates the customer preference model to predict a number of most similar products 
 for every single product. These predictions form a pre-computed basis for product recommendations (*more like this*).
 
 
 ### Purchase Forecasts
 
-Shopifyinsight evaluates the stochastic process model learned from all the purchase states of customers of 
+CustomerML evaluates the stochastic process model learned from all the purchase states of customers of 
 a certain customer segment and forecasts for each and every customer the next purchase amount and time a 
 number of steps ahead in the future.

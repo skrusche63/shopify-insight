@@ -2,7 +2,7 @@
 ## Prepare Subsystem
 
 The *prepare* phase follows the initial *collect* phase and is the first phase of the customer 
-science process defined by Shopifyinsight.
+science process defined by CustomerML.
 
 While data collection is repeatedly applied on a weekly or monthly base, data preparation 
 is an on-demand task, that should be performed if prior analysis results no longer describe

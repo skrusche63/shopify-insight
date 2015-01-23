@@ -228,7 +228,14 @@
 	  <groupId>com.google.gdata</groupId>
 	  <artifactId>gdata-analytics-2.1</artifactId>
 	  <version>1.41.5</version>
-    </dependency>     
+    </dependency>   
+    
+    <!-- amazon redshift -->  
+    <dependency>
+	  <groupId>com.amazonaws</groupId>
+	  <artifactId>aws-java-sdk-redshift</artifactId>
+	  <version>1.9.16</version>
+    </dependency>  
   
   </dependencies>
   

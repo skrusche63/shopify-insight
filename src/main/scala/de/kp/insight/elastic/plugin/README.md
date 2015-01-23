@@ -10,7 +10,7 @@ And, as all insights derived from the customer science process are time-stamped 
 these data with [Kibana](http://www.elasticsearch.org/overview/kibana/), and, e.g. compare insights that have 
 different timestamps.
 
-Shopifyinsight also provides a plugin for Elasticsearch (Predictive Plugin) to transform this search engine into
+CustomerML also provides a plugin for Elasticsearch (Predictive Plugin) to transform this search engine into
 a recommender system. The following recommendation types are supported:
 
 
